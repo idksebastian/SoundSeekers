@@ -63,24 +63,18 @@ export default function Register() {
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
             <label className="text-black text-sm font-medium">Nombre</label>
-            <input type="text" placeholder="Tu nombre artístico" value={name} required
-              onChange={e => setName(e.target.value)}
-              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input type="text" placeholder="Tu nombre artístico" value={name} required onChange={e => setName(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
 
           <div>
             <label className="text-black text-sm font-medium">Correo Electrónico</label>
-            <input type="email" placeholder="tu@email.com" value={email} required
-              onChange={e => setEmail(e.target.value)}
-              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input type="email" placeholder="tu@email.com" value={email} required onChange={e => setEmail(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
 
           <div>
             <label className="text-black text-sm font-medium">Contraseña</label>
-            <input type="password" placeholder="Mín. 6 caracteres, 1 mayúscula y 1 número" value={password} required
-              onChange={e => setPassword(e.target.value)}
-              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
-            {/* Indicador de fortaleza */}
+            <input type="password" placeholder="Mín. 6 caracteres, 1 mayúscula y 1 número" value={password} required onChange={e => setPassword(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+
             {password.length > 0 && (
               <div className="mt-2 space-y-1">
                 <div className="flex gap-1">
@@ -95,9 +89,7 @@ export default function Register() {
 
           <div>
             <label className="text-black text-sm font-medium">Confirmar contraseña</label>
-            <input type="password" placeholder="Repite tu contraseña" value={confirm} required
-              onChange={e => setConfirm(e.target.value)}
-              className={`w-full mt-1 bg-white border text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+            <input type="password" placeholder="Repite tu contraseña" value={confirm} required onChange={e => setConfirm(e.target.value)} className={`w-full mt-1 bg-white border text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 ${
                 confirm && password !== confirm ? 'border-red-400' : 'border-gray-300'
               }`} />
             {confirm && password !== confirm && (
@@ -105,8 +97,7 @@ export default function Register() {
             )}
           </div>
 
-          <button type="submit"
-            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition">
+          <button type="submit" className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition">
             Crear cuenta
           </button>
         </form>

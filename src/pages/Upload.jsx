@@ -63,9 +63,7 @@ export default function Upload() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-black text-semibold">Portada</label>
-            <div
-              onClick={() => coverInputRef.current?.click()}
-              className="relative group cursor-pointer rounded-2xl border-2 border-dashed border-gray-600 hover:border-purple-500 transition-colors overflow-hidden aspect-square max-w-60">
+            <div onClick={() => coverInputRef.current?.click()} className="relative group cursor-pointer rounded-2xl border-2 border-dashed border-gray-600 hover:border-purple-500 transition-colors overflow-hidden aspect-square max-w-60">
               {coverPreview ? (
                 <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
               ) : (
@@ -87,14 +85,12 @@ export default function Upload() {
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-black text-semibold">Descripción</label>
-            <textarea placeholder="Cuéntanos sobre esta canción..." value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={3} className="w-full bg-white text-black border border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-            />
+            <textarea placeholder="Cuéntanos sobre esta canción..." value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={3} className="w-full bg-white text-black border border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none" />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm font-medium text-black text-semibold">Género *</label>
-            <select required value={genre} onChange={e => setGenre(e.target.value)} className="w-full bg-white text-black border border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
+            <select required value={genre} onChange={e => setGenre(e.target.value)} className="w-full bg-white text-black border border-gray-600 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500">
               <option value="">Selecciona un género</option>
               {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>

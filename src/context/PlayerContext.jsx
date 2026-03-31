@@ -13,11 +13,11 @@ export function PlayerProvider({ children }) {
   const [duration, setDuration] = useState(0)
   const audioRef = useRef(null)
 
-  // Refs para evitar stale closures en playNext/playPrev
+
   const queueRef = useRef([])
   const currentIndexRef = useRef(0)
 
-  // Mantener refs sincronizados con los estados
+
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
 

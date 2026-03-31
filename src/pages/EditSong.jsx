@@ -96,7 +96,6 @@ export default function EditSong() {
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
       <div className="container mx-auto px-6 max-w-2xl">
 
-        {/* Header */}
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-black mb-2">Editar canción</h1>
           <p className="text-gray-400">Actualiza la información de tu canción.</p>
@@ -110,7 +109,6 @@ export default function EditSong() {
 
         <form onSubmit={handleSubmit} className="space-y-8">
 
-          {/* Portada */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Portada</label>
             <div
@@ -136,62 +134,32 @@ export default function EditSong() {
             </div>
           </div>
 
-          {/* Título */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Título *</label>
-            <input
-              required
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              maxLength={100}
-              className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
+            <input required value={title} onChange={e => setTitle(e.target.value)} maxLength={100} className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"/>
           </div>
 
-          {/* Descripción */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Descripción</label>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              maxLength={500}
-              rows={3}
-              className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
-            />
+            <textarea value={description} onChange={e => setDescription(e.target.value)} maxLength={500} rows={3} className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"/>
           </div>
 
-          {/* Género */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">Género *</label>
-            <select
-              required
-              value={genre}
-              onChange={e => setGenre(e.target.value)}
-              className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
+            <select required value={genre} onChange={e => setGenre(e.target.value)} className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500">
               <option value="">Selecciona un género</option>
               {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
             {genre === 'Otro' && (
-              <input
-                value={customGenre}
-                onChange={e => setCustomGenre(e.target.value)}
-                maxLength={50}
-                placeholder="Escribe tu género personalizado"
-                className="w-full mt-2 bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
+              <input value={customGenre} onChange={e => setCustomGenre(e.target.value)} maxLength={50} placeholder="Escribe tu género personalizado" className="w-full mt-2 bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"/>
             )}
           </div>
 
-          {/* Audio */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">
               Archivo de audio <span className="text-gray-400 font-normal">(opcional — reemplaza el actual)</span>
             </label>
-            <div
-              onClick={() => audioInputRef.current?.click()}
-              className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors p-6"
-            >
+            <div onClick={() => audioInputRef.current?.click()} className="cursor-pointer rounded-xl border-2 border-dashed border-gray-300 hover:border-purple-400 transition-colors p-6">
               <div className="flex items-center gap-3 text-black">
                 <svg className="w-5 h-5 text-purple-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -208,20 +176,11 @@ export default function EditSong() {
             </div>
           </div>
 
-          {/* Botones */}
           <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard')}
-              className="flex-1 h-12 bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl text-base font-semibold transition"
-            >
+            <button type="button" onClick={() => navigate('/dashboard')} className="flex-1 h-12 bg-white border border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl text-base font-semibold transition">
               Cancelar
             </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 h-12 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white rounded-xl text-base font-semibold transition flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={saving} className="flex-1 h-12 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white rounded-xl text-base font-semibold transition flex items-center justify-center gap-2">
               {saving ? (
                 <>
                   <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
