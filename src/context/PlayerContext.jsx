@@ -13,12 +13,13 @@ export function PlayerProvider({ children }) {
   const [duration, setDuration] = useState(0)
   const audioRef = useRef(null)
 
-  const getShuffleIndex = (excluding, total) => {
-    if (total <= 1) return 0
-    let idx
-    do { idx = Math.floor(Math.random() * total) } while (idx === excluding)
-    return idx
-  }
+  // Refs para evitar stale closures en playNext/playPrev
+  const queueRef = useRef([])
+  const currentIndexRef = useRef(0)
+
+  // Mantener refs sincronizados con los estados
+  useEffect(() => { queueRef.current = queue }, [queue])
+  useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
 
   const playSong = (song, songList = null) => {
     if (songList) setQueue(songList)
@@ -47,21 +48,23 @@ export function PlayerProvider({ children }) {
   }
 
   const playNext = () => {
-    if (!queue.length) return
-    const nextIdx = getShuffleIndex(currentIndex, queue.length)
+    const list = queueRef.current
+    if (!list.length) return
+    const nextIdx = (currentIndexRef.current + 1) % list.length
     setCurrentIndex(nextIdx)
-    setCurrentSong(queue[nextIdx])
+    setCurrentSong(list[nextIdx])
     setIsPlaying(true)
-    registerStream(queue[nextIdx].id)
+    registerStream(list[nextIdx].id)
   }
 
   const playPrev = () => {
-    if (!queue.length) return
-    const prevIdx = getShuffleIndex(currentIndex, queue.length)
+    const list = queueRef.current
+    if (!list.length) return
+    const prevIdx = (currentIndexRef.current - 1 + list.length) % list.length
     setCurrentIndex(prevIdx)
-    setCurrentSong(queue[prevIdx])
+    setCurrentSong(list[prevIdx])
     setIsPlaying(true)
-    registerStream(queue[prevIdx].id)
+    registerStream(list[prevIdx].id)
   }
 
   const handleTimeUpdate = () => {
