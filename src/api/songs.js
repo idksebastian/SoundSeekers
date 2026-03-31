@@ -78,3 +78,11 @@ export async function deleteSong(id) {
   const { error } = await supabase.from('songs').delete().eq('id', id)
   if (error) throw error
 }
+
+export async function registerStream(songId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  await supabase.from('streams').insert([{
+    song_id: songId,
+    user_id: session?.user?.id ?? null
+  }])
+}
