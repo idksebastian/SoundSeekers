@@ -24,7 +24,7 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/home" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/upload" element={<ProtectedRoute><ArtistRoute><Upload /></ArtistRoute></ProtectedRoute>} />
             <Route path="/edit/:id" element={<ProtectedRoute><EditSong /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           </Routes>
