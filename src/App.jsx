@@ -11,6 +11,7 @@ import Upload from './pages/Upload'
 import EditSong from './pages/EditSong'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
+import ArtistRoute from './components/ArtistRoute'
 
 export default function App() {
   return (
