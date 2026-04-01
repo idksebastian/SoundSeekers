@@ -5,6 +5,7 @@ import { getMySongs } from '../api/songs'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
+import SkeletonSongRow from '../components/SkeletonSongRow'
 
 const MOODS = ['🎨 Creando', '🎤 Listo para el escenario', '🎧 En estudio', '🌙 Inspirado', '🔥 En racha']
 
@@ -85,14 +86,40 @@ export default function Profile() {
   const artistLevel = isArtist ? getArtistLevel(stats.streams, stats.followers) : null
   const listenerLevel = !isArtist ? getListenerLevel(stats.streams) : null
 
-  if (loading) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <svg className="w-8 h-8 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-      </svg>
+if (loading) return (
+  <div className="min-h-screen bg-gray-50 pt-24 pb-32">
+    <div className="container mx-auto px-6 max-w-3xl space-y-6">
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 animate-pulse">
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-gray-200 shrink-0" />
+          <div className="space-y-2 flex-1">
+            <div className="h-5 bg-gray-200 rounded-full w-1/3" />
+            <div className="h-3.5 bg-gray-200 rounded-full w-1/4" />
+          </div>
+        </div>
+        <div className="flex gap-6 mt-6 pt-6 border-t border-gray-100">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <div className="h-7 w-10 bg-gray-200 rounded-full" />
+              <div className="h-3 w-14 bg-gray-200 rounded-full" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <div className="h-5 bg-gray-200 rounded-full w-1/4 mb-4 animate-pulse" />
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <SkeletonSongRow key={i} />
+          ))}
+        </div>
+      </div>
+
     </div>
-  )
+  </div>
+)
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
@@ -106,7 +133,6 @@ export default function Profile() {
 
       <div className="container mx-auto px-6 max-w-3xl space-y-6">
 
-        {/* Card principal */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -124,7 +150,7 @@ export default function Profile() {
                   <h1 className="text-2xl font-bold text-black">
                     {isArtist ? role.artist_name : name}
                   </h1>
-                  {/* Badge rol */}
+
                   {isArtist ? (
                     <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${artistLevel.color}`}>
                       🎤 {artistLevel.level}
@@ -142,7 +168,6 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Tuerca */}
             <button
               onClick={() => setEditing(!editing)}
               className="w-9 h-9 rounded-full border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition"
@@ -155,7 +180,6 @@ export default function Profile() {
             </button>
           </div>
 
-          {/* Mood artista */}
           {isArtist && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium">¿Cómo llegas hoy al escenario?</p>
@@ -177,7 +201,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* Stats */}
           <div className="flex gap-6 mt-4 pt-4 border-t border-gray-100">
             <div className="text-center">
               <p className="text-2xl font-bold text-black">{songs.length}</p>
@@ -197,7 +220,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Botón solicitar verificación — solo oyentes */}
           {!isArtist && (
             <button
               onClick={() => setShowArtistModal(true)}
@@ -208,7 +230,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Formulario editar */}
         {editing && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-black mb-4">Editar perfil</h2>
@@ -272,7 +293,6 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Canciones */}
         {isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-black mb-4">Mis canciones</h2>
@@ -319,7 +339,6 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Perfil oyente — si no es artista */}
         {!isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-black mb-1">Tu nivel de oyente</h2>

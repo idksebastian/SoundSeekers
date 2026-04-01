@@ -3,6 +3,7 @@ import { getSongs } from '../api/songs'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
+import SkeletonHomeSong from '../components/SkeletonHomeSong'
 
 export default function Home() {
   const { user } = useAuth()
@@ -20,7 +21,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-500 text-sm px-4 py-1.5 rounded-full mb-8 shadow-sm">
           <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,7 +54,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Canciones recientes */}
       <section className="max-w-5xl mx-auto px-6 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -69,11 +68,10 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-10">
-            <svg className="w-7 h-7 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonHomeSong key={i} />
+            ))}
           </div>
         ) : recentSongs.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
@@ -95,7 +93,7 @@ export default function Home() {
                       alt={song.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    {/* Overlay play */}
+
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow">
                         {isCurrentSong && isPlaying ? (
@@ -110,12 +108,10 @@ export default function Home() {
                       </div>
                     </div>
 
-                    {/* Badge género */}
                     <span className="absolute bottom-2 left-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
                       {song.genre}
                     </span>
 
-                    {/* Indicador reproduciendo */}
                     {isCurrentSong && isPlaying && (
                       <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                     )}
@@ -129,7 +125,6 @@ export default function Home() {
         )}
       </section>
 
-      {/* Cómo funciona */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <h2 className="text-2xl font-bold text-black text-center mb-10">Cómo funciona</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -163,7 +158,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA final */}
       {!user && (
         <section className="bg-white border-t border-gray-100 py-16 text-center px-6">
           <h2 className="text-2xl font-bold text-black mb-3">¿Listo para empezar?</h2>
