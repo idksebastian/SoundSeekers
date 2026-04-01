@@ -11,6 +11,7 @@ export function PlayerProvider({ children }) {
   const [volume, setVolume] = useState(1)
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
+  const [isVisible, setIsVisible] = useState(false)
   const audioRef = useRef(null)
 
   // Refs para evitar stale closures en playNext/playPrev
@@ -22,6 +23,7 @@ export function PlayerProvider({ children }) {
   useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
 
   const playSong = (song, songList = null) => {
+    setIsVisible(true) // mostrar el reproductor al reproducir
     if (songList) setQueue(songList)
     const list = songList ?? queue
     const idx = list.findIndex(s => s.id === song.id)
@@ -108,6 +110,7 @@ export function PlayerProvider({ children }) {
   return (
     <PlayerContext.Provider value={{
       currentSong, isPlaying, volume, progress, duration,
+      isVisible, setIsVisible,
       playSong, pauseSong, playNext, playPrev,
       handleSeek, handleVolume, formatTime, audioRef,
       setQueue
