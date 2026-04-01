@@ -1,120 +1,102 @@
-import { useState } from 'react'
-import { createPost } from '../api/community'
+import { useState, useEffect } from 'react'
+import { getPosts } from '../api/community'
 import { useAuth } from '../context/AuthContext'
+import PostCard from '../components/PostCard'
+import PostModal from '../components/PostModal'
 
-export default function PostModal({ onClose, onPostCreated }) {
+export default function Community() {
   const { user } = useAuth()
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [songLabel, setSongLabel] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
 
-  const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
-      setError('El título y el contenido son obligatorios.')
-      return
-    }
-    setLoading(true)
-    setError('')
+  const fetchPosts = async () => {
     try {
-      const newPost = await createPost({
-        user_id: user.id,
-        username: user.user_metadata?.username ?? user.email?.split('@')[0],
-        avatar_url: user.user_metadata?.avatar_url ?? null,
-        title: title.trim(),
-        content: content.trim(),
-        song_id: null,
-        song_label: songLabel.trim() || null,
-      })
-      onPostCreated(newPost)
+      setLoading(true)
+      const data = await getPosts()
+      setPosts(data)
     } catch (err) {
-      console.error('Error creando post:', err)
-      setError('Ocurrió un error al publicar. Intenta de nuevo.')
+      console.error('Error cargando posts:', err)
     } finally {
       setLoading(false)
     }
   }
 
+  useEffect(() => {
+    fetchPosts()
+  }, [])
+
+  const handlePostCreated = (newPost) => {
+    setPosts(prev => [newPost, ...prev])
+    setShowModal(false)
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6">
+    <div className="min-h-screen bg-gray-50 pb-32">
 
-        {/* Header */}
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-gray-900">Nueva Publicación</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition text-xl"
-          >
-            ✕
-          </button>
-        </div>
-
-        {/* Título */}
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Título
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="¿De qué quieres hablar?"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-          />
-        </div>
-
-        {/* Contenido */}
-        <div className="mb-4">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            Contenido
-          </label>
-          <textarea
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            placeholder="Comparte tu descubrimiento musical..."
-            rows={5}
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none"
-          />
-        </div>
-
-        {/* Canción vinculada (opcional) */}
-        <div className="mb-5">
-          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
-            🎵 Canción vinculada <span className="font-normal text-gray-400">(opcional)</span>
-          </label>
-          <input
-            type="text"
-            value={songLabel}
-            onChange={e => setSongLabel(e.target.value)}
-            placeholder="Ej: Midnight Echoes — Luna Veil"
-            className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-          />
-        </div>
-
-        {/* Error */}
-        {error && (
-          <p className="text-red-500 text-xs mb-4">{error}</p>
-        )}
-
-        {/* Botones */}
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 text-sm text-gray-500 hover:text-gray-700 transition"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="px-6 py-2.5 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50"
-          >
-            {loading ? 'Publicando...' : 'Publicar'}
-          </button>
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-6 py-10">
+        <div className="max-w-3xl mx-auto flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold tracking-widest text-purple-600 uppercase mb-2">Comunidad</p>
+            <h1 className="text-4xl font-black text-gray-900 mb-3">El Blog</h1>
+            <p className="text-gray-500 text-sm max-w-md">
+              Comparte tus descubrimientos, escribe sobre la música que te mueve y conecta con otros buscadores.
+            </p>
+          </div>
+          {user && (
+            <button
+              onClick={() => setShowModal(true)}
+              className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-5 py-3 rounded-xl transition shadow-md shrink-0"
+            >
+              ✏️ Escribir una Publicación
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Feed */}
+      <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-4">
+        {loading ? (
+          // Skeleton loaders
+          [...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gray-200" />
+                <div className="flex flex-col gap-2">
+                  <div className="w-28 h-3 bg-gray-200 rounded" />
+                  <div className="w-16 h-2 bg-gray-100 rounded" />
+                </div>
+              </div>
+              <div className="w-3/4 h-5 bg-gray-200 rounded mb-3" />
+              <div className="w-full h-3 bg-gray-100 rounded mb-2" />
+              <div className="w-2/3 h-3 bg-gray-100 rounded" />
+            </div>
+          ))
+        ) : posts.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-5xl mb-4">🎵</p>
+            <p className="text-lg font-semibold">Aún no hay publicaciones</p>
+            <p className="text-sm mt-1">¡Sé el primero en compartir algo!</p>
+          </div>
+        ) : (
+          posts.map(post => (
+            <PostCard
+              key={post.id}
+              post={post}
+              onLikeToggle={fetchPosts}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Modal crear post */}
+      {showModal && (
+        <PostModal
+          onClose={() => setShowModal(false)}
+          onPostCreated={handlePostCreated}
+        />
+      )}
     </div>
   )
 }
