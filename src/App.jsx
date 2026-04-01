@@ -14,6 +14,7 @@ import EditSong from './pages/EditSong'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import NotFound from './pages/NotFound'
+import ArtistProfile from './pages/ArtistProfile'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <ArtistRoute>
