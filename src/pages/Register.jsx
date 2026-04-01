@@ -63,7 +63,7 @@ export default function Register() {
         <form onSubmit={handleRegister} className="space-y-4">
           <div>
             <label className="text-black text-sm font-medium">Nombre</label>
-            <input type="text" placeholder="Tu nombre artístico" value={name} required onChange={e => setName(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input type="text" placeholder="Tu nombre" value={name} required onChange={e => setName(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
 
           <div>
