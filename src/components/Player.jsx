@@ -2,15 +2,29 @@ import { usePlayer } from '../context/PlayerContext'
 
 export default function Player() {
   const {
-    currentSong, isPlaying, volume, progress, duration,
+    currentSong, isPlaying, isVisible, setIsVisible,
+    volume, progress, duration,
     playSong, pauseSong, playNext, playPrev,
     handleSeek, handleVolume, formatTime
   } = usePlayer()
 
-  if (!currentSong) return null
+  // No renderiza si no hay canción o si el usuario lo cerró
+  if (!currentSong || !isVisible) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 shadow-xl z-50">
+    // "relative" es necesario para que el botón ✕ con "absolute" se posicione correctamente dentro del reproductor
+    <div className="fixed bottom-0 left-0 right-0 relative bg-white border-t border-gray-200 px-6 py-4 shadow-xl z-50">
+
+      {/* Botón cerrar */}
+      <button
+        onClick={() => {
+          setIsVisible(false)
+        }}
+        className="absolute top-2 right-4 text-gray-400 hover:text-gray-600 transition text-lg leading-none"
+        title="Cerrar reproductor"
+      >
+        ✕
+      </button>
 
       {/* Barra de progreso */}
       <div className="flex items-center gap-3 mb-3">
@@ -78,7 +92,7 @@ export default function Player() {
         </div>
 
         {/* Volumen */}
-        <div className="flex items-center gap-2 flex-1 justify-end">
+        <div className="flex items-center gap-2 flex-1 justify-end pr-6">
           <svg className="w-4 h-4 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
           </svg>
