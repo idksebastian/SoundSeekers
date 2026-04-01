@@ -11,6 +11,7 @@ import Upload from './pages/Upload'
 import EditSong from './pages/EditSong'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
+import Community from './pages/Community'
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
             <Route path="/edit/:id" element={<ProtectedRoute><EditSong /></ProtectedRoute>} />
+            <Route path="/community" element={<Community />} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           </Routes>
           <Player />
