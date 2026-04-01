@@ -24,7 +24,10 @@ export async function createSong({ title, genre, description, coverFile, audioFi
   const cover_url = await uploadFile('covers', coverFile)
   const audio_url = await uploadFile('audios', audioFile)
 
-  const artist_name = session.user.user_metadata?.name ?? session.user.email
+  // Usar nombre artístico si existe, si no el nombre real
+  const artist_name = session.user.user_metadata?.artist_name
+    ?? session.user.user_metadata?.name
+    ?? session.user.email
 
   const { data, error } = await supabase
     .from('songs')
