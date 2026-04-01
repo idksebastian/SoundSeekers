@@ -1,4 +1,7 @@
 import { usePlayer } from '../context/PlayerContext'
+import { useLocation } from 'react-router-dom'
+
+const HIDDEN_ROUTES = ['/login', '/register', '/profile']
 
 export default function Player() {
   const {
@@ -7,29 +10,51 @@ export default function Player() {
     handleSeek, handleVolume, formatTime
   } = usePlayer()
 
-  if (!currentSong) return null
+  const location = useLocation()
+  const isHidden = HIDDEN_ROUTES.some(route => location.pathname.startsWith(route))
+
+  if (!currentSong || isHidden) return null
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 shadow-xl z-50">
 
+      {/* Barra de progreso */}
       <div className="flex items-center gap-3 mb-3">
         <span className="text-xs text-gray-400 w-8 text-right">{formatTime(progress)}</span>
-        <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={handleSeek} className="flex-1 h-1.5 accent-purple-600 cursor-pointer"/>
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={progress}
+          onChange={handleSeek}
+          className="flex-1 h-1.5 accent-purple-600 cursor-pointer"
+        />
         <span className="text-xs text-gray-400 w-8">{formatTime(duration)}</span>
       </div>
 
       <div className="flex items-center gap-4">
 
+        {/* Portada + info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
-          <img src={currentSong.cover_url} alt={currentSong.title} className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm"/>
+          <img
+            src={currentSong.cover_url}
+            alt={currentSong.title}
+            className="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm"
+          />
           <div className="min-w-0">
             <p className="text-black font-semibold text-sm truncate">{currentSong.title}</p>
-            <p className="text-gray-400 text-xs truncate">🎤 {currentSong.artist_name ?? 'Artista'}</p>
+            <p className="text-gray-400 text-xs truncate flex items-center gap-1">
+              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              {currentSong.artist_name ?? 'Artista'}
+            </p>
           </div>
         </div>
 
+        {/* Controles */}
         <div className="flex items-center gap-3">
-
           <button onClick={playPrev}
             className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition">
             <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -39,7 +64,8 @@ export default function Player() {
 
           <button
             onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
-            className="w-12 h-12 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shadow-md">
+            className="w-12 h-12 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shadow-md"
+          >
             {isPlaying ? (
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
@@ -59,11 +85,20 @@ export default function Player() {
           </button>
         </div>
 
+        {/* Volumen */}
         <div className="flex items-center gap-2 flex-1 justify-end">
           <svg className="w-4 h-4 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z" />
           </svg>
-          <input type="range" min={0} max={1} step={0.01} value={volume} onChange={handleVolume} className="w-24 h-1.5 accent-purple-600 cursor-pointer"/>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={volume}
+            onChange={handleVolume}
+            className="w-24 h-1.5 accent-purple-600 cursor-pointer"
+          />
         </div>
 
       </div>
