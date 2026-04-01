@@ -20,7 +20,11 @@ export async function createListenerRole(userId) {
 }
 
 export async function upgradeToArtist({ userId, artistName, artistBio, artistGenre, artistMood }) {
-  // Verificar si ya tiene rol
+  // Guardar nombre artístico en user_metadata
+  await supabase.auth.updateUser({
+    data: { artist_name: artistName }
+  })
+
   const existing = await getUserRole(userId)
 
   if (existing) {
