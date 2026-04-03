@@ -95,3 +95,28 @@ export async function toggleFollow(followingId) {
   }
   return !following
 }
+export async function getPublicProfile(userId) {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function getPublicProfileStreams(userId) {
+  const { data: songs } = await supabase
+    .from('songs')
+    .select('id')
+    .eq('user_id', userId)
+
+  if (!songs?.length) return 0
+
+  const { count } = await supabase
+    .from('streams')
+    .select('*', { count: 'exact', head: true })
+    .in('song_id', songs.map(s => s.id))
+
+  return count ?? 0
+}
