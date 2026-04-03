@@ -14,20 +14,31 @@ export function PlayerProvider({ children }) {
   const [isVisible, setIsVisible] = useState(false)
   const audioRef = useRef(null)
 
-  // Refs para evitar stale closures en playNext/playPrev
   const queueRef = useRef([])
   const currentIndexRef = useRef(0)
 
-  // Mantener refs sincronizados con los estados
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
 
+  const getShuffleIndex = (currentIdx, total) => {
+    if (total <= 1) return 0
+    let idx
+    do { idx = Math.floor(Math.random() * total) } while (idx === currentIdx)
+    return idx
+  }
+
   const playSong = (song, songList = null) => {
     setIsVisible(true) // mostrar el reproductor al reproducir
-    if (songList) setQueue(songList)
-    const list = songList ?? queue
+    if (songList) {
+      setQueue(songList)
+      queueRef.current = songList
+    }
+    const list = songList ?? queueRef.current
     const idx = list.findIndex(s => s.id === song.id)
-    if (idx !== -1) setCurrentIndex(idx)
+    if (idx !== -1) {
+      setCurrentIndex(idx)
+      currentIndexRef.current = idx
+    }
 
     if (currentSong?.id === song.id) {
       if (isPlaying) {
@@ -52,7 +63,8 @@ export function PlayerProvider({ children }) {
   const playNext = () => {
     const list = queueRef.current
     if (!list.length) return
-    const nextIdx = (currentIndexRef.current + 1) % list.length
+    const nextIdx = getShuffleIndex(currentIndexRef.current, list.length)
+    currentIndexRef.current = nextIdx
     setCurrentIndex(nextIdx)
     setCurrentSong(list[nextIdx])
     setIsPlaying(true)
@@ -62,7 +74,8 @@ export function PlayerProvider({ children }) {
   const playPrev = () => {
     const list = queueRef.current
     if (!list.length) return
-    const prevIdx = (currentIndexRef.current - 1 + list.length) % list.length
+    const prevIdx = getShuffleIndex(currentIndexRef.current, list.length)
+    currentIndexRef.current = prevIdx
     setCurrentIndex(prevIdx)
     setCurrentSong(list[prevIdx])
     setIsPlaying(true)
@@ -113,7 +126,7 @@ export function PlayerProvider({ children }) {
       isVisible, setIsVisible,
       playSong, pauseSong, playNext, playPrev,
       handleSeek, handleVolume, formatTime, audioRef,
-      setQueue
+      setQueue, queue
     }}>
       {children}
       <audio

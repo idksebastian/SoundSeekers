@@ -30,7 +30,6 @@ export default function Navbar() {
               + Subir canción
             </Link>
 
-            {/* Avatar + nombre — sin duplicado */}
             <Link to="/profile" className="flex items-center gap-2 hover:opacity-80 transition">
               {avatar ? (
                 <img src={avatar} alt={name} className="w-8 h-8 rounded-full object-cover" />

@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react'
 import { getSongs } from '../api/songs'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { usePlayer } from '../context/PlayerContext'
+import SkeletonHomeSong from '../components/SkeletonHomeSong'
 
 export default function Home() {
   const { user } = useAuth()
+  const { playSong, currentSong, isPlaying } = usePlayer()
   const [recentSongs, setRecentSongs] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -18,7 +21,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-500 text-sm px-4 py-1.5 rounded-full mb-8 shadow-sm">
           <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -66,11 +68,10 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-10">
-            <svg className="w-7 h-7 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonHomeSong key={i} />
+            ))}
           </div>
         ) : recentSongs.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
@@ -78,29 +79,48 @@ export default function Home() {
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {recentSongs.map(song => (
-              <div key={song.id} className="group cursor-pointer">
-                <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
-                  <img
-                    src={song.cover_url}
-                    alt={song.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow">
-                      <svg className="w-4 h-4 text-purple-700 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M5 3l14 9-14 9V3z" />
-                      </svg>
+            {recentSongs.map(song => {
+              const isCurrentSong = currentSong?.id === song.id
+              return (
+                <div
+                  key={song.id}
+                  className="group cursor-pointer"
+                  onClick={() => playSong(song, recentSongs)}
+                >
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
+                    <img
+                      src={song.cover_url}
+                      alt={song.title}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow">
+                        {isCurrentSong && isPlaying ? (
+                          <svg className="w-4 h-4 text-purple-700" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4 text-purple-700 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 3l14 9-14 9V3z" />
+                          </svg>
+                        )}
+                      </div>
                     </div>
+
+                    <span className="absolute bottom-2 left-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
+                      {song.genre}
+                    </span>
+
+                    {isCurrentSong && isPlaying && (
+                      <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
+                    )}
                   </div>
-                  <span className="absolute bottom-2 left-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
-                    {song.genre}
-                  </span>
+                  <p className="text-black text-sm font-medium truncate">{song.title}</p>
+                  <p className="text-gray-400 text-xs truncate">🎤 {song.artist_name ?? 'Artista'}</p>
                 </div>
-                <p className="text-black text-sm font-medium truncate">{song.title}</p>
-                <p className="text-gray-400 text-xs truncate">🎤 {song.artist_name ?? 'Artista'}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </section>

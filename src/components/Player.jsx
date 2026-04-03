@@ -1,4 +1,7 @@
 import { usePlayer } from '../context/PlayerContext'
+import { useLocation } from 'react-router-dom'
+
+const HIDDEN_ROUTES = ['/login', '/register', '/profile']
 
 export default function Player() {
   const {
@@ -52,13 +55,17 @@ export default function Player() {
           />
           <div className="min-w-0">
             <p className="text-black font-semibold text-sm truncate">{currentSong.title}</p>
-            <p className="text-gray-400 text-xs truncate">🎤 {currentSong.artist_name ?? 'Artista'}</p>
+            <p className="text-gray-400 text-xs truncate flex items-center gap-1">
+              <svg className="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              </svg>
+              {currentSong.artist_name ?? 'Artista'}
+            </p>
           </div>
         </div>
 
         {/* Controles */}
         <div className="flex items-center gap-3">
-          {/* Anterior */}
           <button onClick={playPrev}
             className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition">
             <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
@@ -66,7 +73,6 @@ export default function Player() {
             </svg>
           </button>
 
-          {/* Play/Pause */}
           <button
             onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
             className="w-12 h-12 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shadow-md"
@@ -82,7 +88,6 @@ export default function Player() {
             )}
           </button>
 
-          {/* Siguiente */}
           <button onClick={playNext}
             className="w-9 h-9 rounded-full hover:bg-gray-100 flex items-center justify-center transition">
             <svg className="w-5 h-5 text-gray-600" fill="currentColor" viewBox="0 0 24 24">
