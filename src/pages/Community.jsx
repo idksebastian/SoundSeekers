@@ -22,13 +22,19 @@ export default function Community() {
     }
   }
 
-  useEffect(() => {
-    fetchPosts()
-  }, [])
+  useEffect(() => { fetchPosts() }, [])
 
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev])
     setShowModal(false)
+  }
+
+  const handlePostDeleted = (postId) => {
+    setPosts(prev => prev.filter(p => p.id !== postId))
+  }
+
+  const handlePostUpdated = (updatedPost) => {
+    setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...p, ...updatedPost } : p))
   }
 
   return (
@@ -49,7 +55,10 @@ export default function Community() {
               onClick={() => setShowModal(true)}
               className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold px-5 py-3 rounded-xl transition shadow-md shrink-0"
             >
-              ✏️ Escribir una Publicación
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Escribir una Publicación
             </button>
           )}
         </div>
@@ -58,7 +67,6 @@ export default function Community() {
       {/* Feed */}
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-4">
         {loading ? (
-          // Skeleton loaders
           [...Array(3)].map((_, i) => (
             <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
               <div className="flex items-center gap-3 mb-4">
@@ -75,7 +83,9 @@ export default function Community() {
           ))
         ) : posts.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
-            <p className="text-5xl mb-4">🎵</p>
+            <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+            </svg>
             <p className="text-lg font-semibold">Aún no hay publicaciones</p>
             <p className="text-sm mt-1">¡Sé el primero en compartir algo!</p>
           </div>
@@ -85,12 +95,13 @@ export default function Community() {
               key={post.id}
               post={post}
               onLikeToggle={fetchPosts}
+              onDeleted={handlePostDeleted}
+              onUpdated={handlePostUpdated}
             />
           ))
         )}
       </div>
 
-      {/* Modal crear post */}
       {showModal && (
         <PostModal
           onClose={() => setShowModal(false)}
