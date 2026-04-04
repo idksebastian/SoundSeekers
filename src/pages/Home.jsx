@@ -4,23 +4,87 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
 import SkeletonHomeSong from '../components/SkeletonHomeSong'
+import { supabase } from '../lib/supabase'
+
+const GENRES = [
+  { label: 'Todos', value: null, emoji: '🎵' },
+  { label: 'Indie', value: 'Indie', emoji: '🎸' },
+  { label: 'Electrónica', value: 'Electrónica', emoji: '🎛️' },
+  { label: 'Folk', value: 'Folk', emoji: '🪕' },
+  { label: 'Hip-Hop', value: 'Hip-Hop', emoji: '🎤' },
+  { label: 'Champeta', value: 'Champeta', emoji: '🪘' },
+  { label: 'Jazz', value: 'Jazz', emoji: '🎷' },
+  { label: 'Pop', value: 'Pop', emoji: '🌟' },
+]
 
 export default function Home() {
   const { user } = useAuth()
   const { playSong, currentSong, isPlaying } = usePlayer()
   const [recentSongs, setRecentSongs] = useState([])
+  const [allSongs, setAllSongs] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedGenre, setSelectedGenre] = useState(null)
+  const [artists, setArtists] = useState([])
+  const [stats, setStats] = useState({ songs: 0, users: 0, genres: 0 })
 
   useEffect(() => {
-    getSongs().then(data => {
-      setRecentSongs(data.slice(0, 6))
-      setLoading(false)
-    })
+    const fetchData = async () => {
+      try {
+        // Canciones
+        const data = await getSongs()
+        setAllSongs(data)
+        setRecentSongs(data.slice(0, 6))
+
+        // Estadísticas
+        const { count: songCount } = await supabase
+          .from('songs')
+          .select('*', { count: 'exact', head: true })
+
+        const { count: userCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+
+        const uniqueGenres = [...new Set(data.map(s => s.genre).filter(Boolean))]
+
+        setStats({
+          songs: songCount ?? data.length,
+          users: userCount ?? 0,
+          genres: uniqueGenres.length,
+        })
+
+        // Artistas únicos de las canciones
+        const artistMap = {}
+        data.forEach(song => {
+          if (song.artist_name && !artistMap[song.artist_name]) {
+            artistMap[song.artist_name] = {
+              name: song.artist_name,
+              cover: song.cover_url,
+              genre: song.genre,
+              songs: 1,
+            }
+          } else if (song.artist_name) {
+            artistMap[song.artist_name].songs++
+          }
+        })
+        setArtists(Object.values(artistMap).slice(0, 6))
+
+      } catch (err) {
+        console.error('Error cargando home:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchData()
   }, [])
+
+  const filteredSongs = selectedGenre
+    ? allSongs.filter(s => s.genre === selectedGenre).slice(0, 6)
+    : recentSongs
 
   return (
     <div className="min-h-screen bg-gray-50">
 
+      {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-500 text-sm px-4 py-1.5 rounded-full mb-8 shadow-sm">
           <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -54,13 +118,55 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Estadísticas */}
+      <section className="max-w-4xl mx-auto px-6 pb-16">
+        <div className="grid grid-cols-3 gap-4">
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <p className="text-3xl font-black text-purple-700">{stats.songs}+</p>
+            <p className="text-sm text-gray-400 mt-1">Canciones</p>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <p className="text-3xl font-black text-purple-700">{stats.users}+</p>
+            <p className="text-sm text-gray-400 mt-1">Artistas</p>
+          </div>
+          <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <p className="text-3xl font-black text-purple-700">{stats.genres}</p>
+            <p className="text-sm text-gray-400 mt-1">Géneros</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Géneros */}
+      <section className="max-w-5xl mx-auto px-6 pb-10">
+        <h2 className="text-xl font-bold text-black mb-4">Explorar por género</h2>
+        <div className="flex flex-wrap gap-2">
+          {GENRES.map(genre => (
+            <button
+              key={genre.label}
+              onClick={() => setSelectedGenre(genre.value)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium transition border ${
+                selectedGenre === genre.value
+                  ? 'bg-purple-700 text-white border-purple-700'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-700'
+              }`}
+            >
+              <span>{genre.emoji}</span>
+              {genre.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Canciones */}
       <section className="max-w-5xl mx-auto px-6 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
-            <h2 className="text-xl font-bold text-black">Canciones recientes</h2>
+            <h2 className="text-xl font-bold text-black">
+              {selectedGenre ? `Canciones de ${selectedGenre}` : 'Canciones recientes'}
+            </h2>
           </div>
           <Link to="/dashboard" className="text-sm text-purple-600 hover:underline">
             Ver todas →
@@ -69,23 +175,21 @@ export default function Home() {
 
         {loading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonHomeSong key={i} />
-            ))}
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonHomeSong key={i} />)}
           </div>
-        ) : recentSongs.length === 0 ? (
+        ) : filteredSongs.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
-            <p>Aún no hay canciones. ¡Sé el primero en subir una!</p>
+            <p>No hay canciones en este género aún.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {recentSongs.map(song => {
+            {filteredSongs.map(song => {
               const isCurrentSong = currentSong?.id === song.id
               return (
                 <div
                   key={song.id}
                   className="group cursor-pointer"
-                  onClick={() => playSong(song, recentSongs)}
+                  onClick={() => playSong(song, filteredSongs)}
                 >
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
                     <img
@@ -93,7 +197,6 @@ export default function Home() {
                       alt={song.title}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow">
                         {isCurrentSong && isPlaying ? (
@@ -107,11 +210,9 @@ export default function Home() {
                         )}
                       </div>
                     </div>
-
                     <span className="absolute bottom-2 left-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">
                       {song.genre}
                     </span>
-
                     {isCurrentSong && isPlaying && (
                       <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                     )}
@@ -125,6 +226,38 @@ export default function Home() {
         )}
       </section>
 
+      {/* Artistas emergentes */}
+      {artists.length > 0 && (
+        <section className="max-w-5xl mx-auto px-6 pb-16">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-xs font-semibold text-purple-600 uppercase tracking-widest mb-1">Artistas</p>
+              <h2 className="text-xl font-bold text-black">Voces emergentes</h2>
+            </div>
+            <Link to="/dashboard" className="text-sm text-purple-600 hover:underline">
+              Ver todos →
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {artists.map(artist => (
+              <div key={artist.name} className="text-center group cursor-pointer">
+                <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
+                  <img
+                    src={artist.cover}
+                    alt={artist.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                </div>
+                <p className="text-sm font-semibold text-black truncate">{artist.name}</p>
+                <p className="text-xs text-gray-400">{artist.genre}</p>
+                <p className="text-xs text-purple-600 mt-0.5">{artist.songs} {artist.songs === 1 ? 'canción' : 'canciones'}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Cómo funciona */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <h2 className="text-2xl font-bold text-black text-center mb-10">Cómo funciona</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -158,6 +291,7 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CTA */}
       {!user && (
         <section className="bg-white border-t border-gray-100 py-16 text-center px-6">
           <h2 className="text-2xl font-bold text-black mb-3">¿Listo para empezar?</h2>
