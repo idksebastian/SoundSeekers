@@ -7,14 +7,38 @@ import SkeletonHomeSong from '../components/SkeletonHomeSong'
 import { supabase } from '../lib/supabase'
 
 const GENRES = [
-  { label: 'Todos', value: null, emoji: '🎵' },
-  { label: 'Indie', value: 'Indie', emoji: '🎸' },
-  { label: 'Electrónica', value: 'Electrónica', emoji: '🎛️' },
-  { label: 'Folk', value: 'Folk', emoji: '🪕' },
-  { label: 'Hip-Hop', value: 'Hip-Hop', emoji: '🎤' },
-  { label: 'Champeta', value: 'Champeta', emoji: '🪘' },
-  { label: 'Jazz', value: 'Jazz', emoji: '🎷' },
-  { label: 'Pop', value: 'Pop', emoji: '🌟' },
+  {
+    label: 'Todos', value: null,
+    icon: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+  },
+  {
+    label: 'Indie', value: 'Indie',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+  },
+  {
+    label: 'Electrónica', value: 'Electrónica',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+  },
+  {
+    label: 'Folk', value: 'Folk',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 18v-6a9 9 0 0118 0v6"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>
+  },
+  {
+    label: 'Hip-Hop', value: 'Hip-Hop',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+  },
+  {
+    label: 'Champeta', value: 'Champeta',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg>
+  },
+  {
+    label: 'Jazz', value: 'Jazz',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg>
+  },
+  {
+    label: 'Pop', value: 'Pop',
+    icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+  },
 ]
 
 export default function Home() {
@@ -30,12 +54,10 @@ export default function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Canciones
         const data = await getSongs()
         setAllSongs(data)
         setRecentSongs(data.slice(0, 6))
 
-        // Estadísticas
         const { count: songCount } = await supabase
           .from('songs')
           .select('*', { count: 'exact', head: true })
@@ -52,7 +74,6 @@ export default function Home() {
           genres: uniqueGenres.length,
         })
 
-        // Artistas únicos de las canciones
         const artistMap = {}
         data.forEach(song => {
           if (song.artist_name && !artistMap[song.artist_name]) {
@@ -122,14 +143,29 @@ export default function Home() {
       <section className="max-w-4xl mx-auto px-6 pb-16">
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <div className="flex justify-center mb-2">
+              <svg className="w-6 h-6 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+              </svg>
+            </div>
             <p className="text-3xl font-black text-purple-700">{stats.songs}+</p>
             <p className="text-sm text-gray-400 mt-1">Canciones</p>
           </div>
           <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <div className="flex justify-center mb-2">
+              <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
             <p className="text-3xl font-black text-purple-700">{stats.users}+</p>
             <p className="text-sm text-gray-400 mt-1">Artistas</p>
           </div>
           <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
+            <div className="flex justify-center mb-2">
+              <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z"/>
+              </svg>
+            </div>
             <p className="text-3xl font-black text-purple-700">{stats.genres}</p>
             <p className="text-sm text-gray-400 mt-1">Géneros</p>
           </div>
@@ -150,7 +186,7 @@ export default function Home() {
                   : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-700'
               }`}
             >
-              <span>{genre.emoji}</span>
+              {genre.icon}
               {genre.label}
             </button>
           ))}
@@ -179,6 +215,9 @@ export default function Home() {
           </div>
         ) : filteredSongs.length === 0 ? (
           <div className="text-center py-10 text-gray-400">
+            <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+            </svg>
             <p>No hay canciones en este género aún.</p>
           </div>
         ) : (
@@ -218,7 +257,12 @@ export default function Home() {
                     )}
                   </div>
                   <p className="text-black text-sm font-medium truncate">{song.title}</p>
-                  <p className="text-gray-400 text-xs truncate">🎤 {song.artist_name ?? 'Artista'}</p>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <svg className="w-3 h-3 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                    </svg>
+                    <p className="text-gray-400 text-xs truncate">{song.artist_name ?? 'Artista'}</p>
+                  </div>
                 </div>
               )
             })}
@@ -250,7 +294,12 @@ export default function Home() {
                 </div>
                 <p className="text-sm font-semibold text-black truncate">{artist.name}</p>
                 <p className="text-xs text-gray-400">{artist.genre}</p>
-                <p className="text-xs text-purple-600 mt-0.5">{artist.songs} {artist.songs === 1 ? 'canción' : 'canciones'}</p>
+                <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <svg className="w-3 h-3 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+                  </svg>
+                  <p className="text-xs text-purple-600">{artist.songs} {artist.songs === 1 ? 'canción' : 'canciones'}</p>
+                </div>
               </div>
             ))}
           </div>
