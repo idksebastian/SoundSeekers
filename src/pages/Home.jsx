@@ -48,8 +48,9 @@ export default function Home() {
   const [allSongs, setAllSongs] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedGenre, setSelectedGenre] = useState(null)
-  const [artists, setArtists] = useState([])
   const [stats, setStats] = useState({ songs: 0, users: 0, genres: 0 })
+  // Mapa de user_id → avatar_url del perfil del artista
+  const [artistAvatars, setArtistAvatars] = useState({})
 
   useEffect(() => {
     const fetchData = async () => {
@@ -74,20 +75,20 @@ export default function Home() {
           genres: uniqueGenres.length,
         })
 
-        const artistMap = {}
-        data.forEach(song => {
-          if (song.artist_name && !artistMap[song.artist_name]) {
-            artistMap[song.artist_name] = {
-              name: song.artist_name,
-              cover: song.cover_url,
-              genre: song.genre,
-              songs: 1,
-            }
-          } else if (song.artist_name) {
-            artistMap[song.artist_name].songs++
+        // Traer avatares de perfiles de los artistas de las canciones
+        const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
+        if (userIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('user_id, avatar_url')
+            .in('user_id', userIds)
+
+          if (profiles) {
+            const avatarMap = {}
+            profiles.forEach(p => { avatarMap[p.user_id] = p.avatar_url })
+            setArtistAvatars(avatarMap)
           }
-        })
-        setArtists(Object.values(artistMap).slice(0, 6))
+        }
 
       } catch (err) {
         console.error('Error cargando home:', err)
@@ -224,6 +225,8 @@ export default function Home() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {filteredSongs.map(song => {
               const isCurrentSong = currentSong?.id === song.id
+              // Usar avatar del perfil si existe, si no la portada de la canción
+              const artistAvatar = artistAvatars[song.user_id] || song.cover_url
               return (
                 <div
                   key={song.id}
@@ -257,10 +260,15 @@ export default function Home() {
                     )}
                   </div>
                   <p className="text-black text-sm font-medium truncate">{song.title}</p>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <svg className="w-3 h-3 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                    </svg>
+                  {/* Avatar del artista + nombre */}
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <div className="w-4 h-4 rounded-full overflow-hidden bg-purple-100 shrink-0">
+                      <img
+                        src={artistAvatar}
+                        alt={song.artist_name}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
                     <p className="text-gray-400 text-xs truncate">{song.artist_name ?? 'Artista'}</p>
                   </div>
                 </div>
@@ -269,42 +277,6 @@ export default function Home() {
           </div>
         )}
       </section>
-
-      {/* Artistas emergentes */}
-      {artists.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 pb-16">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-xs font-semibold text-purple-600 uppercase tracking-widest mb-1">Artistas</p>
-              <h2 className="text-xl font-bold text-black">Voces emergentes</h2>
-            </div>
-            <Link to="/dashboard" className="text-sm text-purple-600 hover:underline">
-              Ver todos →
-            </Link>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {artists.map(artist => (
-              <div key={artist.name} className="text-center group cursor-pointer">
-                <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
-                  <img
-                    src={artist.cover}
-                    alt={artist.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                </div>
-                <p className="text-sm font-semibold text-black truncate">{artist.name}</p>
-                <p className="text-xs text-gray-400">{artist.genre}</p>
-                <div className="flex items-center justify-center gap-1 mt-0.5">
-                  <svg className="w-3 h-3 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
-                  </svg>
-                  <p className="text-xs text-purple-600">{artist.songs} {artist.songs === 1 ? 'canción' : 'canciones'}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
 
       {/* Cómo funciona */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
