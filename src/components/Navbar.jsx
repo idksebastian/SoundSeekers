@@ -45,6 +45,7 @@ export default function Navbar() {
         <div className="flex items-center gap-1">
           {navLink('/home', 'Inicio')}
           {navLink('/dashboard', 'Explorar')}
+          {navLink('/animo', 'Ánimo')}
           {navLink('/community', 'Comunidad')}
         </div>
       </div>
