@@ -22,30 +22,33 @@ export default function ArtistProfile() {
 
   const isOwnProfile = user?.id === userId
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profileData, songsData, streamsData] = await Promise.all([
-          getPublicProfile(userId),
-          getMySongs(userId),
-          getPublicProfileStreams(userId)
-        ])
-        setProfile(profileData)
-        setSongs(songsData)
-        setStreams(streamsData)
-
-        if (user && !isOwnProfile) {
-          const followStatus = await isFollowing(userId)
-          setFollowing(followStatus)
-        }
-      } catch {
-        setError('No se pudo cargar el perfil.')
-      } finally {
-        setLoading(false)
+useEffect(() => {
+  const loadData = async () => {
+    try {
+      const [profileData, songsData, streamsData] = await Promise.all([
+        getPublicProfile(userId),
+        getMySongs(userId),
+        getPublicProfileStreams(userId)
+      ])
+      setProfile(profileData)
+      setSongs(songsData)
+      setStreams(streamsData)
+      if (user && !isOwnProfile) {
+        const followStatus = await isFollowing(userId)
+        setFollowing(followStatus)
       }
+    } catch {
+      if (userId === user?.id) {
+        navigate('/profile')
+      } else {
+        setError('Este usuario no tiene perfil de artista.')
+      }
+    } finally {
+      setLoading(false)
     }
-    loadData()
-  }, [userId])
+  }
+  loadData()
+}, [userId])
 
   const handleFollow = async () => {
     if (!user) return navigate('/login')
