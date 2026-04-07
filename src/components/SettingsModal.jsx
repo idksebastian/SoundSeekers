@@ -2,23 +2,64 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { logoutUser } from '../api/auth'
+import { updateProfile } from '../api/profile'
+import { useRef } from 'react'
 
 const SECTIONS = [
-  { id: 'account', label: 'Cuenta', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+  { id: 'edit', label: 'Editar perfil', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+  { id: 'account', label: 'Cuenta', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
   { id: 'privacy', label: 'Privacidad', icon: 'M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z' },
   { id: 'notifications', label: 'Notificaciones', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
   { id: 'appearance', label: 'Apariencia', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01' },
   { id: 'danger', label: 'Zona de peligro', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
 ]
 
-export default function SettingsModal({ onClose, user }) {
-  const [activeSection, setActiveSection] = useState('account')
+export default function SettingsModal({ onClose, user, role, onProfileUpdated }) {
+  const [activeSection, setActiveSection] = useState('edit')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const avatarInputRef = useRef(null)
+
+  const [name, setName] = useState(user?.user_metadata?.name ?? '')
+  const [description, setDescription] = useState(role?.description ?? '')
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(user?.user_metadata?.avatar_url ?? null)
+  const [socialLinks, setSocialLinks] = useState({
+    instagram: role?.instagram ?? '',
+    twitter: role?.twitter ?? '',
+    tiktok: role?.tiktok ?? '',
+    youtube: role?.youtube ?? '',
+    website: role?.website ?? '',
+  })
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setAvatarFile(file)
+    setAvatarPreview(URL.createObjectURL(file))
+  }
+
+  const handleSaveProfile = async (e) => {
+    e.preventDefault()
+    if (!name.trim()) return setError('El nombre es obligatorio.')
+    setLoading(true)
+    setError('')
+    setMsg('')
+    try {
+      await updateProfile({ name, avatarFile, description, ...socialLinks })
+      setMsg('Perfil actualizado correctamente.')
+      setAvatarFile(null)
+      onProfileUpdated?.()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
@@ -40,12 +81,23 @@ export default function SettingsModal({ onClose, user }) {
     navigate('/register')
   }
 
+  const ComingSoon = ({ feature }) => (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center mb-3">
+        <svg className="w-7 h-7 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      </div>
+      <p className="text-sm font-semibold text-gray-700">{feature} próximamente</p>
+      <p className="text-xs text-gray-400 mt-1">Estamos trabajando en esta función.</p>
+    </div>
+  )
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex max-h-[85vh]">
+      <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex max-h-[90vh]">
 
-        {/* Sidebar */}
-        <div className="w-48 bg-gray-50 border-r border-gray-100 p-4 shrink-0">
+        <div className="w-48 bg-gray-50 border-r border-gray-100 p-4 shrink-0 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-black">Ajustes</h2>
             <button onClick={onClose} className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center transition">
@@ -54,14 +106,12 @@ export default function SettingsModal({ onClose, user }) {
               </svg>
             </button>
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 flex-1">
             {SECTIONS.map(s => (
-              <button key={s.id} onClick={() => setActiveSection(s.id)}
+              <button key={s.id} onClick={() => { setActiveSection(s.id); setMsg(''); setError('') }}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition text-left ${
-                  activeSection === s.id
-                    ? 'bg-purple-50 text-purple-700 font-medium'
-                    : 'text-gray-600 hover:bg-gray-100'
-                }`}>
+                  activeSection === s.id ? 'bg-purple-50 text-purple-700 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                } ${s.id === 'danger' ? 'text-red-500 hover:bg-red-50 mt-4' : ''}`}>
                 <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={s.icon} />
                 </svg>
@@ -71,17 +121,112 @@ export default function SettingsModal({ onClose, user }) {
           </div>
         </div>
 
-        {/* Contenido */}
         <div className="flex-1 p-6 overflow-y-auto">
 
-          {/* Cuenta */}
+          {activeSection === 'edit' && (
+            <div className="space-y-5">
+              <div>
+                <h3 className="text-lg font-bold text-black mb-1">Editar perfil</h3>
+                <p className="text-gray-400 text-sm">Actualiza tu información pública.</p>
+              </div>
+              {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}
+              {msg && <div className="bg-green-50 border border-green-200 text-green-600 text-sm px-4 py-3 rounded-xl">{msg}</div>}
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div onClick={() => avatarInputRef.current?.click()}
+                    className="relative group cursor-pointer w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-gray-300 hover:border-purple-400 transition bg-gray-100 shrink-0">
+                    {avatarPreview ? (
+                      <>
+                        <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full text-gray-400">
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </div>
+                    )}
+                    <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-black">Foto de perfil</p>
+                    <p className="text-xs text-gray-400">Recomendado: 400x400px</p>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Nombre</label>
+                  <input required value={name} onChange={e => setName(e.target.value)} maxLength={50}
+                    className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                </div>
+
+                {role?.role === 'artist' && (
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-700">Nombre artístico</label>
+                    <input value={role?.artist_name ?? ''} readOnly
+                      className="w-full bg-gray-100 border border-gray-200 text-gray-500 rounded-xl px-4 py-2.5 text-sm cursor-not-allowed" />
+                    <p className="text-xs text-gray-400">Para cambiar tu nombre artístico contacta soporte.</p>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-700">Descripción</label>
+                  <textarea placeholder="Cuéntale al mundo quién eres..." value={description}
+                    onChange={e => setDescription(e.target.value)} maxLength={150} rows={3}
+                    className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none" />
+                  <p className="text-xs text-gray-400 text-right">{description?.length ?? 0}/150</p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Redes sociales</label>
+                  {[
+                    { key: 'instagram', placeholder: 'Instagram (@usuario)', icon: 'M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z' },
+                    { key: 'twitter', placeholder: 'Twitter/X (@usuario)', icon: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
+                    { key: 'tiktok', placeholder: 'TikTok (@usuario)', icon: 'M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.28 8.28 0 004.84 1.56V6.79a4.85 4.85 0 01-1.07-.1z' },
+                    { key: 'youtube', placeholder: 'YouTube (URL del canal)', icon: 'M21.593 7.203a2.506 2.506 0 00-1.762-1.766C18.265 5.007 12 5 12 5s-6.264-.007-7.831.44a2.56 2.56 0 00-1.766 1.778c-.44 1.61-.44 4.821-.44 4.821s0 3.21.44 4.821c.268.973 1.017 1.671 1.766 1.773C5.736 19 12 19 12 19s6.264 0 7.831-.367a2.51 2.51 0 001.762-1.773c.44-1.61.44-4.821.44-4.821s0-3.21-.44-4.836zM9.996 15.005l.005-6 5.207 3.005-5.212 2.995z' },
+                    { key: 'website', placeholder: 'Sitio web (https://...)', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
+                  ].map(({ key, placeholder, icon }) => (
+                    <div key={key} className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                        <svg className="w-3.5 h-3.5 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+                          <path d={icon} />
+                        </svg>
+                      </div>
+                      <input type="text" placeholder={placeholder} value={socialLinks[key] ?? ''}
+                        onChange={e => setSocialLinks(prev => ({ ...prev, [key]: e.target.value }))}
+                        className="flex-1 bg-white border border-gray-300 text-black rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                    </div>
+                  ))}
+                </div>
+
+                <button type="submit" disabled={loading}
+                  className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                  {loading ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      </svg>
+                      Guardando...
+                    </>
+                  ) : 'Guardar cambios'}
+                </button>
+              </form>
+            </div>
+          )}
+
           {activeSection === 'account' && (
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-bold text-black mb-1">Cuenta</h3>
                 <p className="text-gray-400 text-sm">Administra tu información de cuenta.</p>
               </div>
-              <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+              <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-500">Correo</p>
                   <p className="text-sm font-medium text-black">{user?.email}</p>
@@ -97,8 +242,6 @@ export default function SettingsModal({ onClose, user }) {
                   </p>
                 </div>
               </div>
-
-              {/* Cambiar contraseña */}
               <div>
                 <h4 className="text-sm font-semibold text-black mb-3">Cambiar contraseña</h4>
                 {error && <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-xl mb-3">{error}</div>}
@@ -119,83 +262,10 @@ export default function SettingsModal({ onClose, user }) {
             </div>
           )}
 
-          {/* Privacidad */}
-          {activeSection === 'privacy' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-black mb-1">Privacidad</h3>
-                <p className="text-gray-400 text-sm">Controla quién puede ver tu información.</p>
-              </div>
-              {[
-                { label: 'Perfil público', desc: 'Cualquiera puede ver tu perfil' },
-                { label: 'Mostrar seguidores', desc: 'Mostrar tu número de seguidores' },
-                { label: 'Mostrar reproducciones', desc: 'Mostrar cuántas veces se reproducen tus canciones' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                  <div>
-                    <p className="text-sm font-medium text-black">{item.label}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
-                  </div>
-                  <div className="w-10 h-6 bg-purple-600 rounded-full flex items-center justify-end px-1 cursor-pointer">
-                    <div className="w-4 h-4 bg-white rounded-full shadow" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          {activeSection === 'privacy' && <ComingSoon feature="Configuración de privacidad" />}
+          {activeSection === 'notifications' && <ComingSoon feature="Configuración de notificaciones" />}
+          {activeSection === 'appearance' && <ComingSoon feature="Configuración de apariencia" />}
 
-          {/* Notificaciones */}
-          {activeSection === 'notifications' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-black mb-1">Notificaciones</h3>
-                <p className="text-gray-400 text-sm">Elige qué notificaciones quieres recibir.</p>
-              </div>
-              {[
-                { label: 'Nuevos seguidores', desc: 'Cuando alguien te sigue' },
-                { label: 'Me gusta en canciones', desc: 'Cuando alguien da like a tu canción' },
-                { label: 'Comentarios', desc: 'Cuando alguien comenta tu contenido' },
-                { label: 'Novedades de SoundSeekers', desc: 'Actualizaciones y noticias de la plataforma' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl">
-                  <div>
-                    <p className="text-sm font-medium text-black">{item.label}</p>
-                    <p className="text-xs text-gray-400">{item.desc}</p>
-                  </div>
-                  <div className={`w-10 h-6 rounded-full flex items-center px-1 cursor-pointer transition ${i % 2 === 0 ? 'bg-purple-600 justify-end' : 'bg-gray-200 justify-start'}`}>
-                    <div className="w-4 h-4 bg-white rounded-full shadow" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Apariencia */}
-          {activeSection === 'appearance' && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-bold text-black mb-1">Apariencia</h3>
-                <p className="text-gray-400 text-sm">Personaliza cómo se ve SoundSeekers.</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Claro', active: true },
-                  { label: 'Oscuro', active: false },
-                ].map(theme => (
-                  <div key={theme.label}
-                    className={`p-4 rounded-2xl border-2 cursor-pointer transition ${
-                      theme.active ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-gray-50'
-                    }`}>
-                    <div className={`w-full h-16 rounded-xl mb-2 ${theme.label === 'Claro' ? 'bg-white border border-gray-200' : 'bg-gray-900'}`} />
-                    <p className={`text-sm font-medium ${theme.active ? 'text-purple-700' : 'text-gray-600'}`}>{theme.label}</p>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-gray-400">El modo oscuro estará disponible próximamente.</p>
-            </div>
-          )}
-
-          {/* Zona de peligro */}
           {activeSection === 'danger' && (
             <div className="space-y-6">
               <div>
