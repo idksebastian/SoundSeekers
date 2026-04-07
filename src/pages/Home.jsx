@@ -71,18 +71,19 @@ export default function Home() {
         setArtists(Object.values(artistMap).slice(0, 6))
 
         // Avatares de perfiles
-        const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
-        if (userIds.length > 0) {
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('user_id, avatar_url')
-            .in('user_id', userIds)
-          if (profiles) {
-            const avatarMap = {}
-            profiles.forEach(p => { avatarMap[p.user_id] = p.avatar_url })
-            setArtistAvatars(avatarMap)
-          }
-        }
+        // Avatares de perfiles
+const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
+if (userIds.length > 0) {
+  const { data: userRoles } = await supabase
+    .from('user_roles')
+    .select('user_id, artist_name')
+    .in('user_id', userIds)
+  if (userRoles) {
+    const avatarMap = {}
+    userRoles.forEach(p => { avatarMap[p.user_id] = null })
+    setArtistAvatars(avatarMap)
+  }
+}
 
       } catch (err) {
         console.error('Error cargando home:', err)
