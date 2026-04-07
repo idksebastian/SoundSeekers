@@ -3,7 +3,23 @@ import { supabase } from '../lib/supabase'
 export async function getProfile() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
-  return session.user
+
+  // Traer avatar desde tabla profiles
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('avatar_url, name, artist_name')
+    .eq('user_id', session.user.id)
+    .single()
+
+  return {
+    ...session.user,
+    user_metadata: {
+      ...session.user.user_metadata,
+      avatar_url: profile?.avatar_url ?? session.user.user_metadata?.avatar_url,
+      name: profile?.name ?? session.user.user_metadata?.name,
+      artist_name: profile?.artist_name ?? session.user.user_metadata?.artist_name,
+    }
+  }
 }
 
 export async function updateProfile({ name, avatarFile, description, instagram, twitter, tiktok, youtube, website }) {

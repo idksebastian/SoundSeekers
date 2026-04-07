@@ -16,6 +16,7 @@ import Profile from './pages/Profile'
 import Community from './pages/Community'
 import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
+import ArtistProfile from './pages/ArtistProfile'
 
 export default function App() {
   return (
@@ -32,6 +33,12 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
               <Route path="/animo" element={<Animo />} />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <ArtistRoute>
@@ -42,11 +49,6 @@ export default function App() {
               <Route path="/edit/:id" element={
                 <ProtectedRoute>
                   <EditSong />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Profile />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />

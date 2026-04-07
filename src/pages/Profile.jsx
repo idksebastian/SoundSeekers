@@ -7,6 +7,7 @@ import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
 import SettingsModal from '../components/SettingsModal'
 import SkeletonSongRow from '../components/SkeletonSongRow'
+import { supabase } from '../lib/supabase'
 
 const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
 
@@ -23,9 +24,13 @@ export default function Profile() {
   const [stats, setStats] = useState({ followers: 0, following: 0, streams: 0 })
   const [loading, setLoading] = useState(true)
 
-  const loadData = async () => {
-    setLoading(true)
+const loadData = async () => {
+  setLoading(true)
+  try {
+    // Refrescar la sesión para tener el avatar actualizado
+    await supabase.auth.refreshSession()
     const u = await getProfile()
+    console.log('avatar_url:', u.user_metadata?.avatar_url)
     setUser(u)
     setName(u.user_metadata?.name ?? '')
 
@@ -40,9 +45,16 @@ export default function Profile() {
     setSongs(mySongs)
     const streams = await getSongStreams(mySongs.map(s => s.id))
     setStats({ ...followStats, streams })
+  } catch (err) {
+    console.error(err)
+  } finally {
     setLoading(false)
   }
-  useEffect(() => { loadData() }, [])
+}
+  useEffect(() => { 
+  console.log('Profile montado')
+  loadData() 
+}, [])
 
   const handleMoodChange = async (mood) => {
     await updateArtistMood(user.id, mood)
@@ -83,7 +95,7 @@ export default function Profile() {
     </div>
   )
 
-  const avatarPreview = user?.user_metadata?.avatar_url
+const avatarPreview = user?.user_metadata?.avatar_url ?? role?.avatar_url ?? null
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
