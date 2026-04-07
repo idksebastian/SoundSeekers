@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSongs } from '../api/songs'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
 import SkeletonHomeSong from '../components/SkeletonHomeSong'
@@ -20,6 +20,7 @@ const GENRES = [
 export default function Home() {
   const { user } = useAuth()
   const { playSong, currentSong, isPlaying } = usePlayer()
+  const navigate = useNavigate()
   const [recentSongs, setRecentSongs] = useState([])
   const [allSongs, setAllSongs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -38,11 +39,9 @@ export default function Home() {
         setAllSongs(data)
         setRecentSongs(data.slice(0, 6))
 
-        // Canción más reproducida
         const sorted = [...data].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
         if (sorted[0]) setTopSong(sorted[0])
 
-        // Géneros con conteo
         const genreMap = {}
         data.forEach(s => {
           if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1
@@ -53,7 +52,6 @@ export default function Home() {
           .map(([genre, count]) => ({ genre, count }))
         setGenreCounts(genreList)
 
-        // Artistas únicos
         const artistMap = {}
         data.forEach(song => {
           if (song.artist_name && !artistMap[song.artist_name]) {
@@ -70,21 +68,18 @@ export default function Home() {
         })
         setArtists(Object.values(artistMap).slice(0, 6))
 
-        // Avatares de perfiles
-        // Avatares de perfiles
-const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
-if (userIds.length > 0) {
-  const { data: userRoles } = await supabase
-    .from('user_roles')
-    .select('user_id, artist_name')
-    .in('user_id', userIds)
-  if (userRoles) {
-    const avatarMap = {}
-    userRoles.forEach(p => { avatarMap[p.user_id] = null })
-    setArtistAvatars(avatarMap)
-  }
-}
-
+        const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('user_id, avatar_url')
+            .in('user_id', userIds)
+          if (profilesData) {
+            const avatarMap = {}
+            profilesData.forEach(p => { avatarMap[p.user_id] = p.avatar_url })
+            setArtistAvatars(avatarMap)
+          }
+        }
       } catch (err) {
         console.error('Error cargando home:', err)
       } finally {
@@ -94,7 +89,6 @@ if (userIds.length > 0) {
     fetchData()
   }, [])
 
-  // Buscador en tiempo real
   useEffect(() => {
     if (!search.trim()) { setSearchResults([]); return }
     const q = search.toLowerCase()
@@ -115,7 +109,6 @@ if (userIds.length > 0) {
   return (
     <div className="min-h-screen bg-gray-50">
 
-      {/* Banner bienvenida personalizado si está logueado */}
       {user && (
         <div className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-6 py-4">
           <div className="max-w-5xl mx-auto flex items-center justify-between">
@@ -128,10 +121,7 @@ if (userIds.length > 0) {
                 <p className="text-purple-200 text-xs">Sigue descubriendo música nueva hoy</p>
               </div>
             </div>
-            <Link
-              to="/upload"
-              className="flex items-center gap-1.5 bg-white text-purple-700 font-semibold text-xs px-4 py-2 rounded-full hover:bg-purple-50 transition shrink-0"
-            >
+            <Link to="/upload" className="flex items-center gap-1.5 bg-white text-purple-700 font-semibold text-xs px-4 py-2 rounded-full hover:bg-purple-50 transition shrink-0">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
               </svg>
@@ -141,7 +131,6 @@ if (userIds.length > 0) {
         </div>
       )}
 
-      {/* Hero */}
       <section className="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
         <div className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-500 text-sm px-4 py-1.5 rounded-full mb-8 shadow-sm">
           <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -156,7 +145,6 @@ if (userIds.length > 0) {
           Descubre música de artistas emergentes. Sube tus canciones, conecta con nuevos oyentes y explora sonidos únicos.
         </p>
 
-        {/* Buscador rápido */}
         <div className="relative max-w-xl mx-auto mb-8">
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -168,15 +156,11 @@ if (userIds.length > 0) {
             placeholder="Buscar canciones, artistas o géneros..."
             className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
           />
-          {/* Resultados del buscador */}
           {searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 overflow-hidden">
               {searchResults.map(song => (
-                <div
-                  key={song.id}
-                  onClick={() => { playSong(song, allSongs); setSearch('') }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition"
-                >
+                <div key={song.id} onClick={() => { playSong(song, allSongs); setSearch('') }}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
                   <img src={song.cover_url} alt={song.title} className="w-9 h-9 rounded-lg object-cover shrink-0"/>
                   <div className="text-left min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{song.title}</p>
@@ -209,7 +193,6 @@ if (userIds.length > 0) {
         </div>
       </section>
 
-      {/* Canción destacada del día */}
       {topSong && (
         <section className="max-w-5xl mx-auto px-6 pb-12">
           <div className="flex items-center gap-2 mb-4">
@@ -218,16 +201,12 @@ if (userIds.length > 0) {
             </svg>
             <h2 className="text-xl font-bold text-black">Canción destacada del día</h2>
           </div>
-          <div
-            className="flex items-center gap-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition group"
-            onClick={() => playSong(topSong, allSongs)}
-          >
+          <div className="flex items-center gap-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition group"
+            onClick={() => playSong(topSong, allSongs)}>
             <div className="relative shrink-0">
               <img src={topSong.cover_url} alt={topSong.title} className="w-20 h-20 rounded-xl object-cover shadow"/>
               <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M5 3l14 9-14 9V3z"/>
-                </svg>
+                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
               </div>
             </div>
             <div className="flex-1 min-w-0">
@@ -237,25 +216,18 @@ if (userIds.length > 0) {
               <p className="text-lg font-bold text-gray-900 truncate">{topSong.title}</p>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-5 h-5 rounded-full overflow-hidden bg-purple-100 shrink-0">
-                  <img
-                    src={artistAvatars[topSong.user_id] || topSong.cover_url}
-                    alt={topSong.artist_name}
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={artistAvatars[topSong.user_id] || topSong.cover_url} alt={topSong.artist_name} className="w-full h-full object-cover"/>
                 </div>
                 <p className="text-sm text-gray-400 truncate">{topSong.artist_name ?? 'Artista'}</p>
                 <span className="text-gray-300">·</span>
                 <p className="text-sm text-gray-400">{topSong.genre}</p>
               </div>
-              <p className="text-xs text-purple-600 mt-1 font-medium">
-                {(topSong.streams ?? 0).toLocaleString()} reproducciones
-              </p>
+              <p className="text-xs text-purple-600 mt-1 font-medium">{(topSong.streams ?? 0).toLocaleString()} reproducciones</p>
             </div>
           </div>
         </section>
       )}
 
-      {/* Géneros más populares con contador */}
       {genreCounts.length > 0 && (
         <section className="max-w-5xl mx-auto px-6 pb-10">
           <h2 className="text-xl font-bold text-black mb-4">Géneros más populares</h2>
@@ -265,30 +237,21 @@ if (userIds.length > 0) {
               const isSelected = selectedGenre === genre.value
               if (count === 0) return null
               return (
-                <button
-                  key={genre.label}
-                  onClick={() => setSelectedGenre(isSelected ? null : genre.value)}
+                <button key={genre.label} onClick={() => setSelectedGenre(isSelected ? null : genre.value)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition border ${
-                    isSelected
-                      ? 'bg-purple-700 text-white border-purple-700'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-700'
-                  }`}
-                >
+                    isSelected ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-700'
+                  }`}>
                   {genre.icon}
                   {genre.label}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                    isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                  }`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
                     {count}
                   </span>
                 </button>
               )
             })}
             {selectedGenre && (
-              <button
-                onClick={() => setSelectedGenre(null)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-400 hover:text-gray-600 transition"
-              >
+              <button onClick={() => setSelectedGenre(null)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-400 hover:text-gray-600 transition">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
                 </svg>
@@ -299,7 +262,6 @@ if (userIds.length > 0) {
         </section>
       )}
 
-      {/* Canciones */}
       <section className="max-w-5xl mx-auto px-6 pb-16">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
@@ -359,7 +321,6 @@ if (userIds.length > 0) {
         )}
       </section>
 
-      {/* Voces emergentes con foto de perfil */}
       {artists.length > 0 && (
         <section className="max-w-5xl mx-auto px-6 pb-16">
           <div className="flex items-center justify-between mb-6">
@@ -372,8 +333,12 @@ if (userIds.length > 0) {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {artists.map(artist => {
               const avatar = artistAvatars[artist.user_id]
+              const streams = allSongs
+                .filter(s => s.user_id === artist.user_id)
+                .reduce((acc, s) => acc + (s.streams ?? 0), 0)
               return (
-                <div key={artist.name} className="text-center group cursor-pointer">
+                <div key={artist.name} className="text-center group cursor-pointer"
+                  onClick={() => navigate(`/artist/${artist.user_id}`)}>
                   <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
                     {avatar ? (
                       <img src={avatar} alt={artist.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
@@ -387,9 +352,9 @@ if (userIds.length > 0) {
                   <p className="text-xs text-gray-400">{artist.genre}</p>
                   <div className="flex items-center justify-center gap-1 mt-0.5">
                     <svg className="w-3 h-3 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+                      <path d="M5 3l14 9-14 9V3z"/>
                     </svg>
-                    <p className="text-xs text-purple-600">{artist.songs} {artist.songs === 1 ? 'canción' : 'canciones'}</p>
+                    <p className="text-xs text-purple-600">{streams.toLocaleString()} reproducciones</p>
                   </div>
                 </div>
               )
@@ -398,7 +363,6 @@ if (userIds.length > 0) {
         </section>
       )}
 
-      {/* Cómo funciona */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <h2 className="text-2xl font-bold text-black text-center mb-10">Cómo funciona</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
@@ -420,7 +384,6 @@ if (userIds.length > 0) {
         </div>
       </section>
 
-      {/* CTA */}
       {!user && (
         <section className="bg-white border-t border-gray-100 py-16 text-center px-6">
           <h2 className="text-2xl font-bold text-black mb-3">¿Listo para empezar?</h2>
