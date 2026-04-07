@@ -24,26 +24,20 @@ export async function updateProfile({ name, avatarFile, description, instagram, 
   const { error: authError } = await supabase.auth.updateUser({ data: { name, avatar_url } })
   if (authError) throw authError
 
-  // Actualizar datos extendidos en user_roles
   const { error: roleError } = await supabase
     .from('user_roles')
     .update({ description, instagram, twitter, tiktok, youtube, website })
     .eq('user_id', session.user.id)
   if (roleError) throw roleError
-}
 
-export async function getProfileStats(userId) {
-  const [followersRes, followingRes, streamsRes] = await Promise.all([
-    supabase.from('follows').select('*', { count: 'exact' }).eq('following_id', userId),
-    supabase.from('follows').select('*', { count: 'exact' }).eq('follower_id', userId),
-    supabase.from('streams').select('song_id').eq('song_id',
-      supabase.from('songs').select('id').eq('user_id', userId)
-    )
-  ])
-  return {
-    followers: followersRes.count ?? 0,
-    following: followingRes.count ?? 0,
-  }
+  await supabase
+    .from('profiles')
+    .upsert({
+      user_id: session.user.id,
+      name,
+      avatar_url,
+      artist_name: session.user.user_metadata?.artist_name ?? null
+    })
 }
 
 export async function getFollowStats(userId) {
@@ -97,6 +91,7 @@ export async function toggleFollow(followingId) {
   }
   return !following
 }
+
 export async function getPublicProfile(userId) {
   const { data, error } = await supabase
     .from('public_profiles')
