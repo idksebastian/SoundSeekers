@@ -28,3 +28,4 @@ env.local
 backend/venv/
 backend/.env
 backend/__pycache__/
+"backend/.cache" 
