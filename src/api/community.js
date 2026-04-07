@@ -64,9 +64,8 @@ export async function getComments(post_id) {
 }
 
 export async function createComment({ post_id, user_id, username, avatar_url, content }) {
-  // Traer artist_name del perfil para usar como username real
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('user_roles')
     .select('artist_name')
     .eq('user_id', user_id)
     .single()
