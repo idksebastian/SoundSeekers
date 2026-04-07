@@ -6,7 +6,7 @@ export async function getProfile() {
   return session.user
 }
 
-export async function updateProfile({ name, avatarFile }) {
+export async function updateProfile({ name, avatarFile, description, instagram, twitter, tiktok, youtube, website }) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
 
@@ -15,19 +15,21 @@ export async function updateProfile({ name, avatarFile }) {
   if (avatarFile) {
     const ext = avatarFile.name.split('.').pop()
     const path = `${session.user.id}/avatar.${ext}`
-    const { error } = await supabase.storage
-      .from('covers')
-      .upload(path, avatarFile, { upsert: true })
+    const { error } = await supabase.storage.from('covers').upload(path, avatarFile, { upsert: true })
     if (error) throw error
     const { data } = supabase.storage.from('covers').getPublicUrl(path)
     avatar_url = data.publicUrl
   }
 
-  const { data, error } = await supabase.auth.updateUser({
-    data: { name, avatar_url }
-  })
-  if (error) throw error
-  return data
+  const { error: authError } = await supabase.auth.updateUser({ data: { name, avatar_url } })
+  if (authError) throw authError
+
+  // Actualizar datos extendidos en user_roles
+  const { error: roleError } = await supabase
+    .from('user_roles')
+    .update({ description, instagram, twitter, tiktok, youtube, website })
+    .eq('user_id', session.user.id)
+  if (roleError) throw roleError
 }
 
 export async function getProfileStats(userId) {
