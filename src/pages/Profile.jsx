@@ -42,7 +42,6 @@ export default function Profile() {
     setStats({ ...followStats, streams })
     setLoading(false)
   }
-
   useEffect(() => { loadData() }, [])
 
   const handleMoodChange = async (mood) => {
