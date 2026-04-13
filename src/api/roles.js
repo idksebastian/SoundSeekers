@@ -83,3 +83,86 @@ export function getListenerLevel(streams) {
   if (streams >= 10) return { level: 'Explorador', icon: '🗺️' }
   return { level: 'Curioso', icon: '👀' }
 }
+export async function requestArtistVerification({ userId, artistName, artistBio, artistGenre, artistMood }) {
+  await supabase.auth.updateUser({
+    data: { artist_name: artistName }
+  })
+
+  const existing = await getUserRole(userId)
+
+  if (existing) {
+    const { error } = await supabase
+      .from('user_roles')
+      .update({
+        status: 'pending',
+        artist_name: artistName,
+        artist_bio: artistBio,
+        artist_genre: artistGenre,
+        artist_mood: artistMood,
+        accepted_terms_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('user_roles')
+      .insert([{
+        user_id: userId,
+        role: 'listener',
+        status: 'pending',
+        artist_name: artistName,
+        artist_bio: artistBio,
+        artist_genre: artistGenre,
+        artist_mood: artistMood,
+        accepted_terms_at: new Date().toISOString()
+      }])
+    if (error) throw error
+  }
+}
+
+export async function getPendingRequests() {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('*')
+    .eq('status', 'pending')
+    .order('accepted_terms_at', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function approveArtist(userId, userEmail, artistName) {
+  const { error } = await supabase
+    .from('user_roles')
+    .update({ role: 'artist', status: 'artist' })
+    .eq('user_id', userId)
+  if (error) throw error
+
+  await supabase.functions.invoke('send-artist-email', {
+    body: { user_email: userEmail, artist_name: artistName, approved: true }
+  })
+
+  await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, artist_name: artistName })
+}
+
+export async function rejectArtist(userId, userEmail, artistName) {
+  const { error } = await supabase
+    .from('user_roles')
+    .update({ status: 'listener', artist_name: null, artist_bio: null, artist_genre: null })
+    .eq('user_id', userId)
+  if (error) throw error
+
+  await supabase.functions.invoke('send-artist-email', {
+    body: { user_email: userEmail, artist_name: artistName, approved: false }
+  })
+}
+
+export async function isAdmin(userId) {
+  const { data } = await supabase
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id', userId)
+    .single()
+  return !!data
+}
