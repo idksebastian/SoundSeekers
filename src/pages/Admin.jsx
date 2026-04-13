@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getPendingRequests, approveArtist, rejectArtist, isAdmin } from '../api/roles'
+import { supabase } from '../lib/supabase'
 
 export default function Admin() {
   const { user } = useAuth()
@@ -24,14 +25,20 @@ export default function Admin() {
     init()
   }, [user])
 
+  const getUserEmail = async (userId) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('user_id')
+      .eq('user_id', userId)
+      .single()
+    return data?.email ?? ''
+  }
+
   const handleApprove = async (req) => {
     setProcessing(req.user_id)
     try {
-      const { data: { users } } = await import('../lib/supabase').then(m =>
-        m.supabase.auth.admin.listUsers()
-      )
-      const userEmail = users?.find(u => u.id === req.user_id)?.email ?? ''
-      await approveArtist(req.user_id, userEmail, req.artist_name)
+      const email = await getUserEmail(req.user_id)
+      await approveArtist(req.user_id, email, req.artist_name)
       setRequests(prev => prev.filter(r => r.user_id !== req.user_id))
     } catch (err) {
       console.error(err)
@@ -43,7 +50,7 @@ export default function Admin() {
   const handleReject = async (req) => {
     setProcessing(req.user_id)
     try {
-      await rejectArtist(req.user_id, '', req.artist_name)
+      await rejectArtist(req.user_id)
       setRequests(prev => prev.filter(r => r.user_id !== req.user_id))
     } catch (err) {
       console.error(err)
@@ -66,7 +73,11 @@ export default function Admin() {
       <div className="container mx-auto px-6 max-w-3xl">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-black">Panel de administración</h1>
-          <p className="text-gray-400 mt-1">Solicitudes de verificación de artista</p>
+          <p className="text-gray-400 mt-1">
+            {requests.length > 0
+              ? `${requests.length} solicitud${requests.length > 1 ? 'es' : ''} pendiente${requests.length > 1 ? 's' : ''}`
+              : 'Sin solicitudes pendientes'}
+          </p>
         </div>
 
         {requests.length === 0 ? (
@@ -76,25 +87,36 @@ export default function Admin() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <p className="text-gray-500 font-medium">No hay solicitudes pendientes</p>
+            <p className="text-gray-500 font-medium">Todo al día</p>
+            <p className="text-gray-400 text-sm mt-1">No hay solicitudes de artista pendientes.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {requests.map(req => (
               <div key={req.user_id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                 <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="text-lg font-bold text-black">{req.artist_name}</h3>
                       <span className="text-xs bg-yellow-50 text-yellow-600 border border-yellow-200 px-2 py-0.5 rounded-full font-medium">
                         Pendiente
                       </span>
                     </div>
-                    {req.artist_genre && <p className="text-gray-400 text-sm">{req.artist_genre}</p>}
-                    {req.artist_bio && <p className="text-gray-500 text-sm mt-1 italic">"{req.artist_bio}"</p>}
+                    {req.artist_genre && (
+                      <p className="text-gray-400 text-sm">{req.artist_genre}</p>
+                    )}
+                    {req.artist_bio && (
+                      <p className="text-gray-500 text-sm mt-1 italic">"{req.artist_bio}"</p>
+                    )}
+                    {req.artist_mood && (
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                        <span className="text-xs text-gray-400">{req.artist_mood}</span>
+                      </div>
+                    )}
                     {req.accepted_terms_at && (
                       <p className="text-gray-300 text-xs mt-2">
-                        Solicitud: {new Date(req.accepted_terms_at).toLocaleDateString('es-CO', {
+                        Solicitado el {new Date(req.accepted_terms_at).toLocaleDateString('es-CO', {
                           year: 'numeric', month: 'long', day: 'numeric'
                         })}
                       </p>
@@ -104,15 +126,13 @@ export default function Admin() {
                     <button
                       onClick={() => handleReject(req)}
                       disabled={processing === req.user_id}
-                      className="px-4 py-2 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition disabled:opacity-50"
-                    >
+                      className="px-4 py-2 rounded-xl border border-red-200 text-red-500 text-sm font-semibold hover:bg-red-50 transition disabled:opacity-50">
                       Rechazar
                     </button>
                     <button
                       onClick={() => handleApprove(req)}
                       disabled={processing === req.user_id}
-                      className="px-4 py-2 rounded-xl bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center gap-2"
-                    >
+                      className="px-4 py-2 rounded-xl bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center gap-2">
                       {processing === req.user_id ? (
                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
