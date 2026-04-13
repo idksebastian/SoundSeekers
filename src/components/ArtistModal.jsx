@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { upgradeToArtist } from '../api/roles'
+import { requestArtistVerification } from '../api/roles'
 
 const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Otro']
-
 const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
 
 const TERMS = [
@@ -28,7 +27,7 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
     if (!artistGenre) return setError('Selecciona tu género principal.')
     setLoading(true)
     try {
-      await upgradeToArtist({ userId, artistName, artistBio, artistGenre, artistMood })
+      await requestArtistVerification({ userId, artistName, artistBio, artistGenre, artistMood })
       setStep(3)
     } catch (err) {
       setError(err.message)
@@ -41,10 +40,8 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
 
-        {/* Header */}
         <div className="bg-purple-700 px-6 py-5 text-white">
           <div className="flex items-center justify-between mb-3">
-            {/* Steps */}
             <div className="flex gap-1.5">
               {[1, 2, 3].map(s => (
                 <div key={s} className={`h-1 rounded-full transition-all duration-300 ${s <= step ? 'bg-white w-8' : 'bg-white/30 w-4'}`} />
@@ -58,35 +55,22 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
               </button>
             )}
           </div>
-
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
-              {step === 1 && (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-              )}
-              {step === 2 && (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-              )}
-              {step === 3 && (
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                </svg>
-              )}
+              {step === 1 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
+              {step === 2 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
+              {step === 3 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             </div>
             <div>
               <h2 className="text-lg font-bold">
                 {step === 1 && 'Tu promesa como artista'}
                 {step === 2 && 'Tu identidad'}
-                {step === 3 && 'Bienvenido al escenario'}
+                {step === 3 && 'Solicitud enviada'}
               </h2>
               <p className="text-white/70 text-xs mt-0.5">
                 {step === 1 && 'Lee y acepta estos compromisos antes de continuar.'}
                 {step === 2 && 'Cuéntanos quién eres como artista.'}
-                {step === 3 && 'Tu perfil de artista está listo.'}
+                {step === 3 && 'El equipo revisará tu solicitud pronto.'}
               </p>
             </div>
           </div>
@@ -94,7 +78,6 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
 
         <div className="p-6">
 
-          {/* Paso 1 — Términos */}
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
@@ -105,29 +88,16 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
                   </div>
                 ))}
               </div>
-
               <label className="flex items-center gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition">
-                <input
-                  type="checkbox"
-                  checked={accepted}
-                  onChange={e => setAccepted(e.target.checked)}
-                  className="w-4 h-4 accent-purple-600"
-                />
-                <span className="text-sm text-gray-700 font-medium">
-                  Acepto todos los compromisos como artista
-                </span>
+                <input type="checkbox" checked={accepted} onChange={e => setAccepted(e.target.checked)} className="w-4 h-4 accent-purple-600" />
+                <span className="text-sm text-gray-700 font-medium">Acepto todos los compromisos como artista</span>
               </label>
-
               <div className="flex gap-3">
-                <button onClick={onClose}
-                  className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition text-sm">
+                <button onClick={onClose} className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition text-sm">
                   Ahora no
                 </button>
-                <button
-                  onClick={() => setStep(2)}
-                  disabled={!accepted}
-                  className="flex-1 h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm disabled:opacity-40 flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setStep(2)} disabled={!accepted}
+                  className="flex-1 h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm disabled:opacity-40 flex items-center justify-center gap-2">
                   Continuar
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -137,70 +107,42 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
             </div>
           )}
 
-          {/* Paso 2 — Identidad */}
           {step === 2 && (
             <div className="space-y-4">
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
-                  {error}
-                </div>
-              )}
-
+              {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Nombre artístico *</label>
-                <input
-                  placeholder="¿Cómo te conocerá el mundo?"
-                  value={artistName}
-                  onChange={e => setArtistName(e.target.value)}
-                  maxLength={50}
-                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                />
+                <input placeholder="¿Cómo te conocerá el mundo?" value={artistName}
+                  onChange={e => setArtistName(e.target.value)} maxLength={50}
+                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
               </div>
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Género principal *</label>
-                <select
-                  value={artistGenre}
-                  onChange={e => setArtistGenre(e.target.value)}
-                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                >
+                <select value={artistGenre} onChange={e => setArtistGenre(e.target.value)}
+                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
                   <option value="">Selecciona tu género</option>
                   {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
                 </select>
               </div>
-
               <div className="space-y-1">
                 <label className="text-sm font-medium text-gray-700">Tu frase — ¿Quién eres?</label>
-                <textarea
-                  placeholder="Una línea que te defina como artista..."
-                  value={artistBio}
-                  onChange={e => setArtistBio(e.target.value)}
-                  maxLength={150}
-                  rows={2}
-                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"
-                />
+                <textarea placeholder="Una línea que te defina como artista..." value={artistBio}
+                  onChange={e => setArtistBio(e.target.value)} maxLength={150} rows={2}
+                  className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none" />
               </div>
-
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Estado de hoy</label>
                 <div className="grid grid-cols-2 gap-2">
                   {MOODS.map(mood => (
-                    <button
-                      key={mood}
-                      type="button"
-                      onClick={() => setArtistMood(mood)}
+                    <button key={mood} type="button" onClick={() => setArtistMood(mood)}
                       className={`text-xs px-3 py-2 rounded-xl border transition text-left ${
-                        artistMood === mood
-                          ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
-                          : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                      }`}
-                    >
+                        artistMood === mood ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                      }`}>
                       {mood}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="flex gap-3">
                 <button onClick={() => setStep(1)}
                   className="flex-1 h-11 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition text-sm flex items-center justify-center gap-2">
@@ -209,11 +151,8 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
                   </svg>
                   Volver
                 </button>
-                <button
-                  onClick={handleUpgrade}
-                  disabled={loading}
-                  className="flex-1 h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm disabled:opacity-50 flex items-center justify-center gap-2"
-                >
+                <button onClick={handleUpgrade} disabled={loading}
+                  className="flex-1 h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm disabled:opacity-50 flex items-center justify-center gap-2">
                   {loading ? (
                     <>
                       <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -224,7 +163,7 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
                     </>
                   ) : (
                     <>
-                      Subir al escenario
+                      Enviar solicitud
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
                       </svg>
@@ -235,45 +174,28 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
             </div>
           )}
 
-          {/* Paso 3 — Debut */}
           {step === 3 && (
             <div className="text-center space-y-5 py-2">
-              <div className="w-20 h-20 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto">
-                <svg className="w-10 h-10 text-purple-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+              <div className="w-20 h-20 rounded-2xl bg-yellow-50 flex items-center justify-center mx-auto">
+                <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-
               <div>
-                <h3 className="text-xl font-bold text-black">Estás en el escenario</h3>
+                <h3 className="text-xl font-bold text-black">Solicitud enviada</h3>
                 <p className="text-gray-400 text-sm mt-1">
-                  Ahora eres <span className="text-purple-600 font-semibold">{artistName}</span> en SoundSeekers.
+                  Tu solicitud está siendo revisada por el equipo de <span className="text-purple-600 font-semibold">SoundSeekers</span>. Te notificaremos por correo cuando sea aprobada.
                 </p>
               </div>
-
-              <div className="bg-gray-50 border border-gray-100 rounded-2xl p-4 text-left space-y-2.5">
-                <p className="text-sm font-medium text-gray-700">Ahora puedes:</p>
-                {[
-                  { text: 'Subir tus canciones', icon: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12' },
-                  { text: 'Personalizar tu perfil de artista', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-                  { text: 'Ver tus reproducciones y seguidores', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-                      <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-gray-600">{item.text}</p>
-                  </div>
-                ))}
+              <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 text-left space-y-2">
+                <p className="text-sm font-medium text-yellow-700">Mientras esperas puedes:</p>
+                <p className="text-sm text-gray-600">🎵 Explorar música de otros artistas</p>
+                <p className="text-sm text-gray-600">👥 Seguir artistas que te inspiren</p>
+                <p className="text-sm text-gray-600">🎧 Descubrir géneros nuevos</p>
               </div>
-
-              <button
-                onClick={onSuccess}
-                className="w-full h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm"
-              >
-                Ver mi perfil de artista
+              <button onClick={onClose}
+                className="w-full h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm">
+                Entendido
               </button>
             </div>
           )}
