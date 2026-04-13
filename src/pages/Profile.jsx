@@ -7,7 +7,6 @@ import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
 import SettingsModal from '../components/SettingsModal'
 import SkeletonSongRow from '../components/SkeletonSongRow'
-import { supabase } from '../lib/supabase'
 
 const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
 
@@ -24,37 +23,32 @@ export default function Profile() {
   const [stats, setStats] = useState({ followers: 0, following: 0, streams: 0 })
   const [loading, setLoading] = useState(true)
 
-const loadData = async () => {
-  setLoading(true)
-  try {
-    // Refrescar la sesión para tener el avatar actualizado
-    await supabase.auth.refreshSession()
-    const u = await getProfile()
-    console.log('avatar_url:', u.user_metadata?.avatar_url)
-    setUser(u)
-    setName(u.user_metadata?.name ?? '')
+  const loadData = async () => {
+    setLoading(true)
+    try {
+      const u = await getProfile()
+      setUser(u)
+      setName(u.user_metadata?.name ?? '')
 
-    let userRole = await getUserRole(u.id)
-    if (!userRole) userRole = await createListenerRole(u.id)
-    setRole(userRole)
+      let userRole = await getUserRole(u.id)
+      if (!userRole) userRole = await createListenerRole(u.id)
+      setRole(userRole)
 
-    const [mySongs, followStats] = await Promise.all([
-      getMySongs(u.id),
-      getFollowStats(u.id)
-    ])
-    setSongs(mySongs)
-    const streams = await getSongStreams(mySongs.map(s => s.id))
-    setStats({ ...followStats, streams })
-  } catch (err) {
-    console.error(err)
-  } finally {
-    setLoading(false)
+      const [mySongs, followStats] = await Promise.all([
+        getMySongs(u.id),
+        getFollowStats(u.id)
+      ])
+      setSongs(mySongs)
+      const streams = await getSongStreams(mySongs.map(s => s.id))
+      setStats({ ...followStats, streams })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
   }
-}
-  useEffect(() => { 
-  console.log('Profile montado')
-  loadData() 
-}, [])
+
+  useEffect(() => { loadData() }, [])
 
   const handleMoodChange = async (mood) => {
     await updateArtistMood(user.id, mood)
@@ -62,8 +56,10 @@ const loadData = async () => {
   }
 
   const isArtist = role?.role === 'artist'
+  const isPending = role?.status === 'pending'
   const artistLevel = isArtist ? getArtistLevel(stats.streams, stats.followers) : null
   const listenerLevel = !isArtist ? getListenerLevel(stats.streams) : null
+  const avatarPreview = user?.user_metadata?.avatar_url ?? null
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
@@ -95,8 +91,6 @@ const loadData = async () => {
     </div>
   )
 
-const avatarPreview = user?.user_metadata?.avatar_url ?? role?.avatar_url ?? null
-
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
 
@@ -104,7 +98,7 @@ const avatarPreview = user?.user_metadata?.avatar_url ?? role?.avatar_url ?? nul
         <ArtistModal
           userId={user.id}
           onSuccess={() => { setShowArtistModal(false); loadData() }}
-          onClose={() => setShowArtistModal(false)}
+          onClose={() => { setShowArtistModal(false); loadData() }}
         />
       )}
 
@@ -212,13 +206,22 @@ const avatarPreview = user?.user_metadata?.avatar_url ?? role?.avatar_url ?? nul
           </div>
 
           {!isArtist && (
-            <button onClick={() => setShowArtistModal(true)}
-              className="mt-4 w-full h-11 border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-              </svg>
-              Solicitar verificación de artista
-            </button>
+            isPending ? (
+              <div className="mt-4 w-full h-11 border border-yellow-200 bg-yellow-50 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 text-yellow-600">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Solicitud en revisión
+              </div>
+            ) : (
+              <button onClick={() => setShowArtistModal(true)}
+                className="mt-4 w-full h-11 border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                </svg>
+                Solicitar verificación de artista
+              </button>
+            )
           )}
         </div>
 
