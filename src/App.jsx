@@ -17,6 +17,7 @@ import Community from './pages/Community'
 import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
+import Admin from './pages/Admin'
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
               <Route path="/animo" element={<Animo />} />
+              <Route path="/admin" element={<Admin />} />
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
