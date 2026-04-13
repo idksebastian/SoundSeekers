@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { getPendingRequests, approveArtist, rejectArtist, isAdmin } from '../api/roles'
-import { supabase } from '../lib/supabase'
 
 export default function Admin() {
   const { user } = useAuth()
@@ -25,20 +24,10 @@ export default function Admin() {
     init()
   }, [user])
 
-  const getUserEmail = async (userId) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('user_id')
-      .eq('user_id', userId)
-      .single()
-    return data?.email ?? ''
-  }
-
   const handleApprove = async (req) => {
     setProcessing(req.user_id)
     try {
-      const email = await getUserEmail(req.user_id)
-      await approveArtist(req.user_id, email, req.artist_name)
+      await approveArtist(req.user_id, req.artist_name)
       setRequests(prev => prev.filter(r => r.user_id !== req.user_id))
     } catch (err) {
       console.error(err)
@@ -50,7 +39,7 @@ export default function Admin() {
   const handleReject = async (req) => {
     setProcessing(req.user_id)
     try {
-      await rejectArtist(req.user_id)
+      await rejectArtist(req.user_id, req.artist_name)
       setRequests(prev => prev.filter(r => r.user_id !== req.user_id))
     } catch (err) {
       console.error(err)
