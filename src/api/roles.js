@@ -77,23 +77,32 @@ export async function getPendingCount() {
   return count ?? 0
 }
 
-export async function approveArtist(userId, userEmail, artistName) {
+export async function approveArtist(userId, artistName) {
   const { error } = await supabase
     .from('user_roles')
     .update({ role: 'artist', status: 'artist' })
     .eq('user_id', userId)
   if (error) throw error
+
   await supabase
     .from('profiles')
     .upsert({ user_id: userId, artist_name: artistName })
+
+  await supabase.functions.invoke('send-artist-email', {
+    body: { user_id: userId, artist_name: artistName, approved: true }
+  })
 }
 
-export async function rejectArtist(userId) {
+export async function rejectArtist(userId, artistName) {
   const { error } = await supabase
     .from('user_roles')
     .update({ status: 'listener', artist_name: null, artist_bio: null, artist_genre: null })
     .eq('user_id', userId)
   if (error) throw error
+
+  await supabase.functions.invoke('send-artist-email', {
+    body: { user_id: userId, artist_name: artistName, approved: false }
+  })
 }
 
 export async function isAdmin(userId) {
