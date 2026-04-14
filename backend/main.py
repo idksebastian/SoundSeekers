@@ -12,7 +12,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -22,7 +22,6 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
     client_secret=os.getenv("SPOTIFY_CLIENT_SECRET")
 ))
 
-# Palabras clave de búsqueda por ánimo + clima
 MOOD_QUERIES = {
     "happy":     ["feliz pop latino reggaeton", "música alegre española", "fiesta latina hits"],
     "sad":       ["balada romántica española", "triste canción española", "desamor latino"],
@@ -52,17 +51,22 @@ def get_recommendations(mood: str, weather: str):
         q=query,
         type="track",
         limit=10,
-        market="ES"  # ← filtra por mercado España/español
+        market="CO"  # Colombia tiene más previews disponibles
     )
     tracks = results["tracks"]["items"]
 
-    # Filtrar solo canciones con nombre de artista o título en contexto latino
-    # y que tengan al menos 10k de popularidad
-    filtered = [t for t in tracks if t.get("popularity", 0) >= 0]
+    # Priorizar canciones con preview disponible
+    with_preview = [t for t in tracks if t.get("preview_url")]
+    without_preview = [t for t in tracks if not t.get("preview_url")]
 
-    random.shuffle(filtered)
+    random.shuffle(with_preview)
+    random.shuffle(without_preview)
+
+    # Primero las que tienen preview, luego las que no
+    ordered = with_preview + without_preview
+
     songs = []
-    for track in filtered[:6]:
+    for track in ordered[:6]:
         songs.append({
             "title":      track["name"],
             "artist":     track["artists"][0]["name"],
