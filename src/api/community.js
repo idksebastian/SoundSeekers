@@ -49,6 +49,22 @@ export async function toggleLike(post_id, user_id) {
     return false
   } else {
     await supabase.from('post_likes').insert([{ post_id, user_id }])
+
+    const { data: post } = await supabase
+      .from('posts')
+      .select('user_id')
+      .eq('id', post_id)
+      .single()
+
+    if (post && post.user_id !== user_id) {
+      await supabase.from('notifications').insert([{
+        user_id: post.user_id,
+        type: 'like',
+        from_user_id: user_id,
+        reference_id: post_id
+      }])
+    }
+
     return true
   }
 }
@@ -77,6 +93,22 @@ export async function createComment({ post_id, user_id, username, avatar_url, co
     .insert([{ post_id, user_id, username: resolvedUsername, avatar_url, content }])
     .select()
   if (error) throw error
+
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', post_id)
+    .single()
+
+  if (post && post.user_id !== user_id) {
+    await supabase.from('notifications').insert([{
+      user_id: post.user_id,
+      type: 'comment',
+      from_user_id: user_id,
+      reference_id: post_id
+    }])
+  }
+
   return data[0]
 }
 
@@ -96,4 +128,4 @@ export async function deleteComment(comment_id) {
     .delete()
     .eq('id', comment_id)
   if (error) throw error
-}
+} 
