@@ -116,6 +116,12 @@ export async function toggleFollow(followingId) {
       follower_id: session.user.id,
       following_id: followingId
     }])
+    await supabase.from('notifications').insert([{
+      user_id: followingId,
+      type: 'follow',
+      from_user_id: session.user.id,
+      reference_id: null
+    }])
   }
   return !following
 }
