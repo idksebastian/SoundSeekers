@@ -17,17 +17,27 @@ async function uploadFile(bucket, file) {
   return data.publicUrl
 }
 
-export async function createSong({ title, genre, description, coverFile, audioFile }) {
+export async function createSong({ title, genre, description, coverFile, audioFile, albumId, duration, tags }) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
 
-  const cover_url = await uploadFile('covers', coverFile)
-  const audio_url = await uploadFile('audios', audioFile)
+  const { data: roleData } = await supabase
+    .from('user_roles')
+    .select('artist_name')
+    .eq('user_id', session.user.id)
+    .single()
 
-  // Usar nombre artístico si existe, si no el nombre real
-  const artist_name = session.user.user_metadata?.artist_name
-    ?? session.user.user_metadata?.name
-    ?? session.user.email
+  const coverExt = coverFile.name.split('.').pop()
+  const coverPath = `${session.user.id}/${Date.now()}_cover.${coverExt}`
+  const { error: coverError } = await supabase.storage.from('covers').upload(coverPath, coverFile, { upsert: true })
+  if (coverError) throw coverError
+  const { data: coverData } = supabase.storage.from('covers').getPublicUrl(coverPath)
+
+  const audioExt = audioFile.name.split('.').pop()
+  const audioPath = `${session.user.id}/${Date.now()}_audio.${audioExt}`
+  const { error: audioError } = await supabase.storage.from('audios').upload(audioPath, audioFile, { upsert: true })
+  if (audioError) throw audioError
+  const { data: audioData } = supabase.storage.from('audios').getPublicUrl(audioPath)
 
   const { data, error } = await supabase
     .from('songs')
@@ -35,10 +45,14 @@ export async function createSong({ title, genre, description, coverFile, audioFi
       title,
       genre,
       description,
-      cover_url,
-      audio_url,
+      cover_url: coverData.publicUrl,
+      audio_url: audioData.publicUrl,
       user_id: session.user.id,
-      artist_name
+      artist_name: roleData?.artist_name ?? session.user.user_metadata?.name,
+      album_id: albumId ?? null,
+      duration: duration ?? null,
+      tags: tags?.length ? tags : null,
+      streams: 0,
     }])
     .select()
     .single()
@@ -88,4 +102,13 @@ export async function registerStream(songId) {
     song_id: songId,
     user_id: session?.user?.id ?? null
   }])
+}
+export async function searchArtists(query) {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('user_id, artist_name, artist_genre, avatar_url')
+    .ilike('artist_name', `%${query}%`)
+    .limit(5)
+  if (error) return []
+  return data
 }
