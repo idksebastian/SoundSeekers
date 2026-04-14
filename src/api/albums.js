@@ -22,7 +22,7 @@ export async function createAlbum({ title, type, releaseDate, presaveDate, descr
       user_id: session.user.id,
       title,
       type,
-      release_date: releaseDate,
+      release_date: releaseDate ?? null,
       presave_date: presaveDate ?? null,
       description,
       cover_url,

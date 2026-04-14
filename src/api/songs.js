@@ -103,3 +103,12 @@ export async function registerStream(songId) {
     user_id: session?.user?.id ?? null
   }])
 }
+export async function searchArtists(query) {
+  const { data, error } = await supabase
+    .from('public_profiles')
+    .select('user_id, artist_name, artist_genre, avatar_url')
+    .ilike('artist_name', `%${query}%`)
+    .limit(5)
+  if (error) return []
+  return data
+}
