@@ -22,7 +22,7 @@ export async function getProfile() {
   }
 }
 
-export async function updateProfile({ name, avatarFile, description, instagram, twitter, tiktok, youtube, website }) {
+export async function updateProfile({ name, artistName, artistNameChanged, avatarFile, instagram, twitter, tiktok, youtube, website }) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
 
@@ -40,20 +40,28 @@ export async function updateProfile({ name, avatarFile, description, instagram, 
   const { error: authError } = await supabase.auth.updateUser({ data: { name, avatar_url } })
   if (authError) throw authError
 
+  const roleUpdate = { instagram, twitter, tiktok, youtube, website }
+
+  if (artistNameChanged && artistName) {
+    const { data: current } = await supabase
+      .from('user_roles')
+      .select('name_changes')
+      .eq('user_id', session.user.id)
+      .single()
+    roleUpdate.artist_name = artistName
+    roleUpdate.name_changes = (current?.name_changes ?? 0) + 1
+    roleUpdate.last_name_change = new Date().toISOString()
+  }
+
   const { error: roleError } = await supabase
     .from('user_roles')
-    .update({ description, instagram, twitter, tiktok, youtube, website })
+    .update(roleUpdate)
     .eq('user_id', session.user.id)
   if (roleError) throw roleError
 
   await supabase
     .from('profiles')
-    .upsert({
-      user_id: session.user.id,
-      name,
-      avatar_url,
-      artist_name: session.user.user_metadata?.artist_name ?? null
-    })
+    .upsert({ user_id: session.user.id, name, avatar_url, artist_name: artistName ?? session.user.user_metadata?.artist_name })
 }
 
 export async function getFollowStats(userId) {
