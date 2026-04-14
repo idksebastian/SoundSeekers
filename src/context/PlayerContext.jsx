@@ -12,6 +12,7 @@ export function PlayerProvider({ children }) {
   const [progress, setProgress] = useState(0)
   const [duration, setDuration] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const audioRef = useRef(null)
 
   const queueRef = useRef([])
@@ -28,19 +29,19 @@ export function PlayerProvider({ children }) {
   }
 
   const playSong = (song, songList = null) => {
-    setIsVisible(true) // mostrar el reproductor al reproducir
+    setIsVisible(true)
     if (songList) {
       setQueue(songList)
       queueRef.current = songList
     }
     const list = songList ?? queueRef.current
-    const idx = list.findIndex(s => s.id === song.id)
+    const idx = list.findIndex(s => (s.id ?? s.spotifyId) === (song.id ?? song.spotifyId))
     if (idx !== -1) {
       setCurrentIndex(idx)
       currentIndexRef.current = idx
     }
 
-    if (currentSong?.id === song.id) {
+    if (currentSong?.id === song.id && currentSong?.id) {
       if (isPlaying) {
         audioRef.current?.pause()
         setIsPlaying(false)
@@ -51,7 +52,8 @@ export function PlayerProvider({ children }) {
     } else {
       setCurrentSong(song)
       setIsPlaying(true)
-      registerStream(song.id)
+      // Solo registrar stream para canciones propias (tienen id de Supabase)
+      if (song.id && !song.isSpotify) registerStream(song.id)
     }
   }
 
@@ -68,7 +70,7 @@ export function PlayerProvider({ children }) {
     setCurrentIndex(nextIdx)
     setCurrentSong(list[nextIdx])
     setIsPlaying(true)
-    registerStream(list[nextIdx].id)
+    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
   }
 
   const playPrev = () => {
@@ -79,7 +81,7 @@ export function PlayerProvider({ children }) {
     setCurrentIndex(prevIdx)
     setCurrentSong(list[prevIdx])
     setIsPlaying(true)
-    registerStream(list[prevIdx].id)
+    if (list[prevIdx].id && !list[prevIdx].isSpotify) registerStream(list[prevIdx].id)
   }
 
   const handleTimeUpdate = () => {
@@ -102,7 +104,10 @@ export function PlayerProvider({ children }) {
 
   useEffect(() => {
     if (!audioRef.current || !currentSong) return
-    audioRef.current.src = currentSong.audio_url
+    // Soporte para canciones propias (audio_url) y Spotify (previewUrl)
+    const src = currentSong.audio_url || currentSong.previewUrl
+    if (!src) return
+    audioRef.current.src = src
     audioRef.current.volume = volume
     if (isPlaying) audioRef.current.play().catch(() => {})
   }, [currentSong])
@@ -124,6 +129,7 @@ export function PlayerProvider({ children }) {
     <PlayerContext.Provider value={{
       currentSong, isPlaying, volume, progress, duration,
       isVisible, setIsVisible,
+      isFullscreen, setIsFullscreen,
       playSong, pauseSong, playNext, playPrev,
       handleSeek, handleVolume, formatTime, audioRef,
       setQueue, queue
