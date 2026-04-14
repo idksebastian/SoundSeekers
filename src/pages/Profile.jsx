@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getProfile, getFollowStats, getSongStreams } from '../api/profile'
 import { getUserRole, createListenerRole, updateArtistMood, getArtistLevel, getListenerLevel } from '../api/roles'
-import { getMySongs } from '../api/songs'
+import { getMySongs, deleteSong } from '../api/songs'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
@@ -22,6 +22,8 @@ export default function Profile() {
   const [songs, setSongs] = useState([])
   const [stats, setStats] = useState({ followers: 0, following: 0, streams: 0 })
   const [loading, setLoading] = useState(true)
+  const [deletingId, setDeletingId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -29,15 +31,10 @@ export default function Profile() {
       const u = await getProfile()
       setUser(u)
       setName(u.user_metadata?.name ?? '')
-
       let userRole = await getUserRole(u.id)
       if (!userRole) userRole = await createListenerRole(u.id)
       setRole(userRole)
-
-      const [mySongs, followStats] = await Promise.all([
-        getMySongs(u.id),
-        getFollowStats(u.id)
-      ])
+      const [mySongs, followStats] = await Promise.all([getMySongs(u.id), getFollowStats(u.id)])
       setSongs(mySongs)
       const streams = await getSongStreams(mySongs.map(s => s.id))
       setStats({ ...followStats, streams })
@@ -55,11 +52,37 @@ export default function Profile() {
     setRole(prev => ({ ...prev, artist_mood: mood }))
   }
 
+  const handleDeleteSong = async (song) => {
+    if (confirmDelete?.id !== song.id) {
+      setConfirmDelete(song)
+      return
+    }
+    setDeletingId(song.id)
+    try {
+      await deleteSong(song.id)
+      setSongs(prev => prev.filter(s => s.id !== song.id))
+      setConfirmDelete(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
   const isArtist = role?.role === 'artist'
   const isPending = role?.status === 'pending'
   const artistLevel = isArtist ? getArtistLevel(stats.streams, stats.followers) : null
   const listenerLevel = !isArtist ? getListenerLevel(stats.streams) : null
   const avatarPreview = user?.user_metadata?.avatar_url ?? null
+  const bio = role?.artist_bio ?? role?.description ?? null
+  const socials = {
+    instagram: role?.instagram,
+    twitter: role?.twitter,
+    tiktok: role?.tiktok,
+    youtube: role?.youtube,
+    website: role?.website,
+  }
+  const hasSocials = Object.values(socials).some(Boolean)
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
@@ -141,19 +164,14 @@ export default function Profile() {
                   )}
                 </div>
                 <p className="text-gray-400 text-sm">{user?.email}</p>
-                {role?.description && (
-                  <p className="text-gray-500 text-sm mt-1">{role.description}</p>
-                )}
-                {isArtist && role.artist_bio && !role.description && (
-                  <p className="text-gray-500 text-sm mt-1 italic">"{role.artist_bio}"</p>
-                )}
-                {(role?.instagram || role?.twitter || role?.tiktok || role?.youtube || role?.website) && (
+                {bio && <p className="text-gray-500 text-sm mt-1 italic">"{bio}"</p>}
+                {hasSocials && (
                   <div className="flex gap-3 mt-2 flex-wrap">
-                    {role?.instagram && <a href={`https://instagram.com/${role.instagram.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Instagram</a>}
-                    {role?.twitter && <a href={`https://twitter.com/${role.twitter.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Twitter</a>}
-                    {role?.tiktok && <a href={`https://tiktok.com/${role.tiktok.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">TikTok</a>}
-                    {role?.youtube && <a href={role.youtube} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">YouTube</a>}
-                    {role?.website && <a href={role.website} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Web</a>}
+                    {socials.instagram && <a href={`https://instagram.com/${socials.instagram.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Instagram</a>}
+                    {socials.twitter && <a href={`https://twitter.com/${socials.twitter.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Twitter</a>}
+                    {socials.tiktok && <a href={`https://tiktok.com/${socials.tiktok.replace('@','')}`} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">TikTok</a>}
+                    {socials.youtube && <a href={socials.youtube} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">YouTube</a>}
+                    {socials.website && <a href={socials.website} target="_blank" rel="noreferrer" className="text-xs text-gray-400 hover:text-purple-600 transition">Web</a>}
                   </div>
                 )}
               </div>
@@ -239,21 +257,63 @@ export default function Profile() {
               <div className="space-y-3">
                 {songs.map(song => {
                   const isCurrentSong = currentSong?.id === song.id
+                  const isConfirming = confirmDelete?.id === song.id
                   return (
-                    <div key={song.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition border border-gray-100">
+                    <div key={song.id} className={`flex items-center gap-3 p-3 rounded-xl transition border ${isConfirming ? 'border-red-200 bg-red-50' : 'border-gray-100 hover:bg-gray-50'}`}>
                       <img src={song.cover_url} alt={song.title} className="w-12 h-12 rounded-lg object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-black font-medium text-sm truncate">{song.title}</p>
                         <p className="text-gray-400 text-xs">{song.genre}</p>
-                      </div>
-                      <button onClick={() => playSong(song)}
-                        className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shrink-0">
-                        {isCurrentSong && isPlaying ? (
-                          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
-                        ) : (
-                          <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z" /></svg>
+                        {isConfirming && (
+                          <p className="text-red-500 text-xs mt-0.5 font-medium">¿Seguro? Esta acción no se puede deshacer.</p>
                         )}
-                      </button>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button onClick={() => navigate(`/edit/${song.id}`)}
+                          className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition"
+                          title="Editar">
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => isConfirming ? handleDeleteSong(song) : setConfirmDelete(song)}
+                          disabled={deletingId === song.id}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition disabled:opacity-50 ${
+                            isConfirming
+                              ? 'border-red-300 bg-red-100 hover:bg-red-200'
+                              : 'border-gray-200 hover:bg-red-50 hover:border-red-200'
+                          }`}
+                          title={isConfirming ? 'Confirmar eliminación' : 'Eliminar'}>
+                          {deletingId === song.id ? (
+                            <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                            </svg>
+                          ) : (
+                            <svg className={`w-3.5 h-3.5 ${isConfirming ? 'text-red-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          )}
+                        </button>
+                        {isConfirming && (
+                          <button onClick={() => setConfirmDelete(null)}
+                            className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition"
+                            title="Cancelar">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+                        <button onClick={() => playSong(song)}
+                          className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition">
+                          {isCurrentSong && isPlaying ? (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
+                          ) : (
+                            <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z" /></svg>
+                          )}
+                        </button>
+                      </div>
                     </div>
                   )
                 })}
