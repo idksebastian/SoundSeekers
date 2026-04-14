@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import { logoutUser } from '../api/auth'
@@ -13,6 +13,9 @@ const SECTIONS = [
   { id: 'danger', label: 'Zona de peligro', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
 ]
 
+const NAME_CHANGE_LIMIT = 2
+const NAME_CHANGE_DAYS = 30
+
 export default function SettingsModal({ onClose, user, role, onProfileUpdated }) {
   const [activeSection, setActiveSection] = useState('edit')
   const [newPassword, setNewPassword] = useState('')
@@ -23,17 +26,37 @@ export default function SettingsModal({ onClose, user, role, onProfileUpdated })
   const navigate = useNavigate()
   const avatarInputRef = useRef(null)
 
-  const [name, setName] = useState(user?.user_metadata?.name ?? '')
-  const [description, setDescription] = useState(role?.description ?? '')
-  const [avatarFile, setAvatarFile] = useState(null)
-  const [avatarPreview, setAvatarPreview] = useState(user?.user_metadata?.avatar_url ?? null)
-  const [socialLinks, setSocialLinks] = useState({
+  const initialName = user?.user_metadata?.name ?? ''
+  const initialArtistName = role?.artist_name ?? ''
+  const initialSocials = {
     instagram: role?.instagram ?? '',
     twitter: role?.twitter ?? '',
     tiktok: role?.tiktok ?? '',
     youtube: role?.youtube ?? '',
     website: role?.website ?? '',
-  })
+  }
+
+  const [name, setName] = useState(initialName)
+  const [artistName, setArtistName] = useState(initialArtistName)
+  const [avatarFile, setAvatarFile] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(user?.user_metadata?.avatar_url ?? null)
+  const [socialLinks, setSocialLinks] = useState(initialSocials)
+
+  const isArtist = role?.role === 'artist'
+  const nameChanges = role?.name_changes ?? 0
+  const lastNameChange = role?.last_name_change ? new Date(role.last_name_change) : null
+  const daysSinceLastChange = lastNameChange
+    ? Math.floor((Date.now() - lastNameChange.getTime()) / (1000 * 60 * 60 * 24))
+    : NAME_CHANGE_DAYS + 1
+  const canChangeName = nameChanges < NAME_CHANGE_LIMIT || daysSinceLastChange >= NAME_CHANGE_DAYS
+  const remainingChanges = Math.max(0, NAME_CHANGE_LIMIT - nameChanges)
+
+  const hasChanges = useMemo(() => {
+    if (avatarFile) return true
+    if (name !== initialName) return true
+    if (isArtist && artistName !== initialArtistName) return true
+    return Object.keys(initialSocials).some(k => socialLinks[k] !== initialSocials[k])
+  }, [name, artistName, avatarFile, socialLinks])
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0]
@@ -45,11 +68,20 @@ export default function SettingsModal({ onClose, user, role, onProfileUpdated })
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     if (!name.trim()) return setError('El nombre es obligatorio.')
+    if (isArtist && artistName !== initialArtistName && !canChangeName) {
+      return setError(`Podrás cambiar tu nombre artístico en ${NAME_CHANGE_DAYS - daysSinceLastChange} días.`)
+    }
     setLoading(true)
     setError('')
     setMsg('')
     try {
-      await updateProfile({ name, avatarFile, description, ...socialLinks })
+      await updateProfile({
+        name,
+        artistName: isArtist ? artistName : undefined,
+        artistNameChanged: isArtist && artistName !== initialArtistName,
+        avatarFile,
+        ...socialLinks
+      })
       setMsg('Perfil actualizado correctamente.')
       setAvatarFile(null)
       onProfileUpdated?.()
@@ -165,22 +197,32 @@ export default function SettingsModal({ onClose, user, role, onProfileUpdated })
                     className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
                 </div>
 
-                {role?.role === 'artist' && (
+                {isArtist && (
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-gray-700">Nombre artístico</label>
-                    <input value={role?.artist_name ?? ''} readOnly
-                      className="w-full bg-gray-100 border border-gray-200 text-gray-500 rounded-xl px-4 py-2.5 text-sm cursor-not-allowed" />
-                    <p className="text-xs text-gray-400">Para cambiar tu nombre artístico contacta soporte.</p>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-gray-700">Nombre artístico</label>
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        canChangeName ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'
+                      }`}>
+                        {canChangeName
+                          ? `${remainingChanges} cambio${remainingChanges !== 1 ? 's' : ''} disponible${remainingChanges !== 1 ? 's' : ''}`
+                          : `Disponible en ${NAME_CHANGE_DAYS - daysSinceLastChange} días`}
+                      </span>
+                    </div>
+                    <input
+                      value={artistName}
+                      onChange={e => setArtistName(e.target.value)}
+                      disabled={!canChangeName}
+                      maxLength={50}
+                      className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+                        canChangeName
+                          ? 'bg-white border-gray-300 text-black'
+                          : 'bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                      }`}
+                    />
+                    <p className="text-xs text-gray-400">Máximo {NAME_CHANGE_LIMIT} cambios cada {NAME_CHANGE_DAYS} días.</p>
                   </div>
                 )}
-
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-gray-700">Descripción</label>
-                  <textarea placeholder="Cuéntale al mundo quién eres..." value={description}
-                    onChange={e => setDescription(e.target.value)} maxLength={150} rows={3}
-                    className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none" />
-                  <p className="text-xs text-gray-400 text-right">{description?.length ?? 0}/150</p>
-                </div>
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">Redes sociales</label>
@@ -204,8 +246,8 @@ export default function SettingsModal({ onClose, user, role, onProfileUpdated })
                   ))}
                 </div>
 
-                <button type="submit" disabled={loading}
-                  className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                <button type="submit" disabled={loading || !hasChanges}
+                  className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
                   {loading ? (
                     <>
                       <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
