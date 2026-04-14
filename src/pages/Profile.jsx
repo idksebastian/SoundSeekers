@@ -126,13 +126,16 @@ export default function Profile() {
       )}
 
       {showSettings && (
-        <SettingsModal
-          user={user}
-          role={role}
-          onClose={() => setShowSettings(false)}
-          onProfileUpdated={() => { loadData(); setShowSettings(false) }}
-        />
-      )}
+  <SettingsModal
+    user={user}
+    role={role}
+    onClose={() => setShowSettings(false)}
+    onProfileUpdated={async () => { 
+  await loadData()
+  setShowSettings(false) 
+}}
+  />
+)}
 
       <div className="container mx-auto px-6 max-w-3xl space-y-6">
 
