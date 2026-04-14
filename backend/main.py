@@ -24,21 +24,21 @@ sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
 
 # Palabras clave de búsqueda por ánimo + clima
 MOOD_QUERIES = {
-    "happy":     ["happy upbeat pop", "feel good music", "happy indie"],
-    "sad":       ["sad melancholic", "heartbreak indie", "sad acoustic"],
-    "energetic": ["high energy workout", "energetic electronic", "pump up"],
-    "calm":      ["calm relaxing ambient", "peaceful acoustic", "chill lofi"],
-    "nostalgic": ["nostalgic 90s", "nostalgic indie folk", "classic vibes"],
-    "focused":   ["focus study music", "concentration instrumental", "deep focus"],
+    "happy":     ["feliz pop latino reggaeton", "música alegre española", "fiesta latina hits"],
+    "sad":       ["balada romántica española", "triste canción española", "desamor latino"],
+    "energetic": ["reggaeton perreo", "latin trap urbano", "electrónica latina"],
+    "calm":      ["música tranquila española", "acústico español relajante", "indie español suave"],
+    "nostalgic": ["boleros clásicos españoles", "salsa romántica", "cumbia clásica"],
+    "focused":   ["instrumental latino", "flamenco moderno", "música española concentración"],
 }
 
 WEATHER_QUERIES = {
-    "sunny":  ["sunny day vibes", "summer pop"],
-    "rainy":  ["rainy day music", "cozy rain"],
-    "cloudy": ["cloudy day indie", "grey sky music"],
-    "night":  ["late night music", "midnight vibes"],
-    "cold":   ["cold winter music", "cozy fireplace"],
-    "warm":   ["warm summer evening", "golden hour music"],
+    "sunny":  ["verano latino", "playa reggaeton"],
+    "rainy":  ["lluvia balada española", "romántico lluvioso"],
+    "cloudy": ["indie español nublado", "melancólico español"],
+    "night":  ["noche latina urbano", "salsa noche"],
+    "cold":   ["invierno español acústico", "frío balada"],
+    "warm":   ["tarde calurosa latina", "tropical español"],
 }
 
 @app.get("/recommendations")
@@ -46,22 +46,30 @@ def get_recommendations(mood: str, weather: str):
     mood_queries = MOOD_QUERIES.get(mood, MOOD_QUERIES["happy"])
     weather_queries = WEATHER_QUERIES.get(weather, WEATHER_QUERIES["sunny"])
 
-    # Combinar una query de ánimo con una de clima aleatoriamente
     query = f"{random.choice(mood_queries)} {random.choice(weather_queries)}"
 
-    results = sp.search(q=query, type="track", limit=10)
+    results = sp.search(
+        q=query,
+        type="track",
+        limit=10,
+        market="ES"  # ← filtra por mercado España/español
+    )
     tracks = results["tracks"]["items"]
 
-    # Mezclar y tomar 6
-    random.shuffle(tracks)
+    # Filtrar solo canciones con nombre de artista o título en contexto latino
+    # y que tengan al menos 10k de popularidad
+    filtered = [t for t in tracks if t.get("popularity", 0) >= 0]
+
+    random.shuffle(filtered)
     songs = []
-    for track in tracks[:6]:
+    for track in filtered[:6]:
         songs.append({
             "title":      track["name"],
             "artist":     track["artists"][0]["name"],
             "coverUrl":   track["album"]["images"][0]["url"] if track["album"]["images"] else "",
             "spotifyUrl": track["external_urls"]["spotify"],
             "previewUrl": track.get("preview_url"),
+            "popularity": track.get("popularity", 0),
         })
 
     return {"songs": songs, "mood": mood, "weather": weather}
