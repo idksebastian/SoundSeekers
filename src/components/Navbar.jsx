@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { logoutUser } from '../api/auth'
 import { getUserRole, isAdmin, getPendingCount } from '../api/roles'
+import { getNotifications, getUnreadCount, markAllAsRead, markAsRead, subscribeToNotifications } from '../api/notifications'
+
+const NOTIFICATION_LABELS = {
+  follow: 'te empezó a seguir',
+  like: 'le dio like a tu post',
+  comment: 'comentó en tu post',
+  feat_invite: 'te invitó a colaborar en una canción',
+  presave: 'guardó tu próximo lanzamiento',
+}
 
 export default function Navbar() {
   const { user } = useAuth()
@@ -11,9 +20,13 @@ export default function Navbar() {
   const name = user?.user_metadata?.name
   const avatar = user?.user_metadata?.avatar_url
   const [menuOpen, setMenuOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
   const [role, setRole] = useState(null)
   const [isAdminUser, setIsAdminUser] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const notifRef = useRef(null)
 
   useEffect(() => {
     if (user) {
@@ -22,13 +35,70 @@ export default function Navbar() {
         setIsAdminUser(admin)
         if (admin) getPendingCount().then(setPendingCount)
       })
+      getUnreadCount().then(setUnreadCount)
+
+      const channel = subscribeToNotifications(user.id, (payload) => {
+        setNotifications(prev => [payload.new, ...prev])
+        setUnreadCount(prev => prev + 1)
+      })
+
+      return () => { channel.unsubscribe() }
     }
   }, [user])
+
+  useEffect(() => {
+    if (notifOpen && user) {
+      getNotifications().then(setNotifications)
+    }
+  }, [notifOpen])
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) {
+        setNotifOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const handleOpenNotifs = async () => {
+    setNotifOpen(prev => !prev)
+    setMenuOpen(false)
+    if (!notifOpen && unreadCount > 0) {
+      await markAllAsRead()
+      setUnreadCount(0)
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+    }
+  }
+
+  const handleNotifClick = async (notif) => {
+    if (!notif.read) {
+      await markAsRead(notif.id)
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))
+    }
+    setNotifOpen(false)
+    if (notif.type === 'follow' || notif.type === 'feat_invite') {
+      navigate(`/artist/${notif.from_user_id}`)
+    } else if (notif.type === 'like' || notif.type === 'comment') {
+      navigate('/community')
+    }
+  }
 
   const handleLogout = async () => {
     await logoutUser()
     navigate('/login')
     setMenuOpen(false)
+  }
+
+  const formatTime = (dateStr) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return 'ahora'
+    if (mins < 60) return `${mins}m`
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return `${hours}h`
+    return `${Math.floor(hours / 24)}d`
   }
 
   const navLink = (to, label) => {
@@ -68,9 +138,72 @@ export default function Navbar() {
               <span className="sm:hidden">+</span>
             </Link>
 
+            <div className="relative" ref={notifRef}>
+              <button onClick={handleOpenNotifs}
+                className="relative w-9 h-9 rounded-xl border border-gray-200 hover:border-purple-200 hover:bg-purple-50 flex items-center justify-center transition-all">
+                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-purple-600 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {notifOpen && (
+                <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <p className="text-sm font-bold text-black">Notificaciones</p>
+                    {notifications.some(n => !n.read) && (
+                      <button onClick={async () => {
+                        await markAllAsRead()
+                        setUnreadCount(0)
+                        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+                      }} className="text-xs text-purple-600 hover:underline">
+                        Marcar todas como leídas
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="py-10 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                          <svg className="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                          </svg>
+                        </div>
+                        <p className="text-sm text-gray-400 font-medium">Sin notificaciones</p>
+                        <p className="text-xs text-gray-300 mt-1">Te avisaremos cuando algo pase</p>
+                      </div>
+                    ) : (
+                      notifications.map(notif => (
+                        <button key={notif.id} onClick={() => handleNotifClick(notif)}
+                          className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 transition text-left ${
+                            !notif.read ? 'bg-purple-50/50' : ''
+                          }`}>
+                          <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!notif.read ? 'bg-purple-500' : 'bg-transparent'}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-800">
+                              <span className="font-semibold">
+                                {notif.from_user_id === user.id ? 'Tú' : 'Alguien'}
+                              </span>
+                              {' '}{NOTIFICATION_LABELS[notif.type] ?? 'interactuó contigo'}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatTime(notif.created_at)}</p>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="relative">
               <button
-                onClick={() => setMenuOpen(!menuOpen)}
+                onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false) }}
                 className="flex items-center gap-2 px-2 py-1.5 rounded-xl border border-gray-200 hover:border-purple-200 hover:bg-purple-50 transition-all">
                 {avatar ? (
                   <img src={avatar} alt={name} className="w-7 h-7 rounded-full object-cover ring-2 ring-purple-100 shrink-0" />
@@ -79,7 +212,7 @@ export default function Navbar() {
                     {name?.[0] ?? '?'}
                   </div>
                 )}
-                <span className="text-sm text-gray-700 hidden sm:block max-w-25  truncate">{name ?? user.email}</span>
+                <span className="text-sm text-gray-700 hidden sm:block max-w-[100px] truncate">{name ?? user.email}</span>
                 <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform hidden sm:block ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
