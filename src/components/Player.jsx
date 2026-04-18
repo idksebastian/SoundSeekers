@@ -13,7 +13,7 @@ export default function Player() {
   if (!currentSong || !isVisible) return null
 
   const coverUrl = currentSong.cover_url || currentSong.coverUrl || ''
-  const artistName = currentSong.artist_name || currentSong.artist || 'Artista'
+  const artistName = currentSong.display_artist || currentSong.artist_name || currentSong.artist || 'Artista'
   const isSpotify = currentSong.isSpotify
   const progressPercent = duration ? (progress / duration) * 100 : 0
 
