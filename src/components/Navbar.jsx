@@ -73,39 +73,44 @@ export default function Navbar() {
   const [featCount, setFeatCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifsLoaded, setNotifsLoaded] = useState(false)
   const notifRef = useRef(null)
 
   useEffect(() => {
-    if (user) {
-      getUserRole(user.id).then(r => {
-        setRole(r)
-        if (r?.role === 'artist') {
-          getPendingFeatsCount().then(setFeatCount)
-        }
-      })
-      isAdmin(user.id).then(admin => {
-        setIsAdminUser(admin)
-        if (admin) getPendingCount().then(setPendingCount)
-      })
-      getUnreadCount().then(setUnreadCount)
+    if (!user) return
 
-      const channel = subscribeToNotifications(user.id, (payload) => {
-        setNotifications(prev => [payload.new, ...prev])
-        setUnreadCount(prev => prev + 1)
-        if (payload.new.type === 'feat_invite') {
-          setFeatCount(prev => prev + 1)
-        }
-      })
+    Promise.all([
+      getUserRole(user.id),
+      isAdmin(user.id),
+      getUnreadCount(),
+      getNotifications(),
+    ]).then(([r, admin, count, notifs]) => {
+      setRole(r)
+      if (r?.role === 'artist') getPendingFeatsCount().then(setFeatCount)
+      setIsAdminUser(admin)
+      if (admin) getPendingCount().then(setPendingCount)
+      setUnreadCount(count)
+      setNotifications(notifs)
+      setNotifsLoaded(true)
+    })
 
-      return () => { channel.unsubscribe() }
-    }
+    const channel = subscribeToNotifications(user.id, async (payload) => {
+      const newNotif = payload.new
+      if (newNotif.from_user_id) {
+        const { data: profile } = await import('../lib/supabase').then(m =>
+          m.supabase.from('profiles').select('user_id, name, artist_name, avatar_url')
+            .eq('user_id', newNotif.from_user_id).single()
+        )
+        setNotifications(prev => [{ ...newNotif, from_profile: profile }, ...prev])
+      } else {
+        setNotifications(prev => [{ ...newNotif, from_profile: null }, ...prev])
+      }
+      setUnreadCount(prev => prev + 1)
+      if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
+    })
+
+    return () => { channel.unsubscribe() }
   }, [user])
-
-  useEffect(() => {
-    if (notifOpen && user) {
-      getNotifications().then(setNotifications)
-    }
-  }, [notifOpen])
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -138,7 +143,7 @@ export default function Navbar() {
     } else if (notif.type === 'follow') {
       navigate(`/artist/${notif.from_user_id}`)
     } else if (notif.type === 'like' || notif.type === 'comment') {
-      navigate('/community')
+      navigate(`/community?post=${notif.reference_id}`)
     } else if (notif.type === 'presave') {
       navigate(`/artist/${user.id}`)
     }
@@ -182,7 +187,6 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white text-black px-4 sm:px-6 py-3 flex justify-between items-center border-b border-gray-200 sticky top-0 z-40">
-
       <div className="flex items-center gap-2 sm:gap-6">
         <Link to="/home" className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-purple-700 text-white flex items-center justify-center text-sm font-bold shrink-0">SS</div>
@@ -234,7 +238,14 @@ export default function Navbar() {
                   </div>
 
                   <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
-                    {notifications.length === 0 ? (
+                    {!notifsLoaded ? (
+                      <div className="py-8 flex items-center justify-center">
+                        <svg className="w-6 h-6 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="py-12 text-center">
                         <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
                           <svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
