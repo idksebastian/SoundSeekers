@@ -18,6 +18,7 @@ import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
 import Admin from './pages/Admin'
+import Requests from './pages/Requests'
 
 export default function App() {
   return (
@@ -39,6 +40,11 @@ export default function App() {
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
+              } />
+              <Route path="/requests" element={
+              <ProtectedRoute>
+                <Requests />
+              </ProtectedRoute>
               } />
               <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/upload" element={
