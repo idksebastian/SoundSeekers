@@ -61,7 +61,7 @@ export async function getArtistAlbums(userId) {
     .from('albums')
     .select('*, songs(count)')
     .eq('user_id', userId)
-    .eq('status', 'published')
+    .in('status', ['published', 'presave'])
     .order('created_at', { ascending: false })
   if (error) throw error
   return data

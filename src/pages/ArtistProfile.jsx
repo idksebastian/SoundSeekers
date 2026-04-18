@@ -123,25 +123,31 @@ export default function ArtistProfile() {
     )
   }
 
-  const AlbumCard = ({ album }) => (
-    <div className="bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition cursor-pointer">
-      <div className="aspect-square rounded-xl overflow-hidden mb-3 bg-gray-200">
-        {album.cover_url ? (
-          <img src={album.cover_url} alt={album.title} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-purple-100 flex items-center justify-center">
-            <svg className="w-8 h-8 text-purple-300" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
-            </svg>
-          </div>
-        )}
-      </div>
-      <p className="text-sm font-semibold text-black truncate">{album.title}</p>
-      <p className="text-xs text-gray-400 mt-0.5">
-        {album.release_date ? new Date(album.release_date).getFullYear() : '—'} · {album.type === 'ep' ? 'EP' : album.type === 'album' ? 'Álbum' : 'Single'}
-      </p>
+const AlbumCard = ({ album }) => (
+  <div onClick={() => navigate(`/album/${album.id}`)}
+    className="bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition cursor-pointer">
+    <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-gray-200">
+      {album.cover_url ? (
+        <img src={album.cover_url} alt={album.title} className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full bg-purple-100 flex items-center justify-center">
+          <svg className="w-8 h-8 text-purple-300" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
+          </svg>
+        </div>
+      )}
+      {album.status === 'presave' && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+          <span className="text-white text-xs font-bold bg-purple-600 px-2 py-1 rounded-full">Próximamente</span>
+        </div>
+      )}
     </div>
-  )
+    <p className="text-sm font-semibold text-black truncate">{album.title}</p>
+    <p className="text-xs text-gray-400 mt-0.5">
+      {album.release_date ? new Date(album.release_date).getFullYear() : '—'} · {album.type === 'ep' ? 'EP' : album.type === 'album' ? 'Álbum' : 'Single'}
+    </p>
+  </div>
+)
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
