@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { logoutUser } from '../api/auth'
 import { getUserRole, isAdmin, getPendingCount } from '../api/roles'
 import { getNotifications, getUnreadCount, markAllAsRead, markAsRead, subscribeToNotifications } from '../api/notifications'
+import { getPendingFeatsCount } from '../api/songs'
 
 const NOTIFICATION_CONFIG = {
   follow: {
@@ -69,33 +70,47 @@ export default function Navbar() {
   const [role, setRole] = useState(null)
   const [isAdminUser, setIsAdminUser] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
+  const [featCount, setFeatCount] = useState(0)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifsLoaded, setNotifsLoaded] = useState(false)
   const notifRef = useRef(null)
 
   useEffect(() => {
-    if (user) {
-      getUserRole(user.id).then(r => setRole(r))
-      isAdmin(user.id).then(admin => {
-        setIsAdminUser(admin)
-        if (admin) getPendingCount().then(setPendingCount)
-      })
-      getUnreadCount().then(setUnreadCount)
+    if (!user) return
 
-      const channel = subscribeToNotifications(user.id, (payload) => {
-        setNotifications(prev => [payload.new, ...prev])
-        setUnreadCount(prev => prev + 1)
-      })
+    Promise.all([
+      getUserRole(user.id),
+      isAdmin(user.id),
+      getUnreadCount(),
+      getNotifications(),
+    ]).then(([r, admin, count, notifs]) => {
+      setRole(r)
+      if (r?.role === 'artist') getPendingFeatsCount().then(setFeatCount)
+      setIsAdminUser(admin)
+      if (admin) getPendingCount().then(setPendingCount)
+      setUnreadCount(count)
+      setNotifications(notifs)
+      setNotifsLoaded(true)
+    })
 
-      return () => { channel.unsubscribe() }
-    }
+    const channel = subscribeToNotifications(user.id, async (payload) => {
+      const newNotif = payload.new
+      if (newNotif.from_user_id) {
+        const { data: profile } = await import('../lib/supabase').then(m =>
+          m.supabase.from('profiles').select('user_id, name, artist_name, avatar_url')
+            .eq('user_id', newNotif.from_user_id).single()
+        )
+        setNotifications(prev => [{ ...newNotif, from_profile: profile }, ...prev])
+      } else {
+        setNotifications(prev => [{ ...newNotif, from_profile: null }, ...prev])
+      }
+      setUnreadCount(prev => prev + 1)
+      if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
+    })
+
+    return () => { channel.unsubscribe() }
   }, [user])
-
-  useEffect(() => {
-    if (notifOpen && user) {
-      getNotifications().then(setNotifications)
-    }
-  }, [notifOpen])
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -123,10 +138,14 @@ export default function Navbar() {
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))
     }
     setNotifOpen(false)
-    if (notif.type === 'follow' || notif.type === 'feat_invite') {
+    if (notif.type === 'feat_invite') {
+      navigate('/requests')
+    } else if (notif.type === 'follow') {
       navigate(`/artist/${notif.from_user_id}`)
     } else if (notif.type === 'like' || notif.type === 'comment') {
-      navigate('/community')
+      navigate(`/community?post=${notif.reference_id}`)
+    } else if (notif.type === 'presave') {
+      navigate(`/artist/${user.id}`)
     }
   }
 
@@ -164,13 +183,10 @@ export default function Navbar() {
     return p.artist_name || p.name || 'Alguien'
   }
 
-  const getFromAvatar = (notif) => {
-    return notif.from_profile?.avatar_url ?? null
-  }
+  const getFromAvatar = (notif) => notif.from_profile?.avatar_url ?? null
 
   return (
     <nav className="bg-white text-black px-4 sm:px-6 py-3 flex justify-between items-center border-b border-gray-200 sticky top-0 z-40">
-
       <div className="flex items-center gap-2 sm:gap-6">
         <Link to="/home" className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-purple-700 text-white flex items-center justify-center text-sm font-bold shrink-0">SS</div>
@@ -222,7 +238,14 @@ export default function Navbar() {
                   </div>
 
                   <div className="max-h-96 overflow-y-auto divide-y divide-gray-50">
-                    {notifications.length === 0 ? (
+                    {!notifsLoaded ? (
+                      <div className="py-8 flex items-center justify-center">
+                        <svg className="w-6 h-6 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                        </svg>
+                      </div>
+                    ) : notifications.length === 0 ? (
                       <div className="py-12 text-center">
                         <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-3">
                           <svg className="w-7 h-7 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,8 +267,7 @@ export default function Navbar() {
                             }`}>
                             <div className="relative shrink-0">
                               {fromAvatar ? (
-                                <img src={fromAvatar} alt={fromName}
-                                  className="w-10 h-10 rounded-full object-cover" />
+                                <img src={fromAvatar} alt={fromName} className="w-10 h-10 rounded-full object-cover" />
                               ) : (
                                 <div className="w-10 h-10 rounded-full bg-purple-700 flex items-center justify-center text-white text-sm font-bold uppercase">
                                   {fromName?.[0] ?? '?'}
@@ -285,7 +307,7 @@ export default function Navbar() {
                     {name?.[0] ?? '?'}
                   </div>
                 )}
-                <span className="text-sm text-gray-700 hidden sm:block max-w-25 truncate">{name ?? user.email}</span>
+                <span className="text-sm text-gray-700 hidden sm:block max-w-[100px] truncate">{name ?? user.email}</span>
                 <svg className={`w-3.5 h-3.5 text-gray-400 transition-transform hidden sm:block ${menuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
@@ -337,6 +359,24 @@ export default function Navbar() {
                         </div>
                         <span>Mi perfil</span>
                       </button>
+
+                      {role?.role === 'artist' && (
+                        <button
+                          onClick={() => { navigate('/requests'); setMenuOpen(false) }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition text-left group">
+                          <div className="w-7 h-7 rounded-lg bg-gray-100 group-hover:bg-purple-100 flex items-center justify-center transition shrink-0">
+                            <svg className="w-3.5 h-3.5 text-gray-500 group-hover:text-purple-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                          <span>Solicitudes</span>
+                          {featCount > 0 && (
+                            <span className="ml-auto bg-purple-600 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                              {featCount}
+                            </span>
+                          )}
+                        </button>
+                      )}
 
                       {isAdminUser && (
                         <button

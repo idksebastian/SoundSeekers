@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 export async function getNotifications() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return []
+
   const { data, error } = await supabase
     .from('notifications')
     .select(`
@@ -12,6 +13,7 @@ export async function getNotifications() {
     .eq('user_id', session.user.id)
     .order('created_at', { ascending: false })
     .limit(30)
+<<<<<<< Updated upstream
   if (error) {
     const { data: data2, error: error2 } = await supabase
       .from('notifications')
@@ -32,6 +34,26 @@ export async function getNotifications() {
     return withProfiles
   }
   return data
+=======
+
+  if (error) throw error
+  if (!data?.length) return []
+
+  const fromUserIds = [...new Set(data.map(n => n.from_user_id).filter(Boolean))]
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, name, artist_name, avatar_url')
+    .in('user_id', fromUserIds)
+
+  const profileMap = {}
+  profiles?.forEach(p => { profileMap[p.user_id] = p })
+
+  return data.map(notif => ({
+    ...notif,
+    from_profile: notif.from_user_id ? profileMap[notif.from_user_id] ?? null : null
+  }))
+>>>>>>> Stashed changes
 }
 
 export async function getUnreadCount() {
@@ -76,7 +98,7 @@ export async function createNotification({ userId, type, fromUserId, referenceId
 
 export function subscribeToNotifications(userId, callback) {
   return supabase
-    .channel('notifications')
+    .channel(`notifications:${userId}`)
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',
