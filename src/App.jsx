@@ -19,6 +19,7 @@ import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
 import Admin from './pages/Admin'
 import Requests from './pages/Requests'
+import AlbumDetail from './pages/AlbumDetail'
 
 export default function App() {
   return (
@@ -28,6 +29,7 @@ export default function App() {
           <Navbar />
           <PageTransition>
             <Routes>
+              <Route path="/album/:albumId" element={<AlbumDetail />} />
               <Route path="/" element={<Navigate to="/home" />} />
               <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
