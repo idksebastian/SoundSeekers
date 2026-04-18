@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef } from 'react'
 import { createSong, searchArtists } from '../api/songs'
 import { createAlbum } from '../api/albums'
 import { useNavigate } from 'react-router-dom'
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Rap', 'Folk', 'Indie', 'Otro']
 const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a']
 const MAX_SIZE = 50 * 1024 * 1024
+const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
 
 const emptyTrack = () => ({
   id: Math.random().toString(36).slice(2),
@@ -22,6 +23,9 @@ const emptyTrack = () => ({
   featResults: [],
   tags: [],
   tagInput: '',
+  credits: [],
+  creditName: '',
+  creditRole: '',
 })
 
 export default function Upload() {
@@ -32,7 +36,6 @@ export default function Upload() {
 
   const [step, setStep] = useState(1)
   const [projectType, setProjectType] = useState(null)
-
   const [coverFile, setCoverFile] = useState(null)
   const [coverPreview, setCoverPreview] = useState(null)
   const [projectTitle, setProjectTitle] = useState('')
@@ -40,19 +43,16 @@ export default function Upload() {
   const [releaseDate, setReleaseDate] = useState('')
   const [isPresave, setIsPresave] = useState(false)
   const [presaveDate, setPresaveDate] = useState('')
-
   const [tracks, setTracks] = useState([emptyTrack()])
   const [dragOver, setDragOver] = useState(null)
   const [dragItem, setDragItem] = useState(null)
-
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [currentTrack, setCurrentTrack] = useState(0)
   const [error, setError] = useState('')
 
-  const updateTrack = (id, field, value) => {
+  const updateTrack = (id, field, value) =>
     setTracks(prev => prev.map(t => t.id === id ? { ...t, [field]: value } : t))
-  }
 
   const handleCoverChange = (e) => {
     const file = e.target.files[0]
@@ -69,19 +69,16 @@ export default function Upload() {
     setError('')
     const url = URL.createObjectURL(file)
     const tempAudio = new Audio(url)
-    tempAudio.addEventListener('loadedmetadata', () => {
+    tempAudio.addEventListener('loadedmetadata', () =>
       updateTrack(trackId, 'audioDuration', Math.floor(tempAudio.duration))
-    })
+    )
     updateTrack(trackId, 'audioFile', file)
     updateTrack(trackId, 'audioName', file.name)
   }
 
   const handleFeatSearch = async (trackId, query) => {
     updateTrack(trackId, 'featSearch', query)
-    if (query.trim().length < 2) {
-      updateTrack(trackId, 'featResults', [])
-      return
-    }
+    if (query.trim().length < 2) { updateTrack(trackId, 'featResults', []); return }
     const results = await searchArtists(query)
     updateTrack(trackId, 'featResults', results)
   }
@@ -90,21 +87,27 @@ export default function Upload() {
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       if (t.collaborators.find(c => c.user_id === artist.user_id)) return t
-      return {
-        ...t,
-        collaborators: [...t.collaborators, artist],
-        featSearch: '',
-        featResults: [],
-      }
+      return { ...t, collaborators: [...t.collaborators, artist], featSearch: '', featResults: [] }
     }))
   }
 
-  const removeCollaborator = (trackId, userId) => {
+  const removeCollaborator = (trackId, userId) =>
     setTracks(prev => prev.map(t =>
-      t.id === trackId
-        ? { ...t, collaborators: t.collaborators.filter(c => c.user_id !== userId) }
-        : t
+      t.id === trackId ? { ...t, collaborators: t.collaborators.filter(c => c.user_id !== userId) } : t
     ))
+
+  const addCredit = (trackId) => {
+    const track = tracks.find(t => t.id === trackId)
+    if (!track.creditName.trim() || !track.creditRole) return
+    const credit = { name: track.creditName.trim(), role: track.creditRole }
+    updateTrack(trackId, 'credits', [...track.credits, credit])
+    updateTrack(trackId, 'creditName', '')
+    updateTrack(trackId, 'creditRole', '')
+  }
+
+  const removeCredit = (trackId, index) => {
+    const track = tracks.find(t => t.id === trackId)
+    updateTrack(trackId, 'credits', track.credits.filter((_, i) => i !== index))
   }
 
   const handleAddTag = (trackId, e) => {
@@ -112,9 +115,8 @@ export default function Upload() {
     e.preventDefault()
     const track = tracks.find(t => t.id === trackId)
     const tag = track.tagInput.trim().replace(/^#/, '').toLowerCase()
-    if (tag && !track.tags.includes(tag) && track.tags.length < 5) {
+    if (tag && !track.tags.includes(tag) && track.tags.length < 5)
       updateTrack(trackId, 'tags', [...track.tags, tag])
-    }
     updateTrack(trackId, 'tagInput', '')
   }
 
@@ -146,7 +148,7 @@ export default function Upload() {
     for (const t of tracks) {
       if (!t.title.trim()) return `El track "${t.title || 'sin título'}" necesita un título.`
       if (!t.genre) return `El track "${t.title}" necesita un género.`
-      if (!t.audioFile) return `El track "${t.title}" necesita un archivo de audio.`
+      if (!t.audioFile) return `El track "${t.title || 'sin título'}" necesita un archivo de audio.`
     }
     return null
   }
@@ -172,9 +174,10 @@ export default function Upload() {
 
       for (let i = 0; i < tracks.length; i++) {
         setCurrentTrack(i + 1)
-        setUploadProgress(Math.round(((i) / tracks.length) * 100))
+        setUploadProgress(Math.round((i / tracks.length) * 100))
         const t = tracks[i]
         const finalGenre = t.genre === 'Otro' ? t.customGenre : t.genre
+        const collabNames = t.collaborators.map(c => c.artist_name || c.name)
         await createSong({
           title: t.title,
           genre: finalGenre,
@@ -185,7 +188,10 @@ export default function Upload() {
           duration: t.audioDuration,
           tags: t.tags,
           collaborators: t.collaborators.map(c => ({ user_id: c.user_id, name: c.artist_name || c.name })),
+          credits: t.credits,
           trackNumber: i + 1,
+          displayArtist: collabNames.length > 0 ? null : null,
+          collaboratorNames: collabNames,
         })
       }
 
@@ -199,27 +205,9 @@ export default function Upload() {
   }
 
   const PROJECT_TYPES = [
-    {
-      type: 'single',
-      icon: '🎵',
-      title: 'Single',
-      desc: '1 canción',
-      detail: 'Una canción independiente. Ideal para lanzamientos rápidos.',
-    },
-    {
-      type: 'ep',
-      icon: '📀',
-      title: 'EP',
-      desc: '2 – 6 canciones',
-      detail: 'Un proyecto corto. Perfecta para mostrar tu estilo.',
-    },
-    {
-      type: 'album',
-      icon: '💿',
-      title: 'Álbum',
-      desc: '7+ canciones',
-      detail: 'Tu proyecto completo. Cuéntalo todo.',
-    },
+    { type: 'single', icon: '🎵', title: 'Single', desc: '1 canción', detail: 'Una canción independiente. Ideal para lanzamientos rápidos.' },
+    { type: 'ep', icon: '📀', title: 'EP', desc: '2 – 6 canciones', detail: 'Un proyecto corto. Perfecta para mostrar tu estilo.' },
+    { type: 'album', icon: '💿', title: 'Álbum', desc: '7+ canciones', detail: 'Tu proyecto completo. Cuéntalo todo.' },
   ]
 
   return (
@@ -233,11 +221,9 @@ export default function Upload() {
 
         {step > 1 && (
           <div className="flex items-center gap-2 mb-8">
-            {(['Tipo', 'Proyecto', 'Canciones', 'Publicar']).map((label, i) => {
+            {['Tipo', 'Proyecto', 'Canciones'].map((label, i) => {
               const s = i + 1
-              const maxStep = projectType === 'single' ? 3 : 4
               if (projectType === 'single' && s === 3) label = 'Canción'
-              if (projectType === 'single' && s === 4) return null
               return (
                 <div key={s} className="flex items-center gap-2">
                   <div className={`flex items-center gap-1.5 ${s <= step ? 'text-purple-700' : 'text-gray-400'}`}>
@@ -250,9 +236,7 @@ export default function Upload() {
                     </div>
                     <span className="text-xs font-medium hidden sm:block">{label}</span>
                   </div>
-                  {s < (projectType === 'single' ? 3 : 4) && (
-                    <div className={`h-px w-6 sm:w-10 ${s < step ? 'bg-purple-700' : 'bg-gray-200'}`} />
-                  )}
+                  {s < 3 && <div className={`h-px w-6 sm:w-10 ${s < step ? 'bg-purple-700' : 'bg-gray-200'}`} />}
                 </div>
               )
             })}
@@ -415,7 +399,7 @@ export default function Upload() {
                       {projectType !== 'single' && (
                         <div className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 transition shrink-0">
                           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm8-12a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+                            <path d="M8 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm8-12a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm0 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" />
                           </svg>
                         </div>
                       )}
@@ -454,10 +438,7 @@ export default function Upload() {
 
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-500">Audio *</label>
-                        <div onClick={() => {
-                          if (!audioRefs.current[track.id]) return
-                          audioRefs.current[track.id].click()
-                        }}
+                        <div onClick={() => audioRefs.current[track.id]?.click()}
                           className={`cursor-pointer rounded-xl border-2 border-dashed transition p-2 text-center ${
                             track.audioFile ? 'border-purple-200 bg-purple-50' : 'border-gray-200 hover:border-purple-400 bg-gray-50'
                           }`}>
@@ -481,15 +462,13 @@ export default function Upload() {
                       </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-gray-500">Colaboradores (feat.)</label>
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-500">Artistas principales (feat.)</label>
                       <div className="relative">
-                        <input
-                          placeholder="Buscar artista..."
+                        <input placeholder="Buscar artista en SoundSeekers..."
                           value={track.featSearch}
                           onChange={e => handleFeatSearch(track.id, e.target.value)}
-                          className="w-full bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
-                        />
+                          className="w-full bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
                         {track.featResults.length > 0 && (
                           <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-20 overflow-hidden">
                             {track.featResults.map(artist => (
@@ -514,12 +493,11 @@ export default function Upload() {
                         )}
                       </div>
                       {track.collaborators.length > 0 && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="flex flex-wrap gap-2">
                           {track.collaborators.map(c => (
                             <span key={c.user_id} className="flex items-center gap-1.5 bg-purple-50 text-purple-700 text-xs font-medium px-2.5 py-1 rounded-full">
                               {c.artist_name || c.name}
-                              <button type="button" onClick={() => removeCollaborator(track.id, c.user_id)}
-                                className="hover:text-purple-900 transition">
+                              <button type="button" onClick={() => removeCollaborator(track.id, c.user_id)}>
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                 </svg>
@@ -528,6 +506,51 @@ export default function Upload() {
                           ))}
                         </div>
                       )}
+                      {track.collaborators.length > 0 && (
+                        <p className="text-xs text-gray-400">
+                          Se mostrará como: <span className="font-medium text-gray-600">
+                            Artista Principal{track.collaborators.map(c => `, ${c.artist_name || c.name}`).join('')}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-gray-500">Créditos</label>
+                      {track.credits.length > 0 && (
+                        <div className="space-y-1.5 mb-2">
+                          {track.credits.map((credit, i) => (
+                            <div key={i} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+                              <div>
+                                <span className="text-sm font-medium text-black">{credit.name}</span>
+                                <span className="text-xs text-gray-400 ml-2">· {credit.role}</span>
+                              </div>
+                              <button type="button" onClick={() => removeCredit(track.id, i)}
+                                className="text-gray-300 hover:text-red-400 transition">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        <input placeholder="Nombre" value={track.creditName}
+                          onChange={e => updateTrack(track.id, 'creditName', e.target.value)}
+                          className="flex-1 bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
+                        <select value={track.creditRole}
+                          onChange={e => updateTrack(track.id, 'creditRole', e.target.value)}
+                          className="w-40 bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
+                          <option value="">Rol</option>
+                          {CREDIT_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                        <button type="button" onClick={() => addCredit(track.id)}
+                          disabled={!track.creditName.trim() || !track.creditRole}
+                          className="px-3 py-2 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40">
+                          +
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-1">
@@ -570,14 +593,11 @@ export default function Upload() {
             {uploading && (
               <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-black">
-                    Subiendo track {currentTrack} de {tracks.length}...
-                  </p>
+                  <p className="text-sm font-medium text-black">Subiendo track {currentTrack} de {tracks.length}...</p>
                   <p className="text-sm text-purple-600 font-medium">{uploadProgress}%</p>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-purple-600 rounded-full transition-all duration-500"
-                    style={{ width: `${uploadProgress}%` }} />
+                  <div className="h-full bg-purple-600 rounded-full transition-all duration-500" style={{ width: `${uploadProgress}%` }} />
                 </div>
               </div>
             )}
