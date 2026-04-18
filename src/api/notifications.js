@@ -6,35 +6,10 @@ export async function getNotifications() {
 
   const { data, error } = await supabase
     .from('notifications')
-    .select(`
-      *,
-      from_profile:profiles!fk_from_user(user_id, name, artist_name, avatar_url)
-    `)
+    .select('*')
     .eq('user_id', session.user.id)
     .order('created_at', { ascending: false })
     .limit(30)
-<<<<<<< Updated upstream
-  if (error) {
-    const { data: data2, error: error2 } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .limit(30)
-    if (error2) throw error2
-    const withProfiles = await Promise.all(data2.map(async (notif) => {
-      if (!notif.from_user_id) return { ...notif, from_profile: null }
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('user_id, name, artist_name, avatar_url')
-        .eq('user_id', notif.from_user_id)
-        .single()
-      return { ...notif, from_profile: profile }
-    }))
-    return withProfiles
-  }
-  return data
-=======
 
   if (error) throw error
   if (!data?.length) return []
@@ -53,7 +28,6 @@ export async function getNotifications() {
     ...notif,
     from_profile: notif.from_user_id ? profileMap[notif.from_user_id] ?? null : null
   }))
->>>>>>> Stashed changes
 }
 
 export async function getUnreadCount() {
