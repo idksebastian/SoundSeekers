@@ -49,6 +49,9 @@ export default function Login() {
           <div>
             <label className="text-black font-semibold text-sm">Contraseña</label>
             <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <Link to="/forgot-password" className="text-xs text-purple-600 hover:underline">
+              ¿Olvidaste tu contraseña?
+            </Link>
           </div>
           <button type="submit"
             className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition">

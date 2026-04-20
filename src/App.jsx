@@ -15,6 +15,13 @@ import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Community from './pages/Community'
 import NotFound from './pages/NotFound'
+import Animo from './pages/Animo'
+import ArtistProfile from './pages/ArtistProfile'
+import Admin from './pages/Admin'
+import Requests from './pages/Requests'
+import AlbumDetail from './pages/AlbumDetail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 export default function App() {
   return (
@@ -24,12 +31,28 @@ export default function App() {
           <Navbar />
           <PageTransition>
             <Routes>
+              <Route path="/album/:albumId" element={<AlbumDetail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/" element={<Navigate to="/home" />} />
               <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
+              <Route path="/animo" element={<Animo />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <Profile />
+                </ProtectedRoute>
+              } />
+              <Route path="/requests" element={
+              <ProtectedRoute>
+                <Requests />
+              </ProtectedRoute>
+              } />
+              <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <ArtistRoute>
@@ -40,11 +63,6 @@ export default function App() {
               <Route path="/edit/:id" element={
                 <ProtectedRoute>
                   <EditSong />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Profile />
                 </ProtectedRoute>
               } />
               <Route path="*" element={<NotFound />} />
