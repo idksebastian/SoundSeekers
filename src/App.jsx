@@ -29,6 +29,7 @@ export default function App() {
           <Navbar />
           <PageTransition>
             <Routes>
+              <Route path="/album/:albumId" element={<AlbumDetail />} />
               <Route path="/" element={<Navigate to="/home" />} />
               <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
@@ -42,6 +43,11 @@ export default function App() {
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
+              } />
+              <Route path="/requests" element={
+              <ProtectedRoute>
+                <Requests />
+              </ProtectedRoute>
               } />
               <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/requests" element={

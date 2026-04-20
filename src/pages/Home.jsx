@@ -54,16 +54,16 @@ export default function Home() {
 
         const artistMap = {}
         data.forEach(song => {
-          if (song.artist_name && !artistMap[song.artist_name]) {
-            artistMap[song.artist_name] = {
-              name: song.artist_name,
+          if (song.artist_name && !artistMap[song.user_id]) {
+            artistMap[song.user_id] = {
+              name: song.display_artist || song.artist_name,
               cover: song.cover_url,
               genre: song.genre,
               songs: 1,
               user_id: song.user_id,
             }
-          } else if (song.artist_name) {
-            artistMap[song.artist_name].songs++
+          } else if (song.user_id && artistMap[song.user_id]) {
+            artistMap[song.user_id].songs++
           }
         })
         setArtists(Object.values(artistMap).slice(0, 6))
@@ -95,6 +95,7 @@ export default function Home() {
     const results = allSongs.filter(s =>
       s.title?.toLowerCase().includes(q) ||
       s.artist_name?.toLowerCase().includes(q) ||
+      s.display_artist?.toLowerCase().includes(q) ||
       s.genre?.toLowerCase().includes(q)
     ).slice(0, 5)
     setSearchResults(results)
@@ -149,13 +150,9 @@ export default function Home() {
           <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
           </svg>
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Buscar canciones, artistas o géneros..."
-            className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
-          />
+            className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" />
           {searchResults.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 overflow-hidden">
               {searchResults.map(song => (
@@ -164,7 +161,7 @@ export default function Home() {
                   <img src={song.cover_url} alt={song.title} className="w-9 h-9 rounded-lg object-cover shrink-0"/>
                   <div className="text-left min-w-0">
                     <p className="text-sm font-medium text-gray-900 truncate">{song.title}</p>
-                    <p className="text-xs text-gray-400 truncate">{song.artist_name} · {song.genre}</p>
+                    <p className="text-xs text-gray-400 truncate">{song.display_artist || song.artist_name} · {song.genre}</p>
                   </div>
                   <svg className="w-4 h-4 text-purple-500 shrink-0 ml-auto" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M5 3l14 9-14 9V3z"/>
@@ -216,9 +213,9 @@ export default function Home() {
               <p className="text-lg font-bold text-gray-900 truncate">{topSong.title}</p>
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-5 h-5 rounded-full overflow-hidden bg-purple-100 shrink-0">
-                  <img src={artistAvatars[topSong.user_id] || topSong.cover_url} alt={topSong.artist_name} className="w-full h-full object-cover"/>
+                  <img src={artistAvatars[topSong.user_id] || topSong.cover_url} alt={topSong.display_artist || topSong.artist_name} className="w-full h-full object-cover"/>
                 </div>
-                <p className="text-sm text-gray-400 truncate">{topSong.artist_name ?? 'Artista'}</p>
+                <p className="text-sm text-gray-400 truncate">{topSong.display_artist || topSong.artist_name || 'Artista'}</p>
                 <span className="text-gray-300">·</span>
                 <p className="text-sm text-gray-400">{topSong.genre}</p>
               </div>
@@ -291,6 +288,7 @@ export default function Home() {
             {filteredSongs.map(song => {
               const isCurrentSong = currentSong?.id === song.id
               const artistAvatar = artistAvatars[song.user_id] || song.cover_url
+              const displayArtist = song.display_artist || song.artist_name
               return (
                 <div key={song.id} className="group cursor-pointer" onClick={() => playSong(song, filteredSongs)}>
                   <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
@@ -310,9 +308,9 @@ export default function Home() {
                   <p className="text-black text-sm font-medium truncate">{song.title}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     <div className="w-4 h-4 rounded-full overflow-hidden bg-purple-100 shrink-0">
-                      <img src={artistAvatar} alt={song.artist_name} className="w-full h-full object-cover"/>
+                      <img src={artistAvatar} alt={displayArtist} className="w-full h-full object-cover"/>
                     </div>
-                    <p className="text-gray-400 text-xs truncate">{song.artist_name ?? 'Artista'}</p>
+                    <p className="text-gray-400 text-xs truncate">{displayArtist ?? 'Artista'}</p>
                   </div>
                 </div>
               )
@@ -337,7 +335,7 @@ export default function Home() {
                 .filter(s => s.user_id === artist.user_id)
                 .reduce((acc, s) => acc + (s.streams ?? 0), 0)
               return (
-                <div key={artist.name} className="text-center group cursor-pointer"
+                <div key={artist.user_id} className="text-center group cursor-pointer"
                   onClick={() => navigate(`/artist/${artist.user_id}`)}>
                   <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
                     {avatar ? (
@@ -393,7 +391,6 @@ export default function Home() {
           </Link>
         </section>
       )}
-
     </div>
   )
-} 
+}
