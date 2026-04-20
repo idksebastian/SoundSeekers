@@ -40,11 +40,10 @@ export default function Player() {
   const [loadingArtist, setLoadingArtist] = useState(false)
 
   const coverUrl = currentSong?.cover_url || currentSong?.coverUrl || ''
-  const artistName = currentSong?.artist_name || currentSong?.artist || 'Artista'
+  const artistName = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista'
   const isSpotify = currentSong?.isSpotify
   const progressPercent = duration ? (progress / duration) * 100 : 0
 
-  // Bloquear scroll de la página cuando fullscreen está activo
   useEffect(() => {
     if (isFullscreen) {
       document.body.style.overflow = 'hidden'
@@ -54,13 +53,11 @@ export default function Player() {
     return () => { document.body.style.overflow = '' }
   }, [isFullscreen])
 
-  // Extraer color dominante
   useEffect(() => {
     if (!coverUrl) return
     extractColor(coverUrl, (color) => setDominantColor(color))
   }, [coverUrl])
 
-  // Traer info del artista
   useEffect(() => {
     if (!currentSong || isSpotify) {
       setArtistInfo(null)
@@ -98,23 +95,29 @@ export default function Player() {
 
   return (
     <>
-      {/* ── PANTALLA COMPLETA ── */}
       {isFullscreen && (
         <div
-          className="fixed inset-0 z-[100] flex flex-col overflow-y-auto"
           style={{
-            background: `linear-gradient(160deg, rgb(${dominantColor}) 0%, rgba(${dominantColor}, 0.5) 50%, #080808 100%)`,
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 9999,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: `rgb(${dominantColor})`,
+            background: `linear-gradient(160deg, rgb(${dominantColor}) 0%, rgba(${dominantColor}, 0.7) 50%, #080808 100%)`,
             transition: 'background 0.8s ease',
           }}
         >
-          {/* Header fijo dentro del scroll */}
-          <div className="sticky top-0 z-10 flex items-center justify-between px-6 pt-10 pb-4"
+          <div
+            className="sticky top-0 z-10 flex items-center justify-between px-6 pt-10 pb-4"
             style={{ background: `linear-gradient(to bottom, rgb(${dominantColor}), transparent)` }}
           >
-            <button
-              onClick={() => setIsFullscreen(false)}
-              className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition backdrop-blur-sm"
-            >
+            <button onClick={() => setIsFullscreen(false)}
+              className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition backdrop-blur-sm">
               <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
               </svg>
@@ -122,17 +125,14 @@ export default function Player() {
             <p className="text-white/60 text-xs font-medium uppercase tracking-widest">
               {isSpotify ? 'Preview de Spotify' : 'Reproduciendo ahora'}
             </p>
-            <button
-              onClick={() => { setIsVisible(false); setIsFullscreen(false) }}
-              className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition backdrop-blur-sm"
-            >
+            <button onClick={() => { setIsVisible(false); setIsFullscreen(false) }}
+              className="w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center transition backdrop-blur-sm">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
 
-          {/* Portada + info canción */}
           <div className="flex flex-col items-center px-8 pb-6 gap-5">
             <div className="w-64 h-64 md:w-72 md:h-72 rounded-3xl overflow-hidden shadow-2xl">
               {coverUrl ? (
@@ -165,9 +165,7 @@ export default function Player() {
             </div>
           </div>
 
-          {/* Controles */}
           <div className="px-8 pb-6">
-            {/* Barra de progreso */}
             <div className="mb-5">
               <div className="relative h-1 bg-white/20 rounded-full mb-2">
                 <div className="absolute top-0 left-0 h-full bg-white rounded-full" style={{ width: `${progressPercent}%` }}/>
@@ -180,15 +178,12 @@ export default function Player() {
               </div>
             </div>
 
-            {/* Botones */}
             <div className="flex items-center justify-center gap-6 mb-5">
               <button onClick={playPrev} className="w-12 h-12 flex items-center justify-center text-white/70 hover:text-white transition">
                 <svg className="w-7 h-7" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
-              <button
-                onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
-                className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-105 transition"
-              >
+              <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
+                className="w-16 h-16 rounded-full bg-white flex items-center justify-center shadow-lg hover:scale-105 transition">
                 {isPlaying ? (
                   <svg className="w-7 h-7 text-black" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
                 ) : (
@@ -200,7 +195,6 @@ export default function Player() {
               </button>
             </div>
 
-            {/* Volumen */}
             <div className="flex items-center gap-3">
               <svg className="w-4 h-4 text-white/40 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
@@ -213,7 +207,6 @@ export default function Player() {
             </div>
           </div>
 
-          {/* Indicador de scroll */}
           {!isSpotify && (artistInfo || relatedSongs.length > 0) && (
             <div className="flex flex-col items-center pb-4 text-white/30">
               <span className="text-xs mb-1">Desliza para ver más</span>
@@ -223,11 +216,8 @@ export default function Player() {
             </div>
           )}
 
-          {/* Info del artista — aparece al deslizar */}
           {!isSpotify && (
             <div className="px-8 pb-10" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)' }}>
-
-              {/* Info artista */}
               {loadingArtist ? (
                 <div className="text-center text-white/40 py-8 text-sm">Cargando info del artista...</div>
               ) : artistInfo ? (
@@ -265,7 +255,6 @@ export default function Player() {
                 </div>
               ) : null}
 
-              {/* Canciones relacionadas */}
               {relatedSongs.length > 0 && (
                 <div>
                   <p className="text-white/40 text-xs uppercase tracking-widest font-semibold mb-4">
@@ -273,15 +262,12 @@ export default function Player() {
                   </p>
                   <div className="flex flex-col gap-2">
                     {relatedSongs.map(song => (
-                      <div
-                        key={song.id}
-                        onClick={() => playSong(song)}
-                        className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition group"
-                      >
+                      <div key={song.id} onClick={() => playSong(song)}
+                        className="flex items-center gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition group">
                         <img src={song.cover_url} alt={song.title} className="w-10 h-10 rounded-lg object-cover shrink-0"/>
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm font-medium truncate">{song.title}</p>
-                          <p className="text-white/40 text-xs">{song.genre}</p>
+                          <p className="text-white/40 text-xs truncate">{song.display_artist || song.artist_name}</p>
                         </div>
                         <svg className="w-4 h-4 text-white/30 group-hover:text-white/70 transition shrink-0" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M5 3l14 9-14 9V3z"/>
@@ -296,7 +282,6 @@ export default function Player() {
         </div>
       )}
 
-      {/* ── MINI REPRODUCTOR ── */}
       {!isFullscreen && (
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-xl z-50">
           <div className="relative h-1 bg-gray-100 cursor-pointer">
@@ -306,7 +291,6 @@ export default function Player() {
           </div>
 
           <div className="flex items-center gap-3 px-4 py-3">
-            {/* Portada + info */}
             <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setIsFullscreen(true)}>
               <div className="relative shrink-0">
                 {coverUrl ? (
@@ -330,15 +314,12 @@ export default function Player() {
               </div>
             </div>
 
-            {/* Controles */}
             <div className="flex items-center gap-2 shrink-0">
               <button onClick={playPrev} className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition">
                 <svg className="w-4 h-4 text-gray-600" fill="currentColor" viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
               </button>
-              <button
-                onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
-                className="w-10 h-10 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shadow-md"
-              >
+              <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
+                className="w-10 h-10 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shadow-md">
                 {isPlaying ? (
                   <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
                 ) : (
@@ -350,7 +331,6 @@ export default function Player() {
               </button>
             </div>
 
-            {/* Volumen */}
             <div className="hidden md:flex items-center gap-2 flex-1 justify-end">
               <svg className="w-4 h-4 text-gray-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
@@ -359,7 +339,6 @@ export default function Player() {
                 onChange={handleVolume} className="w-20 h-1.5 accent-purple-600 cursor-pointer"/>
             </div>
 
-            {/* Fullscreen */}
             <button onClick={() => setIsFullscreen(true)}
               className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition shrink-0">
               <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -367,11 +346,8 @@ export default function Player() {
               </svg>
             </button>
 
-            {/* Cerrar */}
-            <button
-              onClick={() => { setIsVisible(false); setIsFullscreen(false) }}
-              className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition shrink-0"
-            >
+            <button onClick={() => { setIsVisible(false); setIsFullscreen(false) }}
+              className="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center transition shrink-0">
               <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
               </svg>

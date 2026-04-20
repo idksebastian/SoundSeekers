@@ -18,6 +18,8 @@ import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
 import Admin from './pages/Admin'
+import Requests from './pages/Requests'
+import AlbumDetail from './pages/AlbumDetail'
 
 export default function App() {
   return (
@@ -35,12 +37,18 @@ export default function App() {
               <Route path="/community" element={<Community />} />
               <Route path="/animo" element={<Animo />} />
               <Route path="/admin" element={<Admin />} />
+              <Route path="/album/:albumId" element={<AlbumDetail />} />
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
               } />
               <Route path="/artist/:userId" element={<ArtistProfile />} />
+              <Route path="/requests" element={
+                <ProtectedRoute>
+                  <Requests />
+                </ProtectedRoute>
+              } />
               <Route path="/upload" element={
                 <ProtectedRoute>
                   <ArtistRoute>
@@ -56,8 +64,9 @@ export default function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </PageTransition>
-          <Player />
         </BrowserRouter>
+        {/* Player fuera del BrowserRouter para evitar stacking context */}
+        <Player />
       </PlayerProvider>
     </AuthProvider>
   )
