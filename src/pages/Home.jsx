@@ -3,18 +3,21 @@ import { getSongs } from '../api/songs'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
-import SkeletonHomeSong from '../components/SkeletonHomeSong'
 import { supabase } from '../lib/supabase'
 
 const GENRES = [
-  { label: 'Todos', value: null, icon: <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg> },
-  { label: 'Indie', value: 'Indie', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg> },
-  { label: 'Electrónica', value: 'Electrónica', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> },
-  { label: 'Folk', value: 'Folk', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 18v-6a9 9 0 0118 0v6"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg> },
-  { label: 'Hip-Hop', value: 'Hip-Hop', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg> },
-  { label: 'Champeta', value: 'Champeta', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"/></svg> },
-  { label: 'Jazz', value: 'Jazz', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/></svg> },
-  { label: 'Pop', value: 'Pop', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg> },
+  { label: 'Todos', value: null },
+  { label: 'Reggaeton', value: 'Reggaeton' },
+  { label: 'Hip-Hop', value: 'Hip-Hop' },
+  { label: 'Champeta', value: 'Champeta' },
+  { label: 'Electrónica', value: 'Electrónica' },
+  { label: 'Pop', value: 'Pop' },
+  { label: 'Indie', value: 'Indie' },
+  { label: 'Jazz', value: 'Jazz' },
+  { label: 'Folk', value: 'Folk' },
+  { label: 'Vallenato', value: 'Vallenato' },
+  { label: 'Salsa', value: 'Salsa' },
+  { label: 'Rap', value: 'Rap' },
 ]
 
 export default function Home() {
@@ -37,43 +40,21 @@ export default function Home() {
       try {
         const data = await getSongs()
         setAllSongs(data)
-        setRecentSongs(data.slice(0, 6))
-
+        setRecentSongs(data.slice(0, 8))
         const sorted = [...data].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
         if (sorted[0]) setTopSong(sorted[0])
-
         const genreMap = {}
-        data.forEach(s => {
-          if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1
-        })
-        const genreList = Object.entries(genreMap)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 6)
-          .map(([genre, count]) => ({ genre, count }))
-        setGenreCounts(genreList)
-
+        data.forEach(s => { if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1 })
+        setGenreCounts(Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([genre, count]) => ({ genre, count })))
         const artistMap = {}
         data.forEach(song => {
-          if (song.artist_name && !artistMap[song.user_id]) {
-            artistMap[song.user_id] = {
-              name: song.display_artist || song.artist_name,
-              cover: song.cover_url,
-              genre: song.genre,
-              songs: 1,
-              user_id: song.user_id,
-            }
-          } else if (song.user_id && artistMap[song.user_id]) {
-            artistMap[song.user_id].songs++
-          }
+          if (song.user_id && !artistMap[song.user_id])
+            artistMap[song.user_id] = { name: song.display_artist || song.artist_name, cover: song.cover_url, genre: song.genre, user_id: song.user_id }
         })
-        setArtists(Object.values(artistMap).slice(0, 6))
-
+        setArtists(Object.values(artistMap).slice(0, 8))
         const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
         if (userIds.length > 0) {
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('user_id, avatar_url')
-            .in('user_id', userIds)
+          const { data: profilesData } = await supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds)
           if (profilesData) {
             const avatarMap = {}
             profilesData.forEach(p => { avatarMap[p.user_id] = p.avatar_url })
@@ -81,7 +62,7 @@ export default function Home() {
           }
         }
       } catch (err) {
-        console.error('Error cargando home:', err)
+        console.error(err)
       } finally {
         setLoading(false)
       }
@@ -92,304 +73,275 @@ export default function Home() {
   useEffect(() => {
     if (!search.trim()) { setSearchResults([]); return }
     const q = search.toLowerCase()
-    const results = allSongs.filter(s =>
+    setSearchResults(allSongs.filter(s =>
       s.title?.toLowerCase().includes(q) ||
       s.artist_name?.toLowerCase().includes(q) ||
       s.display_artist?.toLowerCase().includes(q) ||
       s.genre?.toLowerCase().includes(q)
-    ).slice(0, 5)
-    setSearchResults(results)
+    ).slice(0, 6))
   }, [search, allSongs])
 
-  const filteredSongs = selectedGenre
-    ? allSongs.filter(s => s.genre === selectedGenre).slice(0, 6)
-    : recentSongs
-
+  const filteredSongs = selectedGenre ? allSongs.filter(s => s.genre === selectedGenre).slice(0, 8) : recentSongs
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#111' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { display: none; }
 
-      {user && (
-        <div className="bg-gradient-to-r from-purple-700 to-purple-500 text-white px-6 py-4">
-          <div className="max-w-5xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center font-bold text-lg uppercase shrink-0">
-                {userName?.[0] ?? '?'}
-              </div>
-              <div>
-                <p className="font-bold text-sm">¡Bienvenido de vuelta, {userName}!</p>
-                <p className="text-purple-200 text-xs">Sigue descubriendo música nueva hoy</p>
-              </div>
-            </div>
-            <Link to="/upload" className="flex items-center gap-1.5 bg-white text-purple-700 font-semibold text-xs px-4 py-2 rounded-full hover:bg-purple-50 transition shrink-0">
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-              </svg>
-              Subir canción
-            </Link>
-          </div>
-        </div>
-      )}
+        .hero-wrap { padding: 4rem 2rem 2rem; max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
+        @media (max-width: 700px) { .hero-wrap { grid-template-columns: 1fr; gap: 2rem; } .featured-box { display: none; } }
 
-      <section className="max-w-4xl mx-auto px-6 pt-16 pb-12 text-center">
-        <div className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-500 text-sm px-4 py-1.5 rounded-full mb-8 shadow-sm">
-          <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-          </svg>
-          Plataforma de descubrimiento musical
-        </div>
-        <h1 className="text-5xl font-bold text-black mb-4 leading-tight">
-          Bienvenido a <span className="text-purple-600">SoundSeekers</span>
-        </h1>
-        <p className="text-gray-400 text-lg max-w-xl mx-auto mb-10">
-          Descubre música de artistas emergentes. Sube tus canciones, conecta con nuevos oyentes y explora sonidos únicos.
-        </p>
+        .greeting { font-size: 12px; font-weight: 700; color: #7c3aed; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 10px; }
+        .hero-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(3rem, 5vw, 4.5rem); color: #000; line-height: 1.05; margin: 0 0 16px; letter-spacing: 0.01em; }
+        .hero-title span { background: linear-gradient(135deg, #7c3aed, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .hero-desc { font-size: 15px; color: #6b7280; line-height: 1.7; margin: 0 0 28px; max-width: 380px; }
+        .hero-btns { display: flex; gap: 10px; flex-wrap: wrap; }
 
-        <div className="relative max-w-xl mx-auto mb-8">
-          <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-          </svg>
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar canciones, artistas o géneros..."
-            className="w-full pl-11 pr-4 py-3 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400" />
-          {searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-100 rounded-2xl shadow-xl z-20 overflow-hidden">
-              {searchResults.map(song => (
-                <div key={song.id} onClick={() => { playSong(song, allSongs); setSearch('') }}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition">
-                  <img src={song.cover_url} alt={song.title} className="w-9 h-9 rounded-lg object-cover shrink-0"/>
-                  <div className="text-left min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{song.title}</p>
-                    <p className="text-xs text-gray-400 truncate">{song.display_artist || song.artist_name} · {song.genre}</p>
-                  </div>
-                  <svg className="w-4 h-4 text-purple-500 shrink-0 ml-auto" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M5 3l14 9-14 9V3z"/>
-                  </svg>
-                </div>
-              ))}
-            </div>
+        .btn-primary { display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; font-weight: 700; font-size: 13px; padding: 12px 24px; border-radius: 100px; border: none; cursor: pointer; font-family: inherit; transition: opacity 0.15s, transform 0.15s; text-decoration: none; box-shadow: 0 4px 16px rgba(124,58,237,0.3); }
+        .btn-primary:hover { opacity: 0.88; transform: scale(1.02); }
+        .btn-secondary { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #374151; font-weight: 600; font-size: 13px; padding: 12px 24px; border-radius: 100px; border: 1px solid #e5e7eb; cursor: pointer; font-family: inherit; transition: all 0.15s; text-decoration: none; }
+        .btn-secondary:hover { border-color: #7c3aed; color: #7c3aed; }
+
+        .featured-box { position: relative; border-radius: 24px; overflow: hidden; aspect-ratio: 1; cursor: pointer; box-shadow: 0 20px 60px rgba(0,0,0,0.15); }
+        .featured-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.5s; }
+        .featured-box:hover .featured-img { transform: scale(1.06); }
+        .featured-overlay { position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.1) 55%); }
+        .featured-info { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; }
+        .featured-play { position: absolute; bottom: 20px; right: 20px; width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+        .featured-play:hover { transform: scale(1.1); }
+
+        .search-wrap { max-width: 1100px; margin: 0 auto; padding: 0 2rem 1.5rem; position: relative; }
+        .search-input { width: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 100px; padding: 13px 20px 13px 50px; color: #111; font-size: 14px; font-family: inherit; outline: none; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .search-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
+        .search-input::placeholder { color: #9ca3af; }
+        .search-results { position: absolute; top: calc(100% + 6px); left: 2rem; right: 2rem; background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; z-index: 50; box-shadow: 0 20px 50px rgba(0,0,0,0.12); }
+        .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
+        .search-result-item:hover { background: #f5f3ff; }
+
+        .genre-bar { display: flex; gap: 8px; overflow-x: auto; padding: 0 2rem 1.5rem; max-width: 1100px; margin: 0 auto; }
+        .genre-pill { flex-shrink: 0; padding: 7px 18px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+        .genre-pill.active { background: #7c3aed; color: #fff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,0.25); }
+        .genre-pill:hover:not(.active) { border-color: #7c3aed; color: #7c3aed; }
+
+        .section { max-width: 1100px; margin: 0 auto; padding: 0 2rem 3rem; }
+        .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+        .section-title { font-size: 1.2rem; font-weight: 800; color: #111; margin: 0; }
+        .see-all { font-size: 12px; color: #9ca3af; text-decoration: none; font-weight: 600; transition: color 0.15s; }
+        .see-all:hover { color: #7c3aed; }
+
+        .songs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 16px; }
+        .song-card { cursor: pointer; }
+        .song-card-img-wrap { position: relative; aspect-ratio: 1; border-radius: 14px; overflow: hidden; margin-bottom: 10px; background: #f3f4f6; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .song-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+        .song-card:hover .song-card-img { transform: scale(1.07); }
+        .song-card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
+        .song-card:hover .song-card-overlay { background: rgba(0,0,0,0.4); }
+        .song-play-btn { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #7c3aed, #6d28d9); border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; opacity: 0; transform: translateY(10px); transition: all 0.2s; box-shadow: 0 4px 16px rgba(124,58,237,0.5); }
+        .song-card:hover .song-play-btn { opacity: 1; transform: translateY(0); }
+        .song-title { font-size: 13px; font-weight: 700; color: #111; margin: 0 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .song-artist { font-size: 12px; color: #9ca3af; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .now-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #7c3aed; animation: pulse 1.5s infinite; }
+        .genre-tag { position: absolute; bottom: 8px; left: 8px; font-size: 10px; font-weight: 700; color: #fff; background: rgba(124,58,237,0.8); padding: 2px 7px; border-radius: 100px; backdrop-filter: blur(4px); }
+
+        .artists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 20px; }
+        .artist-card { cursor: pointer; text-align: center; }
+        .artist-img-wrap { width: 100%; aspect-ratio: 1; border-radius: 50%; overflow: hidden; margin-bottom: 10px; background: #f3f4f6; border: 3px solid #fff; box-shadow: 0 4px 16px rgba(124,58,237,0.12); transition: box-shadow 0.2s; }
+        .artist-card:hover .artist-img-wrap { box-shadow: 0 8px 24px rgba(124,58,237,0.25); }
+        .artist-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
+        .artist-card:hover .artist-img { transform: scale(1.08); }
+        .artist-initial { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: 800; color: #7c3aed; background: #f5f3ff; }
+
+        .cta-box { background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%); border-radius: 24px; padding: 3rem 2rem; text-align: center; box-shadow: 0 20px 60px rgba(124,58,237,0.3); }
+        .cta-title { font-size: clamp(1.8rem, 3vw, 2.5rem); font-weight: 800; color: #fff; margin: 0 0 10px; }
+        .cta-desc { color: rgba(255,255,255,0.75); font-size: 15px; margin: 0 0 1.5rem; }
+        .btn-cta { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #7c3aed; font-weight: 700; font-size: 14px; padding: 13px 28px; border-radius: 100px; text-decoration: none; transition: transform 0.15s; }
+        .btn-cta:hover { transform: scale(1.03); }
+
+        .divider { height: 1px; background: #f3f4f6; max-width: 1100px; margin: 0 auto 2rem; }
+
+        .skeleton { background: #f3f4f6; border-radius: 8px; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+      `}</style>
+
+      {/* Hero */}
+      <div className="hero-wrap">
+        <div>
+          {user ? (
+            <p className="greeting">👋 Bienvenido de vuelta, {userName}</p>
+          ) : (
+            <p className="greeting">✦ BIENVENIDO SOUNDSEEKERS</p>
           )}
-        </div>
-
-        <div className="flex items-center justify-center gap-4 flex-wrap">
-          <Link to="/dashboard" className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white font-semibold px-6 py-3 rounded-full transition">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3a9 9 0 00-9 9v4.5A2.5 2.5 0 005.5 19H7a1 1 0 001-1v-5a1 1 0 00-1-1H4.07A8 8 0 0120 12h-3a1 1 0 00-1 1v5a1 1 0 001 1h1.5A2.5 2.5 0 0021 16.5V12a9 9 0 00-9-9z"/>
-            </svg>
-            Explorar música
-          </Link>
-          {!user && (
-            <Link to="/register" className="flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-black font-semibold px-6 py-3 rounded-full transition shadow-sm">
-              Registrarse
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+          <h1 className="hero-title">
+            TU MÚSICA<br/>
+            TU MOMENTO<br/>
+            <span>TU PLATAFORMA</span>
+          </h1>
+          <p className="hero-desc">
+            Artistas emergentes de Latinoamérica. Música sin filtros, directa de quienes la crean.
+          </p>
+          <div className="hero-btns">
+            <Link to="/dashboard" className="btn-primary">
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+              Explorar música
             </Link>
-          )}
-        </div>
-      </section>
-
-      {topSong && (
-        <section className="max-w-5xl mx-auto px-6 pb-12">
-          <div className="flex items-center gap-2 mb-4">
-            <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-            </svg>
-            <h2 className="text-xl font-bold text-black">Canción destacada del día</h2>
-          </div>
-          <div className="flex items-center gap-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-md transition group"
-            onClick={() => playSong(topSong, allSongs)}>
-            <div className="relative shrink-0">
-              <img src={topSong.cover_url} alt={topSong.title} className="w-20 h-20 rounded-xl object-cover shadow"/>
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition rounded-xl flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-              </div>
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs bg-yellow-100 text-yellow-700 font-semibold px-2 py-0.5 rounded-full">#1 más reproducida</span>
-              </div>
-              <p className="text-lg font-bold text-gray-900 truncate">{topSong.title}</p>
-              <div className="flex items-center gap-1.5 mt-1">
-                <div className="w-5 h-5 rounded-full overflow-hidden bg-purple-100 shrink-0">
-                  <img src={artistAvatars[topSong.user_id] || topSong.cover_url} alt={topSong.display_artist || topSong.artist_name} className="w-full h-full object-cover"/>
-                </div>
-                <p className="text-sm text-gray-400 truncate">{topSong.display_artist || topSong.artist_name || 'Artista'}</p>
-                <span className="text-gray-300">·</span>
-                <p className="text-sm text-gray-400">{topSong.genre}</p>
-              </div>
-              <p className="text-xs text-purple-600 mt-1 font-medium">{(topSong.streams ?? 0).toLocaleString()} reproducciones</p>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {genreCounts.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 pb-10">
-          <h2 className="text-xl font-bold text-black mb-4">Géneros más populares</h2>
-          <div className="flex flex-wrap gap-2">
-            {GENRES.filter(g => g.value !== null).map(genre => {
-              const count = genreCounts.find(g => g.genre === genre.value)?.count ?? 0
-              const isSelected = selectedGenre === genre.value
-              if (count === 0) return null
-              return (
-                <button key={genre.label} onClick={() => setSelectedGenre(isSelected ? null : genre.value)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition border ${
-                    isSelected ? 'bg-purple-700 text-white border-purple-700' : 'bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-700'
-                  }`}>
-                  {genre.icon}
-                  {genre.label}
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${isSelected ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'}`}>
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-            {selectedGenre && (
-              <button onClick={() => setSelectedGenre(null)}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium border border-gray-200 bg-white text-gray-400 hover:text-gray-600 transition">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-                Limpiar filtro
-              </button>
+            {!user ? (
+              <Link to="/register" className="btn-secondary">Crear cuenta gratis</Link>
+            ) : (
+              <Link to="/upload" className="btn-secondary">
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                Subir canción
+              </Link>
             )}
           </div>
-        </section>
-      )}
-
-      <section className="max-w-5xl mx-auto px-6 pb-16">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-            </svg>
-            <h2 className="text-xl font-bold text-black">
-              {selectedGenre ? `Canciones de ${selectedGenre}` : 'Canciones recientes'}
-            </h2>
-          </div>
-          <Link to="/dashboard" className="text-sm text-purple-600 hover:underline">Ver todas →</Link>
         </div>
 
+        {topSong && (
+          <div className="featured-box" onClick={() => playSong(topSong, allSongs)}>
+            <img src={topSong.cover_url} alt={topSong.title} className="featured-img"/>
+            <div className="featured-overlay"/>
+            <div className="featured-info">
+              <p style={{ fontSize: '11px', color: '#c4b5fd', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 5px' }}>#1 más reproducida</p>
+              <p style={{ fontSize: '18px', fontWeight: '800', color: '#fff', margin: '0 0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{topSong.title}</p>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>{topSong.display_artist || topSong.artist_name}</p>
+            </div>
+            <button className="featured-play">
+              <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Search */}
+      <div className="search-wrap">
+        <div style={{ position: 'relative' }}>
+          <svg style={{ position: 'absolute', left: '18px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          <input className="search-input" placeholder="Buscar canciones, artistas, géneros..." value={search} onChange={e => setSearch(e.target.value)}/>
+        </div>
+        {searchResults.length > 0 && (
+          <div className="search-results">
+            {searchResults.map(song => (
+              <div key={song.id} className="search-result-item" onClick={() => { playSong(song, allSongs); setSearch('') }}>
+                <img src={song.cover_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: '13px', color: '#111', margin: 0, fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{song.display_artist || song.artist_name} · {song.genre}</p>
+                </div>
+                <svg style={{ width: '14px', height: '14px', color: '#7c3aed', flexShrink: 0, marginLeft: 'auto' }} fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="divider"/>
+
+      {/* Genres */}
+      {genreCounts.length > 0 && (
+        <div className="genre-bar">
+          <button className={`genre-pill ${!selectedGenre ? 'active' : ''}`} onClick={() => setSelectedGenre(null)}>Todo</button>
+          {GENRES.filter(g => g.value && genreCounts.find(gc => gc.genre === g.value)).map(g => (
+            <button key={g.value} className={`genre-pill ${selectedGenre === g.value ? 'active' : ''}`}
+              onClick={() => setSelectedGenre(selectedGenre === g.value ? null : g.value)}>
+              {g.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Songs */}
+      <div className="section">
+        <div className="section-header">
+          <h2 className="section-title">{selectedGenre || 'Recién subidas'}</h2>
+          <Link to="/dashboard" className="see-all">Ver todo →</Link>
+        </div>
         {loading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonHomeSong key={i} />)}
+          <div className="songs-grid">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i}>
+                <div className="skeleton" style={{ aspectRatio: '1', borderRadius: '14px', marginBottom: '10px' }}/>
+                <div className="skeleton" style={{ height: '10px', borderRadius: '5px', marginBottom: '6px' }}/>
+                <div className="skeleton" style={{ height: '8px', borderRadius: '4px', width: '65%' }}/>
+              </div>
+            ))}
           </div>
         ) : filteredSongs.length === 0 ? (
-          <div className="text-center py-10 text-gray-400">
-            <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
-            </svg>
-            <p>No hay canciones en este género aún.</p>
-          </div>
+          <div style={{ textAlign: 'center', padding: '3rem', color: '#9ca3af' }}>No hay canciones en este género aún.</div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="songs-grid">
             {filteredSongs.map(song => {
               const isCurrentSong = currentSong?.id === song.id
-              const artistAvatar = artistAvatars[song.user_id] || song.cover_url
-              const displayArtist = song.display_artist || song.artist_name
               return (
-                <div key={song.id} className="group cursor-pointer" onClick={() => playSong(song, filteredSongs)}>
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
-                    <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow">
-                        {isCurrentSong && isPlaying ? (
-                          <svg className="w-4 h-4 text-purple-700" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                        ) : (
-                          <svg className="w-4 h-4 text-purple-700 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                        )}
-                      </div>
+                <div key={song.id} className="song-card" onClick={() => playSong(song, filteredSongs)}>
+                  <div className="song-card-img-wrap">
+                    <img src={song.cover_url} alt={song.title} className="song-card-img"/>
+                    <div className="song-card-overlay">
+                      <button className="song-play-btn">
+                        {isCurrentSong && isPlaying
+                          ? <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                          : <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                        }
+                      </button>
                     </div>
-                    <span className="absolute bottom-2 left-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">{song.genre}</span>
-                    {isCurrentSong && isPlaying && <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-purple-500 animate-pulse"/>}
+                    {isCurrentSong && isPlaying && <div className="now-dot"/>}
+                    <span className="genre-tag">{song.genre}</span>
                   </div>
-                  <p className="text-black text-sm font-medium truncate">{song.title}</p>
-                  <div className="flex items-center gap-1.5 mt-1">
-                    <div className="w-4 h-4 rounded-full overflow-hidden bg-purple-100 shrink-0">
-                      <img src={artistAvatar} alt={displayArtist} className="w-full h-full object-cover"/>
-                    </div>
-                    <p className="text-gray-400 text-xs truncate">{displayArtist ?? 'Artista'}</p>
-                  </div>
+                  <p className="song-title">{song.title}</p>
+                  <p className="song-artist">{song.display_artist || song.artist_name}</p>
                 </div>
               )
             })}
           </div>
         )}
-      </section>
+      </div>
 
+      <div className="divider"/>
+
+      {/* Artists */}
       {artists.length > 0 && (
-        <section className="max-w-5xl mx-auto px-6 pb-16">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <p className="text-xs font-semibold text-purple-600 uppercase tracking-widest mb-1">Artistas</p>
-              <h2 className="text-xl font-bold text-black">Voces emergentes</h2>
-            </div>
-            <Link to="/dashboard" className="text-sm text-purple-600 hover:underline">Ver todos →</Link>
+        <div className="section">
+          <div className="section-header">
+            <h2 className="section-title">Artistas emergentes</h2>
+            <Link to="/dashboard" className="see-all">Ver todos →</Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div className="artists-grid">
             {artists.map(artist => {
               const avatar = artistAvatars[artist.user_id]
-              const streams = allSongs
-                .filter(s => s.user_id === artist.user_id)
-                .reduce((acc, s) => acc + (s.streams ?? 0), 0)
+              const streams = allSongs.filter(s => s.user_id === artist.user_id).reduce((acc, s) => acc + (s.streams ?? 0), 0)
               return (
-                <div key={artist.user_id} className="text-center group cursor-pointer"
-                  onClick={() => navigate(`/artist/${artist.user_id}`)}>
-                  <div className="w-full aspect-square rounded-2xl overflow-hidden bg-gray-100 mb-2 shadow-sm">
-                    {avatar ? (
-                      <img src={avatar} alt={artist.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"/>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-purple-100 text-purple-700 font-bold text-2xl">
-                        {artist.name?.[0]?.toUpperCase() ?? '?'}
-                      </div>
-                    )}
+                <div key={artist.user_id} className="artist-card" onClick={() => navigate(`/artist/${artist.user_id}`)}>
+                  <div className="artist-img-wrap">
+                    {avatar
+                      ? <img src={avatar} alt={artist.name} className="artist-img"/>
+                      : <div className="artist-initial">{artist.name?.[0]?.toUpperCase() ?? '?'}</div>
+                    }
                   </div>
-                  <p className="text-sm font-semibold text-black truncate">{artist.name}</p>
-                  <p className="text-xs text-gray-400">{artist.genre}</p>
-                  <div className="flex items-center justify-center gap-1 mt-0.5">
-                    <svg className="w-3 h-3 text-purple-500" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M5 3l14 9-14 9V3z"/>
-                    </svg>
-                    <p className="text-xs text-purple-600">{streams.toLocaleString()} reproducciones</p>
-                  </div>
+                  <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{artist.name}</p>
+                  <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 3px' }}>{artist.genre}</p>
+                  <p style={{ fontSize: '11px', color: '#7c3aed', margin: 0, fontWeight: '700' }}>{streams.toLocaleString()} rep.</p>
                 </div>
               )
             })}
           </div>
-        </section>
+        </div>
       )}
 
-      <section className="max-w-5xl mx-auto px-6 pb-20">
-        <h2 className="text-2xl font-bold text-black text-center mb-10">Cómo funciona</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {[
-            { icon: <path d="M12 3a9 9 0 00-9 9v4.5A2.5 2.5 0 005.5 19H7a1 1 0 001-1v-5a1 1 0 00-1-1H4.07A8 8 0 0120 12h-3a1 1 0 00-1 1v5a1 1 0 001 1h1.5A2.5 2.5 0 0021 16.5V12a9 9 0 00-9-9z"/>, fill: true, title: 'Descubre', desc: 'Explora canciones de artistas emergentes de todo el mundo.' },
-            { icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0"/>, fill: false, title: 'Conecta', desc: 'Sigue artistas, guarda canciones y crea tu colección.' },
-            { icon: <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>, fill: false, title: 'Apoya', desc: 'Ayuda a artistas emergentes escuchando y compartiendo.' },
-          ].map(item => (
-            <div key={item.title} className="bg-white border border-gray-100 rounded-2xl p-8 text-center shadow-sm">
-              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-7 h-7 text-purple-600" viewBox="0 0 24 24" fill={item.fill ? 'currentColor' : 'none'} stroke={item.fill ? undefined : 'currentColor'}>
-                  {item.icon}
-                </svg>
-              </div>
-              <h3 className="font-semibold text-black text-lg mb-2">{item.title}</h3>
-              <p className="text-gray-400 text-sm">{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      {/* CTA */}
       {!user && (
-        <section className="bg-white border-t border-gray-100 py-16 text-center px-6">
-          <h2 className="text-2xl font-bold text-black mb-3">¿Listo para empezar?</h2>
-          <p className="text-gray-400 mb-6">Únete a SoundSeekers y comparte tu música hoy.</p>
-          <Link to="/register" className="inline-block bg-purple-700 hover:bg-purple-800 text-white font-semibold px-8 py-3 rounded-full transition">
-            Crear cuenta gratis
-          </Link>
-        </section>
+        <div className="section">
+          <div className="cta-box">
+            <h2 className="cta-title">Comparte tu sonido</h2>
+            <p className="cta-desc">Únete a la comunidad musical de SoundSeekers y llega a nuevos oyentes.</p>
+            <Link to="/register" className="btn-cta">
+              Crear cuenta gratis →
+            </Link>
+          </div>
+        </div>
       )}
     </div>
   )

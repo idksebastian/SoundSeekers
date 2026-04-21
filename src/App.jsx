@@ -20,6 +20,8 @@ import ArtistProfile from './pages/ArtistProfile'
 import Admin from './pages/Admin'
 import Requests from './pages/Requests'
 import AlbumDetail from './pages/AlbumDetail'
+import ForgotPassword from './pages/ForgotPassword'
+import ResetPassword from './pages/ResetPassword'
 
 export default function App() {
   return (
@@ -29,27 +31,23 @@ export default function App() {
           <Navbar />
           <PageTransition>
             <Routes>
-              <Route path="/album/:albumId" element={<AlbumDetail />} />
               <Route path="/" element={<Navigate to="/home" />} />
               <Route path="/home" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
               <Route path="/animo" element={<Animo />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/album/:albumId" element={<AlbumDetail />} />
+              <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
               } />
-              <Route path="/requests" element={
-              <ProtectedRoute>
-                <Requests />
-              </ProtectedRoute>
-              } />
-              <Route path="/artist/:userId" element={<ArtistProfile />} />
               <Route path="/requests" element={
                 <ProtectedRoute>
                   <Requests />
