@@ -190,7 +190,7 @@ export default function Navbar() {
       <div className="flex items-center gap-2 sm:gap-6">
         <Link to="/home" className="flex items-center gap-2 shrink-0">
           <div className="w-8 h-8 rounded-lg bg-purple-700 text-white flex items-center justify-center text-sm font-bold shrink-0">SS</div>
-          <span className="font-bold text-gray-900 text-sm hidden md:block">SoundSeekers</span>
+          <span className="hidden md:block" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.3rem', color: '#111', letterSpacing: '0.04em', lineHeight: 1 }}>SoundSeekers</span>
         </Link>
         <div className="hidden sm:flex items-center gap-1">
           {navLink('/home', 'Inicio')}
