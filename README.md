@@ -121,24 +121,3 @@ Pasos generales para desplegar:
 4. El output directory es `dist`
 5. Vercel detecta automáticamente Vite
 
-## Evidencias
-
-### Inicio — Hero Slider y descubrimiento
-![Home](./evidencias/home.png)
-
-### Explorar — Búsqueda y filtros por género
-![Dashboard](./evidencias/dashboard.png)
-
-### Perfil de artista — Tabs estilo Spotify
-![Artist Profile](./evidencias/artist-profile.png)
-
-### Reproductor fullscreen
-![Player](./evidencias/player.png)
-
-### Upload multi-paso con feats y presave
-![Upload](./evidencias/upload.png)
-
-### Ánimo y Clima Mixtape — IA con FastAPI
-![Animo](./evidencias/animo.png)
-
-> Las capturas se encuentran en la carpeta `/evidencias` del repositorio.
