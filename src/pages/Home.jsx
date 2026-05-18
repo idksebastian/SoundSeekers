@@ -20,19 +20,21 @@ const GENRES = [
   { label: 'Rap', value: 'Rap' },
 ]
 
-const HISTORY_KEY = 'ss_recently_played'
+function getHistoryKey(userId) {
+  return `ss_recently_played_${userId ?? 'guest'}`
+}
 
-function getHistory() {
+function getHistory(userId) {
   try {
-    return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    return JSON.parse(localStorage.getItem(getHistoryKey(userId)) || '[]')
   } catch { return [] }
 }
 
-function addToHistory(item) {
+function addToHistory(item, userId) {
   try {
-    const prev = getHistory().filter(h => h.id !== item.id)
+    const prev = getHistory(userId).filter(h => h.id !== item.id)
     const next = [item, ...prev].slice(0, 12)
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+    localStorage.setItem(getHistoryKey(userId), JSON.stringify(next))
   } catch {}
 }
 
@@ -55,9 +57,9 @@ export default function Home() {
   const [recentlyPlayed, setRecentlyPlayed] = useState([])
   const slideInterval = useRef(null)
 
-  useEffect(() => {
-    setRecentlyPlayed(getHistory())
-  }, [])
+useEffect(() => {
+  setRecentlyPlayed(getHistory(user?.id))
+}, [user?.id])
 
   // Actualizar historial cuando cambia la canción
   useEffect(() => {
@@ -65,8 +67,8 @@ export default function Home() {
     const item = currentSong.album_id
       ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
       : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
-    addToHistory(item)
-    setRecentlyPlayed(getHistory())
+    addToHistory(item, user?.id)
+    setRecentlyPlayed(getHistory(user?.id))
   }, [currentSong?.id])
 
   useEffect(() => {
