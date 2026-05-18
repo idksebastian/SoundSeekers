@@ -12,8 +12,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
 MOOD_QUERIES = {
     "happy":     ["reggaeton feliz", "pop latino alegre", "cumbia fiesta", "salsa alegre"],
     "sad":       ["balada romántica", "canción triste latina", "desamor latino", "bolero triste"],
@@ -32,12 +30,17 @@ WEATHER_QUERIES = {
     "warm":   ["tropical español", "tarde latina", "cumbia calurosa"],
 }
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "es-CO,es;q=0.9,en;q=0.8",
+}
+
 @app.get("/recommendations")
 async def get_recommendations(mood: str, weather: str):
     mood_queries = MOOD_QUERIES.get(mood, MOOD_QUERIES["happy"])
     weather_queries = WEATHER_QUERIES.get(weather, WEATHER_QUERIES["sunny"])
 
-    # Combinar queries de ánimo y clima
     query = f"{random.choice(mood_queries)} {random.choice(weather_queries)}"
 
     async with httpx.AsyncClient() as client:
@@ -48,16 +51,26 @@ async def get_recommendations(mood: str, weather: str):
                 "limit": 20,
                 "order": "RANKING",
             },
+            headers=HEADERS,
             timeout=10.0
         )
-        data = response.json()
 
+    if response.status_code != 200:
+        # Intentar con query más simple si falla
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://api.deezer.com/search",
+                params={"q": random.choice(mood_queries), "limit": 20},
+                headers=HEADERS,
+                timeout=10.0
+            )
+
+    data = response.json()
     tracks = data.get("data", [])
 
-    # Filtrar solo canciones con preview disponible (Deezer siempre tiene previews de 30s)
-    tracks_with_preview = [t for t in tracks if t.get("preview")]
+    # Deezer siempre tiene previews — filtrar los que tengan preview no vacío
+    tracks_with_preview = [t for t in tracks if t.get("preview") and t["preview"] != ""]
 
-    # Mezclar para variedad
     random.shuffle(tracks_with_preview)
 
     songs = []
@@ -66,7 +79,7 @@ async def get_recommendations(mood: str, weather: str):
             "title":      track["title"],
             "artist":     track["artist"]["name"],
             "coverUrl":   track["album"]["cover_medium"],
-            "previewUrl": track["preview"],  # Siempre disponible en Deezer
+            "previewUrl": track["preview"],
             "deezerUrl":  track["link"],
             "albumTitle": track["album"]["title"],
             "duration":   track.get("duration", 30),
