@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { toggleLike, deletePost, updatePost } from '../api/community'
+import { useState, useEffect } from 'react'
+import { toggleLike, getUserLike, deletePost, updatePost } from '../api/community'
 import { useAuth } from '../context/AuthContext'
 import CommentsModal from './CommentsModal'
 
@@ -9,6 +9,37 @@ function timeAgo(dateStr) {
   if (diff < 3600) return `Hace ${Math.floor(diff / 60)} min`
   if (diff < 86400) return `Hace ${Math.floor(diff / 3600)} h`
   return `Hace ${Math.floor(diff / 86400)} d`
+}
+
+// Modal de confirmación reutilizable
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
+          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <p className="text-center text-gray-800 font-semibold text-base mb-1">¿Estás seguro?</p>
+        <p className="text-center text-gray-500 text-sm mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition font-medium"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition font-semibold"
+          >
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
@@ -23,8 +54,15 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
   const [editContent, setEditContent] = useState(post.content)
   const [editSongLabel, setEditSongLabel] = useState(post.song_label ?? '')
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const commentCount = post.post_comments?.[0]?.count ?? 0
   const isOwner = user?.id === post.user_id
+
+  // Cargar estado real del like desde Supabase
+  useEffect(() => {
+    if (!user) return
+    getUserLike(post.id, user.id).then(setLiked)
+  }, [post.id, user])
 
   const handleLike = async () => {
     if (!user || likeLoading) return
@@ -32,7 +70,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
     try {
       const didLike = await toggleLike(post.id, user.id)
       setLiked(didLike)
-      setLikeCount(prev => didLike ? prev + 1 : prev - 1)
+      setLikeCount(prev => didLike ? prev + 1 : Math.max(0, prev - 1))
     } catch (err) {
       console.error('Error al dar like:', err)
     } finally {
@@ -41,12 +79,13 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
   }
 
   const handleDelete = async () => {
-    if (!confirm('¿Seguro que quieres eliminar esta publicación?')) return
     try {
       await deletePost(post.id)
       onDeleted(post.id)
     } catch (err) {
       console.error('Error eliminando post:', err)
+    } finally {
+      setConfirmDelete(false)
     }
   }
 
@@ -92,7 +131,6 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
             </div>
           </div>
 
-          {/* Menú opciones (solo owner) */}
           {isOwner && (
             <div className="relative">
               <button
@@ -115,7 +153,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
                     Editar
                   </button>
                   <button
-                    onClick={() => { handleDelete(); setShowMenu(false) }}
+                    onClick={() => { setConfirmDelete(true); setShowMenu(false) }}
                     className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,7 +167,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
           )}
         </div>
 
-        {/* Contenido o formulario de edición */}
+        {/* Contenido o edición */}
         {editing ? (
           <div className="flex flex-col gap-3 mb-4">
             <input
@@ -152,17 +190,11 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
               className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-400"
             />
             <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setEditing(false)}
-                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition"
-              >
+              <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition">
                 Cancelar
               </button>
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="px-5 py-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50"
-              >
+              <button onClick={handleSaveEdit} disabled={saving}
+                className="px-5 py-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50">
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -208,6 +240,15 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
           </button>
         </div>
       </div>
+
+      {/* Modal de confirmación eliminar post */}
+      {confirmDelete && (
+        <ConfirmModal
+          message="Esta publicación se eliminará permanentemente y no podrás recuperarla."
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
 
       {showComments && (
         <CommentsModal
