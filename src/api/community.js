@@ -69,6 +69,28 @@ export async function toggleLike(post_id, user_id) {
   }
 }
 
+// Verifica si el usuario ya dio like a un post
+export async function getUserLike(post_id, user_id) {
+  const { data } = await supabase
+    .from('post_likes')
+    .select('id')
+    .eq('post_id', post_id)
+    .eq('user_id', user_id)
+    .single()
+  return !!data
+}
+
+// Trae los posts a los que el usuario dio like
+export async function getLikedPosts(user_id) {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('post_id, posts(*, post_likes(count), post_comments(count))')
+    .eq('user_id', user_id)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data.map(d => d.posts).filter(Boolean)
+}
+
 export async function getComments(post_id) {
   const { data, error } = await supabase
     .from('post_comments')
@@ -128,4 +150,4 @@ export async function deleteComment(comment_id) {
     .delete()
     .eq('id', comment_id)
   if (error) throw error
-} 
+}
