@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getPosts } from '../api/community'
+import { getPosts, getLikedPosts } from '../api/community'
 import { useAuth } from '../context/AuthContext'
 import PostCard from '../components/PostCard'
 import PostModal from '../components/PostModal'
@@ -7,8 +7,10 @@ import PostModal from '../components/PostModal'
 export default function Community() {
   const { user } = useAuth()
   const [posts, setPosts] = useState([])
+  const [likedPosts, setLikedPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [tab, setTab] = useState('feed') // 'feed' | 'liked'
 
   const fetchPosts = async () => {
     try {
@@ -22,7 +24,18 @@ export default function Community() {
     }
   }
 
+  const fetchLikedPosts = async () => {
+    if (!user) return
+    try {
+      const data = await getLikedPosts(user.id)
+      setLikedPosts(data)
+    } catch (err) {
+      console.error('Error cargando posts con like:', err)
+    }
+  }
+
   useEffect(() => { fetchPosts() }, [])
+  useEffect(() => { if (tab === 'liked') fetchLikedPosts() }, [tab])
 
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev])
@@ -31,11 +44,15 @@ export default function Community() {
 
   const handlePostDeleted = (postId) => {
     setPosts(prev => prev.filter(p => p.id !== postId))
+    setLikedPosts(prev => prev.filter(p => p.id !== postId))
   }
 
   const handlePostUpdated = (updatedPost) => {
     setPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...p, ...updatedPost } : p))
+    setLikedPosts(prev => prev.map(p => p.id === updatedPost.id ? { ...p, ...updatedPost } : p))
   }
+
+  const activePosts = tab === 'liked' ? likedPosts : posts
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
@@ -62,6 +79,34 @@ export default function Community() {
             </button>
           )}
         </div>
+
+        {/* Tabs */}
+        {user && (
+          <div className="max-w-3xl mx-auto mt-6 flex gap-1">
+            <button
+              onClick={() => setTab('feed')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                tab === 'feed' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+              </svg>
+              Publicaciones
+            </button>
+            <button
+              onClick={() => setTab('liked')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition ${
+                tab === 'liked' ? 'bg-purple-50 text-purple-700' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              <svg className="w-4 h-4" fill={tab === 'liked' ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+              </svg>
+              Me gusta
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Feed */}
@@ -81,16 +126,20 @@ export default function Community() {
               <div className="w-2/3 h-3 bg-gray-100 rounded" />
             </div>
           ))
-        ) : posts.length === 0 ? (
+        ) : activePosts.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
             </svg>
-            <p className="text-lg font-semibold">Aún no hay publicaciones</p>
-            <p className="text-sm mt-1">¡Sé el primero en compartir algo!</p>
+            <p className="text-lg font-semibold">
+              {tab === 'liked' ? 'Aún no has dado like a ninguna publicación' : 'Aún no hay publicaciones'}
+            </p>
+            <p className="text-sm mt-1">
+              {tab === 'liked' ? 'Explora el feed y dale like a las que te gusten' : '¡Sé el primero en compartir algo!'}
+            </p>
           </div>
         ) : (
-          posts.map(post => (
+          activePosts.map(post => (
             <PostCard
               key={post.id}
               post={post}
