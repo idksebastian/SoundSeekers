@@ -1,12 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-import spotipy
-from spotipy.oauth2 import SpotifyClientCredentials
-from dotenv import load_dotenv
-import os
+import httpx
 import random
-
-load_dotenv()
 
 app = FastAPI()
 
@@ -17,67 +12,68 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-sp = spotipy.Spotify(auth_manager=SpotifyClientCredentials(
-    client_id=os.getenv("SPOTIFY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIFY_CLIENT_SECRET")
-))
+
 
 MOOD_QUERIES = {
-    "happy":     ["feliz pop latino reggaeton", "música alegre española", "fiesta latina hits"],
-    "sad":       ["balada romántica española", "triste canción española", "desamor latino"],
-    "energetic": ["reggaeton perreo", "latin trap urbano", "electrónica latina"],
-    "calm":      ["música tranquila española", "acústico español relajante", "indie español suave"],
-    "nostalgic": ["boleros clásicos españoles", "salsa romántica", "cumbia clásica"],
-    "focused":   ["instrumental latino", "flamenco moderno", "música española concentración"],
+    "happy":     ["reggaeton feliz", "pop latino alegre", "cumbia fiesta", "salsa alegre"],
+    "sad":       ["balada romántica", "canción triste latina", "desamor latino", "bolero triste"],
+    "energetic": ["reggaeton perreo", "latin trap", "electrónica latina", "urban latino"],
+    "calm":      ["acústico latino relajante", "indie español suave", "bossa nova", "flamenco suave"],
+    "nostalgic": ["boleros clásicos", "salsa romántica", "cumbia clásica", "vallenato"],
+    "focused":   ["instrumental latino", "flamenco moderno", "lo-fi español", "jazz latino"],
 }
 
 WEATHER_QUERIES = {
-    "sunny":  ["verano latino", "playa reggaeton"],
-    "rainy":  ["lluvia balada española", "romántico lluvioso"],
-    "cloudy": ["indie español nublado", "melancólico español"],
-    "night":  ["noche latina urbano", "salsa noche"],
-    "cold":   ["invierno español acústico", "frío balada"],
-    "warm":   ["tarde calurosa latina", "tropical español"],
+    "sunny":  ["verano latino", "playa tropical", "salsa sol"],
+    "rainy":  ["balada lluvia", "romántico lluvioso", "indie lluvia"],
+    "cloudy": ["melancólico español", "indie nublado", "folk latino"],
+    "night":  ["noche urbana latina", "salsa noche", "reggaeton noche"],
+    "cold":   ["acústico invierno", "balada fría", "folk invernal"],
+    "warm":   ["tropical español", "tarde latina", "cumbia calurosa"],
 }
 
 @app.get("/recommendations")
-def get_recommendations(mood: str, weather: str):
+async def get_recommendations(mood: str, weather: str):
     mood_queries = MOOD_QUERIES.get(mood, MOOD_QUERIES["happy"])
     weather_queries = WEATHER_QUERIES.get(weather, WEATHER_QUERIES["sunny"])
 
+    # Combinar queries de ánimo y clima
     query = f"{random.choice(mood_queries)} {random.choice(weather_queries)}"
 
-    results = sp.search(
-        q=query,
-        type="track",
-        limit=10,
-        market="CO"  # Colombia tiene más previews disponibles
-    )
-    tracks = results["tracks"]["items"]
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            "https://api.deezer.com/search",
+            params={
+                "q": query,
+                "limit": 20,
+                "order": "RANKING",
+            },
+            timeout=10.0
+        )
+        data = response.json()
 
-    # Priorizar canciones con preview disponible
-    with_preview = [t for t in tracks if t.get("preview_url")]
-    without_preview = [t for t in tracks if not t.get("preview_url")]
+    tracks = data.get("data", [])
 
-    random.shuffle(with_preview)
-    random.shuffle(without_preview)
+    # Filtrar solo canciones con preview disponible (Deezer siempre tiene previews de 30s)
+    tracks_with_preview = [t for t in tracks if t.get("preview")]
 
-    # Primero las que tienen preview, luego las que no
-    ordered = with_preview + without_preview
+    # Mezclar para variedad
+    random.shuffle(tracks_with_preview)
 
     songs = []
-    for track in ordered[:6]:
+    for track in tracks_with_preview[:8]:
         songs.append({
-            "title":      track["name"],
-            "artist":     track["artists"][0]["name"],
-            "coverUrl":   track["album"]["images"][0]["url"] if track["album"]["images"] else "",
-            "spotifyUrl": track["external_urls"]["spotify"],
-            "previewUrl": track.get("preview_url"),
-            "popularity": track.get("popularity", 0),
+            "title":      track["title"],
+            "artist":     track["artist"]["name"],
+            "coverUrl":   track["album"]["cover_medium"],
+            "previewUrl": track["preview"],  # Siempre disponible en Deezer
+            "deezerUrl":  track["link"],
+            "albumTitle": track["album"]["title"],
+            "duration":   track.get("duration", 30),
         })
 
     return {"songs": songs, "mood": mood, "weather": weather}
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok", "api": "Deezer"}
