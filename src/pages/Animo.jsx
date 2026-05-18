@@ -22,21 +22,37 @@ const weathers = [
 const MOOD_LABELS = { happy: 'Feliz', sad: 'Triste', energetic: 'Energético', calm: 'Calmado', nostalgic: 'Nostálgico', focused: 'Concentrado' }
 const WEATHER_LABELS = { sunny: 'Soleado', rainy: 'Lluvioso', cloudy: 'Nublado', night: 'Noche', cold: 'Frío', warm: 'Cálido' }
 
+// Convierte canción de Deezer al formato del reproductor
+function toDeezerSong(song) {
+  return {
+    id: song.deezerUrl,
+    title: song.title,
+    artist_name: song.artist,
+    display_artist: song.artist,
+    cover_url: song.coverUrl,
+    audio_url: null,
+    previewUrl: song.previewUrl,
+    genre: null,
+    isDeezer: true,
+    isSpotify: true, // reutilizamos el flag para que el reproductor trate el preview igual
+  }
+}
+
 export default function Animo() {
-  const { playSong } = usePlayer()
+  const { playSong, currentSong, isPlaying } = usePlayer()
   const [selectedMood, setSelectedMood] = useState(null)
   const [selectedWeather, setSelectedWeather] = useState(null)
   const [songs, setSongs] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searched, setSearched] = useState(false)
-  const [currentPreview, setCurrentPreview] = useState(null)
 
   const handleGetRecommendations = async () => {
     if (!selectedMood || !selectedWeather) return
     setLoading(true)
     setError('')
     setSearched(true)
+    setSongs([])
     try {
       const res = await fetch(`http://localhost:8000/recommendations?mood=${selectedMood}&weather=${selectedWeather}`)
       if (!res.ok) throw new Error('Error en el servidor')
@@ -50,32 +66,17 @@ export default function Animo() {
     }
   }
 
-  const handlePlayPreview = (song) => {
-    if (!song.previewUrl) return
-    // Convertir canción de Spotify al formato del reproductor principal
-    const spotifySong = {
-      id: song.spotifyUrl, // usar URL como id único
-      title: song.title,
-      artist_name: song.artist,
-      cover_url: song.coverUrl,
-      audio_url: null,
-      previewUrl: song.previewUrl,
-      isSpotify: true,
-    }
-    setCurrentPreview(song.spotifyUrl)
-    // Crear queue de previews disponibles
-    const queue = songs
-      .filter(s => s.previewUrl)
-      .map(s => ({
-        id: s.spotifyUrl,
-        title: s.title,
-        artist_name: s.artist,
-        cover_url: s.coverUrl,
-        audio_url: null,
-        previewUrl: s.previewUrl,
-        isSpotify: true,
-      }))
-    playSong(spotifySong, queue)
+  const handlePlay = (song) => {
+    const queue = songs.map(toDeezerSong)
+    playSong(toDeezerSong(song), queue)
+  }
+
+  const isCurrentSong = (song) => currentSong?.id === song.deezerUrl
+
+  const formatDuration = (seconds) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
   }
 
   return (
@@ -100,8 +101,9 @@ export default function Animo() {
             const active = selectedMood === mood.id
             return (
               <button key={mood.id} onClick={() => setSelectedMood(mood.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${active ? 'bg-purple-50 border-purple-400 text-purple-700' : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-600'}`}
-              >
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
+                  active ? 'bg-purple-50 border-purple-400 text-purple-700' : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-600'
+                }`}>
                 {mood.icon}
                 <span className="text-xs font-medium">{mood.label}</span>
               </button>
@@ -118,8 +120,9 @@ export default function Animo() {
             const active = selectedWeather === w.id
             return (
               <button key={w.id} onClick={() => setSelectedWeather(w.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${active ? 'bg-orange-50 border-orange-400 text-orange-600' : 'bg-white border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500'}`}
-              >
+                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
+                  active ? 'bg-orange-50 border-orange-400 text-orange-600' : 'bg-white border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500'
+                }`}>
                 {w.icon}
                 <span className="text-xs font-medium">{w.label}</span>
               </button>
@@ -162,60 +165,90 @@ export default function Animo() {
       {/* Resultados */}
       {searched && !loading && songs.length > 0 && (
         <section className="max-w-3xl mx-auto px-6">
+          {/* Banner info */}
           <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
             </div>
-            <div>
-              <p className="text-sm font-bold text-gray-900">Tu playlist — {MOOD_LABELS[selectedMood]} + {WEATHER_LABELS[selectedWeather]}</p>
-              <p className="text-xs text-gray-400">Toca el botón play para escuchar el preview · 30 segundos</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900">
+                Tu Mixtape — {MOOD_LABELS[selectedMood]} + {WEATHER_LABELS[selectedWeather]}
+              </p>
+              <p className="text-xs text-gray-400">Previews de 30 segundos vía Deezer · Toca para escuchar</p>
             </div>
+            {/* Botón reproducir todo */}
+            <button
+              onClick={() => handlePlay(songs[0])}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-lg transition shrink-0"
+            >
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+              Reproducir todo
+            </button>
           </div>
 
           <h2 className="text-xl font-bold text-gray-900 mb-4">Canciones Recomendadas</h2>
           <div className="flex flex-col gap-3">
             {songs.map((song, i) => {
-              const isActive = currentPreview === song.spotifyUrl
+              const active = isCurrentSong(song)
               return (
-                <div key={i} className={`flex items-center gap-4 p-3 rounded-xl bg-white border shadow-sm hover:shadow-md transition group ${isActive ? 'border-purple-300 bg-purple-50' : 'border-gray-100'}`}>
-                  <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 relative">
-                    <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover"/>
-                    {/* Botón play preview */}
-                    {song.previewUrl && (
-                      <button
-                        onClick={() => handlePlayPreview(song)}
-                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center"
-                      >
-                        <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center">
-                          {isActive ? (
-                            <svg className="w-4 h-4 text-purple-700" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                          ) : (
-                            <svg className="w-4 h-4 text-purple-700 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                          )}
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{song.title}</p>
-                    <p className="text-xs text-gray-400 truncate">{song.artist}</p>
-                    {song.previewUrl ? (
-                      <p className="text-xs text-purple-500 mt-0.5">▶ Preview disponible</p>
+                <div
+                  key={i}
+                  onClick={() => handlePlay(song)}
+                  className={`flex items-center gap-4 p-3 rounded-xl bg-white border shadow-sm hover:shadow-md transition cursor-pointer group ${
+                    active ? 'border-purple-300 bg-purple-50' : 'border-gray-100 hover:border-purple-200'
+                  }`}
+                >
+                  {/* Número / play */}
+                  <div className="w-8 text-center shrink-0">
+                    {active && isPlaying ? (
+                      <div className="flex gap-0.5 items-end justify-center h-4">
+                        {[60, 100, 40].map((h, k) => (
+                          <span key={k} style={{ height: `${h}%`, animationDelay: `${k * 0.2}s` }}
+                            className="w-0.5 bg-purple-600 rounded-full animate-pulse"/>
+                        ))}
+                      </div>
                     ) : (
-                      <p className="text-xs text-gray-300 mt-0.5">Sin preview</p>
+                      <>
+                        <span className="text-xs text-gray-400 group-hover:hidden">{i + 1}</span>
+                        <svg className="w-4 h-4 text-purple-600 hidden group-hover:block mx-auto" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M5 3l14 9-14 9V3z"/>
+                        </svg>
+                      </>
                     )}
                   </div>
-                  <a
-                    href={song.spotifyUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-50 text-green-600 text-xs font-semibold hover:bg-green-100 transition shrink-0"
-                  >
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
-                    </svg>
-                    Spotify
-                  </a>
+
+                  {/* Portada */}
+                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
+                    <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover"/>
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-semibold truncate ${active ? 'text-purple-700' : 'text-gray-900'}`}>
+                      {song.title}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{song.artist}</p>
+                    <p className="text-xs text-gray-300 truncate">{song.albumTitle}</p>
+                  </div>
+
+                  {/* Duración + badge Deezer */}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {song.duration && (
+                      <span className="text-xs text-gray-400">{formatDuration(song.duration)}</span>
+                    )}
+                    <a
+                      href={song.deezerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold transition"
+                    >
+                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.33 11.07H24v1.86h-5.67zM18.33 9.14H24V7.28h-5.67zm0 5.57H24v-1.86h-5.67zM18.33 17H24v-1.86h-5.67zM12.22 9.14h5.67V7.28h-5.67zm0 1.93h5.67v-1.86h-5.67zm0 1.86h5.67v-1.86h-5.67zm0 1.86h5.67V13h-5.67zM12.22 17h5.67v-1.86h-5.67zM0 17h5.67v-1.86H0zm6.11 0h5.67v-1.86H6.11zM6.11 13h5.67v-1.86H6.11zM0 13h5.67v-1.86H0z"/>
+                      </svg>
+                      Deezer
+                    </a>
+                  </div>
                 </div>
               )
             })}
@@ -223,9 +256,12 @@ export default function Animo() {
         </section>
       )}
 
+      {/* Sin resultados */}
       {searched && !loading && songs.length === 0 && !error && (
         <div className="max-w-3xl mx-auto px-6 text-center py-10 text-gray-400">
-          <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+          <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+          </svg>
           <p>No se encontraron canciones para esta combinación.</p>
         </div>
       )}
