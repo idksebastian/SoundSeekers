@@ -6,6 +6,7 @@ import ArtistRoute from './components/ArtistRoute'
 import PageTransition from './components/PageTransition'
 import Navbar from './components/Navbar'
 import Player from './components/Player'
+import ChatBot from './components/ChatBot'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
@@ -22,6 +23,7 @@ import Requests from './pages/Requests'
 import AlbumDetail from './pages/AlbumDetail'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
+import AI from './pages/AI'
 
 export default function App() {
   return (
@@ -40,6 +42,7 @@ export default function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/community" element={<Community />} />
               <Route path="/animo" element={<Animo />} />
+              <Route path="/ai" element={<AI />} />
               <Route path="/admin" element={<Admin />} />
               <Route path="/album/:albumId" element={<AlbumDetail />} />
               <Route path="/artist/:userId" element={<ArtistProfile />} />
@@ -69,8 +72,9 @@ export default function App() {
             </Routes>
           </PageTransition>
         </BrowserRouter>
-        {/* Player fuera del BrowserRouter para evitar stacking context */}
+        {/* Player y ChatBot fuera del BrowserRouter */}
         <Player />
+        <ChatBot />
       </PlayerProvider>
     </AuthProvider>
   )
