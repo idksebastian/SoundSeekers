@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import random
+import time
 
 app = FastAPI()
 
@@ -12,81 +13,112 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Caché simple en memoria
+_cache = {}
+CACHE_TTL = 300  # 5 minutos
+
+# iTunes Search API — gratuita, sin key, previews de 30s garantizados
 MOOD_QUERIES = {
-    "happy":     ["reggaeton feliz", "pop latino alegre", "cumbia fiesta", "salsa alegre"],
-    "sad":       ["balada romántica", "canción triste latina", "desamor latino", "bolero triste"],
-    "energetic": ["reggaeton perreo", "latin trap", "electrónica latina", "urban latino"],
-    "calm":      ["acústico latino relajante", "indie español suave", "bossa nova", "flamenco suave"],
-    "nostalgic": ["boleros clásicos", "salsa romántica", "cumbia clásica", "vallenato"],
-    "focused":   ["instrumental latino", "flamenco moderno", "lo-fi español", "jazz latino"],
+    "happy":     ["reggaeton", "salsa", "cumbia", "bachata feliz", "pop latino"],
+    "sad":       ["balada romantica latina", "bolero", "latin ballad sad", "desamor"],
+    "energetic": ["latin trap", "reggaeton perreo", "dembow", "electro latino"],
+    "calm":      ["bossa nova", "latin jazz", "acoustic latino", "flamenco"],
+    "nostalgic": ["salsa clasica", "bolero clasico", "cumbia clasica", "vallenato"],
+    "focused":   ["latin instrumental", "jazz latino", "flamenco guitar", "piano latino"],
 }
 
 WEATHER_QUERIES = {
-    "sunny":  ["verano latino", "playa tropical", "salsa sol"],
-    "rainy":  ["balada lluvia", "romántico lluvioso", "indie lluvia"],
-    "cloudy": ["melancólico español", "indie nublado", "folk latino"],
-    "night":  ["noche urbana latina", "salsa noche", "reggaeton noche"],
-    "cold":   ["acústico invierno", "balada fría", "folk invernal"],
-    "warm":   ["tropical español", "tarde latina", "cumbia calurosa"],
+    "sunny":  ["tropical", "salsa", "merengue", "caribbean"],
+    "rainy":  ["ballad", "romantic latin", "soft latin"],
+    "cloudy": ["indie latino", "folk latin", "acoustic"],
+    "night":  ["latin night", "salsa noche", "bachata"],
+    "cold":   ["acoustic guitar", "latin folk", "soft ballad"],
+    "warm":   ["tropical latin", "cumbia", "salsa"],
 }
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "es-CO,es;q=0.9,en;q=0.8",
-}
+async def search_itunes(term: str, limit: int = 15) -> list:
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(
+                "https://itunes.apple.com/search",
+                params={
+                    "term": term,
+                    "media": "music",
+                    "limit": limit,
+                    "country": "CO",  # Colombia
+                    "lang": "es_es",
+                },
+                timeout=10.0
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("results", [])
+        except Exception as e:
+            print(f"Error en iTunes API: {e}")
+    return []
 
 @app.get("/recommendations")
 async def get_recommendations(mood: str, weather: str):
+    cache_key = f"{mood}_{weather}"
+    now = time.time()
+
+    # Devolver caché si está fresco
+    if cache_key in _cache:
+        cached = _cache[cache_key]
+        if now - cached["timestamp"] < CACHE_TTL:
+            songs = cached["songs"].copy()
+            random.shuffle(songs)
+            return {"songs": songs[:8], "mood": mood, "weather": weather, "cached": True}
+
     mood_queries = MOOD_QUERIES.get(mood, MOOD_QUERIES["happy"])
     weather_queries = WEATHER_QUERIES.get(weather, WEATHER_QUERIES["sunny"])
 
-    query = f"{random.choice(mood_queries)} {random.choice(weather_queries)}"
+    all_tracks = []
 
-    async with httpx.AsyncClient() as client:
-        response = await client.get(
-            "https://api.deezer.com/search",
-            params={
-                "q": query,
-                "limit": 20,
-                "order": "RANKING",
-            },
-            headers=HEADERS,
-            timeout=10.0
-        )
+    # Hacer 2 búsquedas con queries distintas
+    for _ in range(2):
+        mq = random.choice(mood_queries)
+        wq = random.choice(weather_queries)
+        query = f"{mq} {wq}"
+        tracks = await search_itunes(query)
+        all_tracks.extend(tracks)
 
-    if response.status_code != 200:
-        # Intentar con query más simple si falla
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://api.deezer.com/search",
-                params={"q": random.choice(mood_queries), "limit": 20},
-                headers=HEADERS,
-                timeout=10.0
-            )
+    # Si no hay suficientes, buscar solo por mood
+    if len(all_tracks) < 5:
+        tracks = await search_itunes(random.choice(mood_queries), limit=20)
+        all_tracks.extend(tracks)
 
-    data = response.json()
-    tracks = data.get("data", [])
-
-    # Deezer siempre tiene previews — filtrar los que tengan preview no vacío
-    tracks_with_preview = [t for t in tracks if t.get("preview") and t["preview"] != ""]
+    # Filtrar solo los que tienen preview y eliminar duplicados por trackId
+    seen_ids = set()
+    tracks_with_preview = []
+    for t in all_tracks:
+        track_id = t.get("trackId")
+        preview = t.get("previewUrl")
+        if preview and track_id and track_id not in seen_ids:
+            seen_ids.add(track_id)
+            tracks_with_preview.append(t)
 
     random.shuffle(tracks_with_preview)
 
     songs = []
-    for track in tracks_with_preview[:8]:
+    for track in tracks_with_preview[:12]:
         songs.append({
-            "title":      track["title"],
-            "artist":     track["artist"]["name"],
-            "coverUrl":   track["album"]["cover_medium"],
-            "previewUrl": track["preview"],
-            "deezerUrl":  track["link"],
-            "albumTitle": track["album"]["title"],
-            "duration":   track.get("duration", 30),
+            "title":      track.get("trackName", "Sin título"),
+            "artist":     track.get("artistName", "Artista desconocido"),
+            "coverUrl":   track.get("artworkUrl100", "").replace("100x100", "300x300"),
+            "previewUrl": track.get("previewUrl"),
+            "externalUrl": track.get("trackViewUrl", ""),
+            "albumTitle": track.get("collectionName", ""),
+            "duration":   int(track.get("trackTimeMillis", 30000) / 1000),
+            "genre":      track.get("primaryGenreName", ""),
         })
 
-    return {"songs": songs, "mood": mood, "weather": weather}
+    # Guardar en caché
+    if songs:
+        _cache[cache_key] = {"songs": songs, "timestamp": now}
+
+    return {"songs": songs[:8], "mood": mood, "weather": weather, "cached": False}
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "api": "Deezer"}
+    return {"status": "ok", "api": "iTunes Search API", "cached_keys": list(_cache.keys())}
