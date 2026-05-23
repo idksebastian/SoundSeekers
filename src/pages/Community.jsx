@@ -9,8 +9,9 @@ export default function Community() {
   const [posts, setPosts] = useState([])
   const [likedPosts, setLikedPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadingLiked, setLoadingLiked] = useState(false)
   const [showModal, setShowModal] = useState(false)
-  const [tab, setTab] = useState('feed') // 'feed' | 'liked'
+  const [tab, setTab] = useState('feed')
 
   const fetchPosts = async () => {
     try {
@@ -26,16 +27,42 @@ export default function Community() {
 
   const fetchLikedPosts = async () => {
     if (!user) return
+    setLoadingLiked(true)
     try {
-      const data = await getLikedPosts(user.id)
-      setLikedPosts(data)
+      // Paso 1: traer IDs de posts con like
+      const { data: likes, error: likesError } = await (await import('../lib/supabase')).supabase
+        .from('post_likes')
+        .select('post_id')
+        .eq('user_id', user.id)
+
+      if (likesError) throw likesError
+      if (!likes || likes.length === 0) { setLikedPosts([]); return }
+
+      const postIds = likes.map(l => l.post_id).filter(Boolean)
+      if (postIds.length === 0) { setLikedPosts([]); return }
+
+      // Paso 2: traer los posts completos
+      const { data: postsData, error: postsError } = await (await import('../lib/supabase')).supabase
+        .from('posts')
+        .select('*, post_likes(count), post_comments(count)')
+        .in('id', postIds)
+        .order('created_at', { ascending: false })
+
+      if (postsError) throw postsError
+      setLikedPosts(postsData ?? [])
     } catch (err) {
-      console.error('Error cargando posts con like:', err)
+      console.error('Error cargando posts con like:', err?.message ?? err)
+      setLikedPosts([])
+    } finally {
+      setLoadingLiked(false)
     }
   }
 
   useEffect(() => { fetchPosts() }, [])
-  useEffect(() => { if (tab === 'liked') fetchLikedPosts() }, [tab])
+
+  useEffect(() => {
+    if (tab === 'liked') fetchLikedPosts()
+  }, [tab])
 
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev])
@@ -53,6 +80,22 @@ export default function Community() {
   }
 
   const activePosts = tab === 'liked' ? likedPosts : posts
+  const isLoading = tab === 'liked' ? loadingLiked : loading
+
+  const SkeletonCard = () => (
+    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 rounded-full bg-gray-200" />
+        <div className="flex flex-col gap-2">
+          <div className="w-28 h-3 bg-gray-200 rounded" />
+          <div className="w-16 h-2 bg-gray-100 rounded" />
+        </div>
+      </div>
+      <div className="w-3/4 h-5 bg-gray-200 rounded mb-3" />
+      <div className="w-full h-3 bg-gray-100 rounded mb-2" />
+      <div className="w-2/3 h-3 bg-gray-100 rounded" />
+    </div>
+  )
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
@@ -111,21 +154,8 @@ export default function Community() {
 
       {/* Feed */}
       <div className="max-w-3xl mx-auto px-6 py-8 flex flex-col gap-4">
-        {loading ? (
-          [...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-gray-200" />
-                <div className="flex flex-col gap-2">
-                  <div className="w-28 h-3 bg-gray-200 rounded" />
-                  <div className="w-16 h-2 bg-gray-100 rounded" />
-                </div>
-              </div>
-              <div className="w-3/4 h-5 bg-gray-200 rounded mb-3" />
-              <div className="w-full h-3 bg-gray-100 rounded mb-2" />
-              <div className="w-2/3 h-3 bg-gray-100 rounded" />
-            </div>
-          ))
+        {isLoading ? (
+          [...Array(3)].map((_, i) => <SkeletonCard key={i} />)
         ) : activePosts.length === 0 ? (
           <div className="text-center py-20 text-gray-400">
             <svg className="w-12 h-12 mx-auto mb-4 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
@@ -143,7 +173,7 @@ export default function Community() {
             <PostCard
               key={post.id}
               post={post}
-              onLikeToggle={fetchPosts}
+              onLikeToggle={tab === 'liked' ? fetchLikedPosts : fetchPosts}
               onDeleted={handlePostDeleted}
               onUpdated={handlePostUpdated}
             />
