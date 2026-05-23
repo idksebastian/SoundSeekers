@@ -143,11 +143,11 @@ export default function Navbar() {
     else if (notif.type === 'presave') navigate(`/artist/${user.id}`)
   }
 
-  const handleLogout = async () => {
-    await logoutUser()
-    navigate('/login')
-    setMenuOpen(false)
-  }
+const handleLogout = async () => {
+  setMenuOpen(false)
+  navigate('/')
+  await logoutUser()
+}
 
   const formatTime = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime()
