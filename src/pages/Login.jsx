@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { loginUser } from '../api/auth'
-import { Link, useNavigate, Navigate } from 'react-router-dom'
+import { Link, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function Login() {
@@ -8,19 +8,26 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
-  // Si ya hay sesión activa → redirige al dashboard
-  if (user) return <Navigate to="/dashboard" replace />
+  // Si ya hay sesión activa → redirige al home
+  if (user) return <Navigate to="/home" replace />
 
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       await loginUser(email, password)
-      navigate('/dashboard', { replace: true }) // replace evita volver atrás al login
+      // Si venía de una ruta protegida, volver a ella; si no, ir a /home
+      const from = location.state?.from?.pathname || '/home'
+      navigate(from, { replace: true })
     } catch (err) {
       setError(err.message)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -44,18 +51,20 @@ export default function Login() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="text-black font-semibold text-sm">Correo Electrónico</label>
-            <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
+              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
           </div>
           <div>
             <label className="text-black font-semibold text-sm">Contraseña</label>
-            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
             <Link to="/forgot-password" className="text-xs text-purple-600 hover:underline">
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
-          <button type="submit"
-            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition">
-            Iniciar sesión
+          <button type="submit" disabled={loading}
+            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition disabled:opacity-50">
+            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
           </button>
         </form>
 
