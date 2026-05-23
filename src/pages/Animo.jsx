@@ -22,20 +22,24 @@ const weathers = [
 const MOOD_LABELS = { happy: 'Feliz', sad: 'Triste', energetic: 'Energético', calm: 'Calmado', nostalgic: 'Nostálgico', focused: 'Concentrado' }
 const WEATHER_LABELS = { sunny: 'Soleado', rainy: 'Lluvioso', cloudy: 'Nublado', night: 'Noche', cold: 'Frío', warm: 'Cálido' }
 
-// Convierte canción de Deezer al formato del reproductor
-function toDeezerSong(song) {
+function toPlayerSong(song) {
   return {
-    id: song.deezerUrl,
+    id: song.externalUrl || song.previewUrl,
     title: song.title,
     artist_name: song.artist,
     display_artist: song.artist,
     cover_url: song.coverUrl,
     audio_url: null,
     previewUrl: song.previewUrl,
-    genre: null,
-    isDeezer: true,
-    isSpotify: true, // reutilizamos el flag para que el reproductor trate el preview igual
+    genre: song.genre || null,
+    isSpotify: true, // reutilizamos el flag para que el reproductor maneje el preview
   }
+}
+
+function formatDuration(seconds) {
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export default function Animo() {
@@ -57,7 +61,7 @@ export default function Animo() {
       const res = await fetch(`http://localhost:8000/recommendations?mood=${selectedMood}&weather=${selectedWeather}`)
       if (!res.ok) throw new Error('Error en el servidor')
       const data = await res.json()
-      setSongs(data.songs)
+      setSongs(data.songs ?? [])
     } catch (err) {
       console.error(err)
       setError('No se pudieron cargar las recomendaciones. ¿Está corriendo el backend?')
@@ -67,16 +71,13 @@ export default function Animo() {
   }
 
   const handlePlay = (song) => {
-    const queue = songs.map(toDeezerSong)
-    playSong(toDeezerSong(song), queue)
+    const queue = songs.map(toPlayerSong)
+    playSong(toPlayerSong(song), queue)
   }
 
-  const isCurrentSong = (song) => currentSong?.id === song.deezerUrl
-
-  const formatDuration = (seconds) => {
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
+  const isCurrentSong = (song) => {
+    const id = song.externalUrl || song.previewUrl
+    return currentSong?.id === id
   }
 
   return (
@@ -97,18 +98,17 @@ export default function Animo() {
       <section className="max-w-3xl mx-auto px-6 pb-8">
         <h2 className="text-base font-bold text-gray-900 mb-4 text-center">¿Cómo te sientes?</h2>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {moods.map(mood => {
-            const active = selectedMood === mood.id
-            return (
-              <button key={mood.id} onClick={() => setSelectedMood(mood.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
-                  active ? 'bg-purple-50 border-purple-400 text-purple-700' : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-600'
-                }`}>
-                {mood.icon}
-                <span className="text-xs font-medium">{mood.label}</span>
-              </button>
-            )
-          })}
+          {moods.map(mood => (
+            <button key={mood.id} onClick={() => setSelectedMood(mood.id)}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
+                selectedMood === mood.id
+                  ? 'bg-purple-50 border-purple-400 text-purple-700'
+                  : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-600'
+              }`}>
+              {mood.icon}
+              <span className="text-xs font-medium">{mood.label}</span>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -116,18 +116,17 @@ export default function Animo() {
       <section className="max-w-3xl mx-auto px-6 pb-10">
         <h2 className="text-base font-bold text-gray-900 mb-4 text-center">¿Cómo está el clima?</h2>
         <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {weathers.map(w => {
-            const active = selectedWeather === w.id
-            return (
-              <button key={w.id} onClick={() => setSelectedWeather(w.id)}
-                className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
-                  active ? 'bg-orange-50 border-orange-400 text-orange-600' : 'bg-white border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500'
-                }`}>
-                {w.icon}
-                <span className="text-xs font-medium">{w.label}</span>
-              </button>
-            )
-          })}
+          {weathers.map(w => (
+            <button key={w.id} onClick={() => setSelectedWeather(w.id)}
+              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
+                selectedWeather === w.id
+                  ? 'bg-orange-50 border-orange-400 text-orange-600'
+                  : 'bg-white border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500'
+              }`}>
+              {w.icon}
+              <span className="text-xs font-medium">{w.label}</span>
+            </button>
+          ))}
         </div>
       </section>
 
@@ -165,7 +164,7 @@ export default function Animo() {
       {/* Resultados */}
       {searched && !loading && songs.length > 0 && (
         <section className="max-w-3xl mx-auto px-6">
-          {/* Banner info */}
+          {/* Banner */}
           <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center shrink-0">
               <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
@@ -174,9 +173,8 @@ export default function Animo() {
               <p className="text-sm font-bold text-gray-900">
                 Tu Mixtape — {MOOD_LABELS[selectedMood]} + {WEATHER_LABELS[selectedWeather]}
               </p>
-              <p className="text-xs text-gray-400">Previews de 30 segundos vía Deezer · Toca para escuchar</p>
+              <p className="text-xs text-gray-400">Previews de 30 segundos vía iTunes · Toca para escuchar</p>
             </div>
-            {/* Botón reproducir todo */}
             <button
               onClick={() => handlePlay(songs[0])}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-lg transition shrink-0"
@@ -198,7 +196,7 @@ export default function Animo() {
                     active ? 'border-purple-300 bg-purple-50' : 'border-gray-100 hover:border-purple-200'
                   }`}
                 >
-                  {/* Número / play */}
+                  {/* Número / animación */}
                   <div className="w-8 text-center shrink-0">
                     {active && isPlaying ? (
                       <div className="flex gap-0.5 items-end justify-center h-4">
@@ -218,8 +216,13 @@ export default function Animo() {
                   </div>
 
                   {/* Portada */}
-                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                    <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover"/>
+                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100">
+                    {song.coverUrl
+                      ? <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover"/>
+                      : <div className="w-full h-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                        </div>
+                    }
                   </div>
 
                   {/* Info */}
@@ -228,26 +231,28 @@ export default function Animo() {
                       {song.title}
                     </p>
                     <p className="text-xs text-gray-400 truncate">{song.artist}</p>
-                    <p className="text-xs text-gray-300 truncate">{song.albumTitle}</p>
+                    {song.genre && <p className="text-xs text-gray-300 truncate">{song.genre}</p>}
                   </div>
 
-                  {/* Duración + badge Deezer */}
+                  {/* Duración + link iTunes */}
                   <div className="flex items-center gap-3 shrink-0">
-                    {song.duration && (
+                    {song.duration > 0 && (
                       <span className="text-xs text-gray-400">{formatDuration(song.duration)}</span>
                     )}
-                    <a
-                      href={song.deezerUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold transition"
-                    >
-                      <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M18.33 11.07H24v1.86h-5.67zM18.33 9.14H24V7.28h-5.67zm0 5.57H24v-1.86h-5.67zM18.33 17H24v-1.86h-5.67zM12.22 9.14h5.67V7.28h-5.67zm0 1.93h5.67v-1.86h-5.67zm0 1.86h5.67v-1.86h-5.67zm0 1.86h5.67V13h-5.67zM12.22 17h5.67v-1.86h-5.67zM0 17h5.67v-1.86H0zm6.11 0h5.67v-1.86H6.11zM6.11 13h5.67v-1.86H6.11zM0 13h5.67v-1.86H0z"/>
-                      </svg>
-                      Deezer
-                    </a>
+                    {song.externalUrl && (
+                      <a
+                        href={song.externalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold transition"
+                      >
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                        </svg>
+                        iTunes
+                      </a>
+                    )}
                   </div>
                 </div>
               )
@@ -262,7 +267,7 @@ export default function Animo() {
           <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
             <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
           </svg>
-          <p>No se encontraron canciones para esta combinación.</p>
+          <p>No se encontraron canciones para esta combinación. Intenta de nuevo.</p>
         </div>
       )}
     </div>
