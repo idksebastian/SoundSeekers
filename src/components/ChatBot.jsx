@@ -5,16 +5,16 @@ import { getSongs } from '../api/songs'
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
 
-const SYSTEM_PROMPT = `Eres SoundAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
+const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
 
 Puedes ayudar con:
 - Recomendar canciones y artistas de la plataforma
 - Analizar la canción que el usuario está escuchando ahora mismo
-- Responder preguntas sobre la plataforma (cómo subir canciones, cómo seguir artistas, etc.)
+- Responder preguntas sobre la plataforma (cómo subir canciones, cómo seguir artistas, cómo crear playlists, etc.)
 - Dar recomendaciones musicales personalizadas según el estado de ánimo
-- Hablar sobre géneros musicales, artistas emergentes y tendencias
+- Hablar sobre géneros musicales latinoamericanos y tendencias
 
-Responde siempre en español, de forma amigable, concisa (máximo 3 párrafos cortos) y con personalidad musical. Usa emojis ocasionalmente. No uses markdown con asteriscos, escribe en texto plano.`
+Responde siempre en español, de forma amigable, concisa (máximo 3 párrafos cortos) y con personalidad musical. Usa emojis ocasionalmente. Escribe en texto plano sin asteriscos ni markdown.`
 
 async function askGemini(messages, songs, currentSong) {
   const songsContext = songs.length > 0
@@ -25,14 +25,27 @@ async function askGemini(messages, songs, currentSong) {
     ? `El usuario está escuchando: "${currentSong.title}" de ${currentSong.display_artist || currentSong.artist_name}.`
     : ''
 
-  const fullPrompt = `${SYSTEM_PROMPT}\n\n${songsContext}\n${currentSongContext}\n\nConversación:\n${messages.map(m => `${m.role === 'user' ? 'Usuario' : 'SoundAI'}: ${m.content}`).join('\n')}\nSoundAI:`
+  const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto:\n${songsContext}\n${currentSongContext}`
+
+  // Formato correcto de Gemini: roles user/model alternados
+  const contents = []
+
+  // System prompt como primer turno
+  contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
+  contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, listo para ayudarte con música.' }] })
+
+  // Historial de mensajes
+  for (const msg of messages) {
+    const role = msg.role === 'user' ? 'user' : 'model'
+    contents.push({ role, parts: [{ text: msg.content }] })
+  }
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: fullPrompt }] }] })
+      body: JSON.stringify({ contents })
     }
   )
 
@@ -42,7 +55,9 @@ async function askGemini(messages, songs, currentSong) {
   }
 
   const data = await res.json()
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || 'Lo siento, hubo un error. Intenta de nuevo.'
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
+  if (!text) throw new Error('EMPTY_RESPONSE')
+  return text
 }
 
 export default function ChatBot() {
@@ -50,7 +65,7 @@ export default function ChatBot() {
   const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: '¡Hola! Soy SoundAI 🎵 ¿En qué te ayudo hoy?' }
+    { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 ¿En qué te ayudo hoy?' }
   ])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -98,7 +113,7 @@ export default function ChatBot() {
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? '?'
 
   return (
-    <div style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 200, fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ position: 'fixed', bottom: 80, right: 20, zIndex: 200, fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif" }}>
 
       {open && (
         <div style={{
@@ -113,11 +128,13 @@ export default function ChatBot() {
 
           {/* Header */}
           <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-              🎵
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="18" height="18" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, color: '#fff', fontWeight: 700, fontSize: 14 }}>SoundAI</p>
+              <p style={{ margin: 0, color: '#fff', fontWeight: 700, fontSize: 14 }}>SeekeAI</p>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                 <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80' }}/>
                 <p style={{ margin: 0, color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>En línea</p>
@@ -150,8 +167,10 @@ export default function ChatBot() {
             {messages.map((msg, i) => (
               <div key={i} style={{ display: 'flex', gap: 8, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
                 {msg.role === 'assistant' && (
-                  <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0, marginTop: 2 }}>
-                    🎵
+                  <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+                    <svg width="13" height="13" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                    </svg>
                   </div>
                 )}
                 <div style={{
@@ -172,7 +191,11 @@ export default function ChatBot() {
             ))}
             {loading && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, flexShrink: 0 }}>🎵</div>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="13" height="13" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                  </svg>
+                </div>
                 <div style={{ background: '#f3f4f6', borderRadius: '14px 14px 14px 3px', padding: '12px 14px', display: 'flex', gap: 4, alignItems: 'center' }}>
                   {[0, 1, 2].map(k => (
                     <div key={k} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7c3aed', animation: `dotBounce 1.2s ${k * 0.2}s infinite` }}/>
@@ -214,17 +237,21 @@ export default function ChatBot() {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 8px 24px rgba(124,58,237,0.45)',
           transition: 'transform 0.2s, background 0.2s',
-          fontSize: 22, position: 'relative',
+          position: 'relative',
         }}
         onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-        title="SoundAI - Asistente musical"
+        title="SeekeAI - Asistente musical"
       >
         {open ? (
           <svg width="22" height="22" fill="none" stroke="white" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
           </svg>
-        ) : '🎵'}
+        ) : (
+          <svg width="22" height="22" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+        )}
         {unread > 0 && !open && (
           <div style={{
             position: 'absolute', top: -2, right: -2,
