@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getProfile, getFollowStats, getSongStreams } from '../api/profile'
 import { getUserRole, createListenerRole, updateArtistMood, getArtistLevel, getListenerLevel } from '../api/roles'
 import { getMySongs, deleteSong } from '../api/songs'
+import { getMyPlaylists, createPlaylist, deletePlaylist, getPlaylistSongs, removeSongFromPlaylist } from '../api/playlists'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
@@ -9,6 +10,126 @@ import SettingsModal from '../components/SettingsModal'
 import SkeletonSongRow from '../components/SkeletonSongRow'
 
 const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
+
+// Modal de confirmación
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
+          <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </div>
+        <p className="text-center text-gray-800 font-semibold text-base mb-1">¿Estás seguro?</p>
+        <p className="text-center text-gray-500 text-sm mb-6">{message}</p>
+        <div className="flex gap-3">
+          <button onClick={onCancel} className="flex-1 px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition font-medium">Cancelar</button>
+          <button onClick={onConfirm} className="flex-1 px-4 py-2.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition font-semibold">Eliminar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Vista de una playlist abierta
+function PlaylistDetail({ playlist, onBack, onDeleted }) {
+  const { playSong } = usePlayer()
+  const [songs, setSongs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [removingSong, setRemovingSong] = useState(null)
+
+  useEffect(() => {
+    getPlaylistSongs(playlist.id).then(setSongs).catch(console.error).finally(() => setLoading(false))
+  }, [playlist.id])
+
+  const handleDeletePlaylist = async () => {
+    try {
+      await deletePlaylist(playlist.id)
+      onDeleted(playlist.id)
+    } catch (err) { console.error(err) }
+  }
+
+  const handleRemoveSong = async (songId) => {
+    setRemovingSong(songId)
+    try {
+      await removeSongFromPlaylist(playlist.id, songId)
+      setSongs(prev => prev.filter(s => s.id !== songId))
+    } catch (err) { console.error(err) }
+    finally { setRemovingSong(null) }
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+      {confirmDelete && (
+        <ConfirmModal
+          message="Esta playlist se eliminará permanentemente."
+          onConfirm={handleDeletePlaylist}
+          onCancel={() => setConfirmDelete(false)}
+        />
+      )}
+
+      <div className="flex items-center gap-3 mb-5">
+        <button onClick={onBack} className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition">
+          <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold text-black truncate">{playlist.name}</h2>
+          <p className="text-xs text-gray-400">{songs.length} canción{songs.length !== 1 ? 'es' : ''}</p>
+        </div>
+        {songs.length > 0 && (
+          <button onClick={() => playSong(songs[0], songs)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition">
+            <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            Reproducir
+          </button>
+        )}
+        <button onClick={() => setConfirmDelete(true)} className="w-8 h-8 rounded-full border border-gray-200 hover:bg-red-50 hover:border-red-200 flex items-center justify-center transition">
+          <svg className="w-4 h-4 text-gray-400 hover:text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+          </svg>
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="space-y-3">{[1,2,3].map(i => <SkeletonSongRow key={i}/>)}</div>
+      ) : songs.length === 0 ? (
+        <div className="text-center py-8 text-gray-400 text-sm">
+          Esta playlist está vacía. Agrega canciones desde el reproductor o la lista de canciones.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {songs.map((song, i) => (
+            <div key={song.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 transition group">
+              <span className="text-xs text-gray-400 w-5 text-right shrink-0">{i + 1}</span>
+              <img src={song.cover_url} alt={song.title} className="w-10 h-10 rounded-lg object-cover shrink-0"/>
+              <div className="flex-1 min-w-0 cursor-pointer" onClick={() => playSong(song, songs)}>
+                <p className="text-sm font-semibold text-gray-900 truncate">{song.title}</p>
+                <p className="text-xs text-gray-400 truncate">{song.display_artist || song.artist_name}</p>
+              </div>
+              <button onClick={() => handleRemoveSong(song.id)} disabled={removingSong === song.id}
+                className="w-7 h-7 rounded-full opacity-0 group-hover:opacity-100 hover:bg-red-50 flex items-center justify-center transition shrink-0">
+                {removingSong === song.id ? (
+                  <svg className="w-3 h-3 animate-spin text-red-400" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                ) : (
+                  <svg className="w-3 h-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                )}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -25,6 +146,14 @@ export default function Profile() {
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
 
+  // Playlists
+  const [playlists, setPlaylists] = useState([])
+  const [loadingPlaylists, setLoadingPlaylists] = useState(false)
+  const [openPlaylist, setOpenPlaylist] = useState(null)
+  const [showCreatePlaylist, setShowCreatePlaylist] = useState(false)
+  const [newPlaylistName, setNewPlaylistName] = useState('')
+  const [creatingPlaylist, setCreatingPlaylist] = useState(false)
+
   const loadData = async () => {
     setLoading(true)
     try {
@@ -38,6 +167,11 @@ export default function Profile() {
       setSongs(mySongs)
       const streams = await getSongStreams(mySongs.map(s => s.id))
       setStats({ ...followStats, streams })
+      // Cargar playlists
+      setLoadingPlaylists(true)
+      const pls = await getMyPlaylists(u.id)
+      setPlaylists(pls)
+      setLoadingPlaylists(false)
     } catch (err) {
       console.error(err)
     } finally {
@@ -53,20 +187,31 @@ export default function Profile() {
   }
 
   const handleDeleteSong = async (song) => {
-    if (confirmDelete?.id !== song.id) {
-      setConfirmDelete(song)
-      return
-    }
+    if (confirmDelete?.id !== song.id) { setConfirmDelete(song); return }
     setDeletingId(song.id)
     try {
       await deleteSong(song.id)
       setSongs(prev => prev.filter(s => s.id !== song.id))
       setConfirmDelete(null)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setDeletingId(null)
-    }
+    } catch (err) { console.error(err) }
+    finally { setDeletingId(null) }
+  }
+
+  const handleCreatePlaylist = async () => {
+    if (!newPlaylistName.trim()) return
+    setCreatingPlaylist(true)
+    try {
+      const pl = await createPlaylist({ user_id: user.id, name: newPlaylistName.trim() })
+      setPlaylists(prev => [{ ...pl, playlist_songs: [{ count: 0 }] }, ...prev])
+      setNewPlaylistName('')
+      setShowCreatePlaylist(false)
+    } catch (err) { console.error(err) }
+    finally { setCreatingPlaylist(false) }
+  }
+
+  const handlePlaylistDeleted = (playlistId) => {
+    setPlaylists(prev => prev.filter(p => p.id !== playlistId))
+    setOpenPlaylist(null)
   }
 
   const isArtist = role?.role === 'artist'
@@ -75,13 +220,7 @@ export default function Profile() {
   const listenerLevel = !isArtist ? getListenerLevel(stats.streams) : null
   const avatarPreview = user?.user_metadata?.avatar_url ?? null
   const bio = role?.artist_bio ?? role?.description ?? null
-  const socials = {
-    instagram: role?.instagram,
-    twitter: role?.twitter,
-    tiktok: role?.tiktok,
-    youtube: role?.youtube,
-    website: role?.website,
-  }
+  const socials = { instagram: role?.instagram, twitter: role?.twitter, tiktok: role?.tiktok, youtube: role?.youtube, website: role?.website }
   const hasSocials = Object.values(socials).some(Boolean)
 
   if (loading) return (
@@ -95,50 +234,40 @@ export default function Profile() {
               <div className="h-3.5 bg-gray-200 rounded-full w-1/4" />
             </div>
           </div>
-          <div className="flex gap-6 mt-6 pt-6 border-t border-gray-100">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="space-y-1.5">
-                <div className="h-7 w-10 bg-gray-200 rounded-full" />
-                <div className="h-3 w-14 bg-gray-200 rounded-full" />
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="h-5 bg-gray-200 rounded-full w-1/4 mb-4 animate-pulse" />
-          <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, i) => <SkeletonSongRow key={i} />)}
-          </div>
         </div>
       </div>
     </div>
   )
 
+  // Si hay una playlist abierta, mostrar su detalle
+  if (openPlaylist) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-24 pb-32">
+        <div className="container mx-auto px-6 max-w-3xl">
+          <PlaylistDetail
+            playlist={openPlaylist}
+            onBack={() => setOpenPlaylist(null)}
+            onDeleted={handlePlaylistDeleted}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pt-24 pb-32">
 
       {showArtistModal && (
-        <ArtistModal
-          userId={user.id}
-          onSuccess={() => { setShowArtistModal(false); loadData() }}
-          onClose={() => { setShowArtistModal(false); loadData() }}
-        />
+        <ArtistModal userId={user.id} onSuccess={() => { setShowArtistModal(false); loadData() }} onClose={() => { setShowArtistModal(false); loadData() }} />
       )}
 
       {showSettings && (
-  <SettingsModal
-    user={user}
-    role={role}
-    onClose={() => setShowSettings(false)}
-    onProfileUpdated={async () => { 
-  await loadData()
-  setShowSettings(false) 
-}}
-  />
-)}
+        <SettingsModal user={user} role={role} onClose={() => setShowSettings(false)} onProfileUpdated={async () => { await loadData(); setShowSettings(false) }} />
+      )}
 
       <div className="container mx-auto px-6 max-w-3xl space-y-6">
 
+        {/* Card de perfil */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-4">
@@ -153,17 +282,11 @@ export default function Profile() {
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-2xl font-bold text-black">
-                    {isArtist ? role.artist_name : name}
-                  </h1>
+                  <h1 className="text-2xl font-bold text-black">{isArtist ? role.artist_name : name}</h1>
                   {isArtist ? (
-                    <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${artistLevel.color}`}>
-                      {artistLevel.level}
-                    </span>
+                    <span className={`text-xs px-2.5 py-1 rounded-full border font-medium ${artistLevel.color}`}>{artistLevel.level}</span>
                   ) : (
-                    <span className="text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-500 font-medium">
-                      {listenerLevel.icon} {listenerLevel.level}
-                    </span>
+                    <span className="text-xs px-2.5 py-1 rounded-full border border-gray-200 bg-gray-50 text-gray-500 font-medium">{listenerLevel.icon} {listenerLevel.level}</span>
                   )}
                 </div>
                 <p className="text-gray-400 text-sm">{user?.email}</p>
@@ -179,9 +302,7 @@ export default function Profile() {
                 )}
               </div>
             </div>
-
-            <button onClick={() => setShowSettings(true)}
-              className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition shrink-0">
+            <button onClick={() => setShowSettings(true)} className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition shrink-0">
               <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -195,11 +316,7 @@ export default function Profile() {
               <div className="flex gap-2 flex-wrap">
                 {MOODS.map(mood => (
                   <button key={mood} onClick={() => handleMoodChange(mood)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition ${
-                      role.artist_mood === mood
-                        ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium'
-                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
-                    }`}>
+                    className={`text-xs px-3 py-1.5 rounded-full border transition ${role.artist_mood === mood ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                     {mood}
                   </button>
                 ))}
@@ -208,53 +325,105 @@ export default function Profile() {
           )}
 
           <div className="flex gap-6 mt-4 pt-4 border-t border-gray-100">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-black">{songs.length}</p>
-              <p className="text-xs text-gray-400">Canciones</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-black">{stats.followers}</p>
-              <p className="text-xs text-gray-400">Seguidores</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-black">{stats.following}</p>
-              <p className="text-xs text-gray-400">Siguiendo</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-black">{stats.streams}</p>
-              <p className="text-xs text-gray-400">Reproducciones</p>
-            </div>
+            <div className="text-center"><p className="text-2xl font-bold text-black">{songs.length}</p><p className="text-xs text-gray-400">Canciones</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-black">{stats.followers}</p><p className="text-xs text-gray-400">Seguidores</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-black">{stats.following}</p><p className="text-xs text-gray-400">Siguiendo</p></div>
+            <div className="text-center"><p className="text-2xl font-bold text-black">{stats.streams}</p><p className="text-xs text-gray-400">Reproducciones</p></div>
           </div>
 
           {!isArtist && (
             isPending ? (
               <div className="mt-4 w-full h-11 border border-yellow-200 bg-yellow-50 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 text-yellow-600">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 Solicitud en revisión
               </div>
             ) : (
-              <button onClick={() => setShowArtistModal(true)}
-                className="mt-4 w-full h-11 border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                </svg>
+              <button onClick={() => setShowArtistModal(true)} className="mt-4 w-full h-11 border-2 border-dashed border-purple-300 text-purple-600 hover:bg-purple-50 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
                 Solicitar verificación de artista
               </button>
             )
           )}
         </div>
 
+        {/* Playlists */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-black">Mis playlists</h2>
+            <button onClick={() => setShowCreatePlaylist(true)}
+              className="flex items-center gap-1.5 text-sm text-purple-700 font-semibold hover:text-purple-800 transition">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+              </svg>
+              Nueva
+            </button>
+          </div>
+
+          {/* Formulario crear playlist */}
+          {showCreatePlaylist && (
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                value={newPlaylistName}
+                onChange={e => setNewPlaylistName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleCreatePlaylist(); if (e.key === 'Escape') { setShowCreatePlaylist(false); setNewPlaylistName('') } }}
+                placeholder="Nombre de la playlist..."
+                autoFocus
+                className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+              />
+              <button onClick={handleCreatePlaylist} disabled={!newPlaylistName.trim() || creatingPlaylist}
+                className="px-4 py-2 bg-purple-700 hover:bg-purple-800 text-white text-sm font-semibold rounded-xl transition disabled:opacity-50">
+                {creatingPlaylist ? '...' : 'Crear'}
+              </button>
+              <button onClick={() => { setShowCreatePlaylist(false); setNewPlaylistName('') }}
+                className="px-3 py-2 text-gray-400 hover:text-gray-600 text-sm transition">✕</button>
+            </div>
+          )}
+
+          {loadingPlaylists ? (
+            <div className="space-y-3">{[1,2].map(i => <div key={i} className="h-14 bg-gray-100 rounded-xl animate-pulse"/>)}</div>
+          ) : playlists.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-purple-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+              </div>
+              <p className="text-gray-400 text-sm">No tienes playlists aún.</p>
+              <button onClick={() => setShowCreatePlaylist(true)} className="mt-2 text-sm text-purple-600 font-medium hover:underline">
+                Crear mi primera playlist
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {playlists.map(pl => {
+                const count = pl.playlist_songs?.[0]?.count ?? 0
+                return (
+                  <div key={pl.id} onClick={() => setOpenPlaylist(pl)}
+                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 cursor-pointer transition group">
+                    <div className="w-11 h-11 rounded-xl bg-purple-100 flex items-center justify-center shrink-0">
+                      <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{pl.name}</p>
+                      <p className="text-xs text-gray-400">{count} canción{count !== 1 ? 'es' : ''}</p>
+                    </div>
+                    <svg className="w-4 h-4 text-gray-300 group-hover:text-gray-500 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+                    </svg>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Mis canciones (artistas) */}
         {isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-black mb-4">Mis canciones</h2>
             {songs.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-400 text-sm">No has subido canciones aún.</p>
-                <button onClick={() => navigate('/upload')} className="mt-3 text-sm text-purple-600 font-medium hover:underline">
-                  + Subir primera canción
-                </button>
+                <button onClick={() => navigate('/upload')} className="mt-3 text-sm text-purple-600 font-medium hover:underline">+ Subir primera canción</button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -267,54 +436,30 @@ export default function Profile() {
                       <div className="flex-1 min-w-0">
                         <p className="text-black font-medium text-sm truncate">{song.title}</p>
                         <p className="text-gray-400 text-xs">{song.genre}</p>
-                        {isConfirming && (
-                          <p className="text-red-500 text-xs mt-0.5 font-medium">¿Seguro? Esta acción no se puede deshacer.</p>
-                        )}
+                        {isConfirming && <p className="text-red-500 text-xs mt-0.5 font-medium">¿Seguro? Esta acción no se puede deshacer.</p>}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <button onClick={() => navigate(`/edit/${song.id}`)}
-                          className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition"
-                          title="Editar">
-                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
+                        <button onClick={() => navigate(`/edit/${song.id}`)} className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition" title="Editar">
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
-                        <button
-                          onClick={() => isConfirming ? handleDeleteSong(song) : setConfirmDelete(song)}
-                          disabled={deletingId === song.id}
-                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition disabled:opacity-50 ${
-                            isConfirming
-                              ? 'border-red-300 bg-red-100 hover:bg-red-200'
-                              : 'border-gray-200 hover:bg-red-50 hover:border-red-200'
-                          }`}
-                          title={isConfirming ? 'Confirmar eliminación' : 'Eliminar'}>
+                        <button onClick={() => isConfirming ? handleDeleteSong(song) : setConfirmDelete(song)} disabled={deletingId === song.id}
+                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition disabled:opacity-50 ${isConfirming ? 'border-red-300 bg-red-100 hover:bg-red-200' : 'border-gray-200 hover:bg-red-50 hover:border-red-200'}`}>
                           {deletingId === song.id ? (
-                            <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                            </svg>
+                            <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                           ) : (
-                            <svg className={`w-3.5 h-3.5 ${isConfirming ? 'text-red-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
+                            <svg className={`w-3.5 h-3.5 ${isConfirming ? 'text-red-600' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                           )}
                         </button>
                         {isConfirming && (
-                          <button onClick={() => setConfirmDelete(null)}
-                            className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition"
-                            title="Cancelar">
-                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
+                          <button onClick={() => setConfirmDelete(null)} className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-100 flex items-center justify-center transition">
+                            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         )}
-                        <button onClick={() => playSong(song)}
-                          className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition">
-                          {isCurrentSong && isPlaying ? (
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" /></svg>
-                          ) : (
-                            <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z" /></svg>
-                          )}
+                        <button onClick={() => playSong(song)} className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition">
+                          {isCurrentSong && isPlaying
+                            ? <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                            : <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                          }
                         </button>
                       </div>
                     </div>
@@ -325,6 +470,7 @@ export default function Profile() {
           </div>
         )}
 
+        {/* Nivel de oyente */}
         {!isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-lg font-bold text-black mb-1">Tu nivel de oyente</h2>
@@ -345,7 +491,6 @@ export default function Profile() {
             </div>
           </div>
         )}
-
       </div>
     </div>
   )
