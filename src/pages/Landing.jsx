@@ -1,6 +1,19 @@
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 export default function Landing() {
+  const { user, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && user) {
+      navigate('/home', { replace: true })
+    }
+  }, [user, loading])
+
+  if (loading) return null
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", color: '#111' }}>
       <style>{`
@@ -84,7 +97,7 @@ export default function Landing() {
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
         @keyframes float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
       `}</style>
-  
+
       {/* NAVBAR */}
       <nav className="landing-nav">
         <Link to="/" className="landing-logo">
