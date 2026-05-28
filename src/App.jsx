@@ -26,6 +26,10 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AI from './pages/AI'
 import Settings from './pages/Settings'
+import Terminos from './pages/Terminos'
+import Privacidad from './pages/Privacidad'
+import Cookies from './pages/Cookies'
+import Contacto from './pages/Contacto'
 
 // Componente que muestra Navbar solo si el usuario está autenticado
 function AppLayout({ children }) {
@@ -51,6 +55,10 @@ export default function App() {
                 <Navbar />
                 <PageTransition>
                   <Routes>
+                    <Route path="/terminos" element={<Terminos />} />
+                    <Route path="/privacidad" element={<Privacidad />} />
+                    <Route path="/cookies" element={<Cookies />} />
+                    <Route path="/contacto" element={<Contacto />} />
                     <Route path="/home" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/community" element={<Community />} />
