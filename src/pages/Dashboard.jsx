@@ -3,7 +3,6 @@ import { getSongs } from '../api/songs'
 import { usePlayer } from '../context/PlayerContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import AddToPlaylistModal from '../components/AddToPlaylistModal'
 
 const GENRES = [
   { label: 'Todo', value: null, color: '#7c3aed' },
@@ -31,7 +30,6 @@ export default function Dashboard() {
   const [search, setSearch] = useState('')
   const [selectedGenre, setSelectedGenre] = useState(null)
   const [view, setView] = useState('all')
-  const [addToPlaylistSong, setAddToPlaylistSong] = useState(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,11 +128,8 @@ export default function Dashboard() {
         .song-row-genre { font-size: 11px; color: #7c3aed; background: #f5f3ff; padding: 2px 8px; border-radius: 100px; font-weight: 600; flex-shrink: 0; }
         .song-row-streams { font-size: 12px; color: #9ca3af; flex-shrink: 0; display: none; }
         @media (min-width: 600px) { .song-row-streams { display: block; } }
-        .song-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
         .song-row-play { width: 32px; height: 32px; border-radius: 50%; background: #7c3aed; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.15s; }
         .song-row-play:hover { transform: scale(1.1); }
-        .song-row-add { width: 28px; height: 28px; border-radius: 50%; background: transparent; border: 1px solid #e5e7eb; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
-        .song-row-add:hover { border-color: #7c3aed; background: #f5f3ff; }
         .albums-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
         .album-card { cursor: pointer; }
         .album-card-img { width: 100%; aspect-ratio: 1; border-radius: 12px; object-fit: cover; display: block; transition: transform 0.3s; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 8px; }
@@ -156,14 +151,6 @@ export default function Dashboard() {
         .now-playing { color: #7c3aed !important; }
         .now-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #7c3aed; animation: pulse 1.5s infinite; margin-right: 6px; }
       `}</style>
-
-      {/* Modal agregar a playlist */}
-      {addToPlaylistSong && (
-        <AddToPlaylistModal
-          song={addToPlaylistSong}
-          onClose={() => setAddToPlaylistSong(null)}
-        />
-      )}
 
       {/* Header */}
       <div className="dash-header">
@@ -270,24 +257,12 @@ export default function Dashboard() {
                         </div>
                         <span className="song-row-genre">{song.genre}</span>
                         {song.streams > 0 && <span className="song-row-streams">{song.streams.toLocaleString()} rep.</span>}
-                        <div className="song-row-actions">
-                          {/* Botón agregar a playlist */}
-                          <button
-                            className="song-row-add"
-                            title="Agregar a playlist"
-                            onClick={e => { e.stopPropagation(); setAddToPlaylistSong(song) }}
-                          >
-                            <svg width="12" height="12" fill="none" stroke="#7c3aed" strokeWidth={2} viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
-                            </svg>
-                          </button>
-                          <button className="song-row-play" onClick={e => { e.stopPropagation(); playSong(song, filtered.songs) }}>
-                            {isCurrentSong && isPlaying
-                              ? <svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                              : <svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                            }
-                          </button>
-                        </div>
+                        <button className="song-row-play" onClick={e => { e.stopPropagation(); playSong(song, filtered.songs) }}>
+                          {isCurrentSong && isPlaying
+                            ? <svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                            : <svg width="12" height="12" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                          }
+                        </button>
                       </div>
                     )
                   })}
