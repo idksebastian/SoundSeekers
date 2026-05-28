@@ -29,3 +29,5 @@ backend/venv/
 backend/.env
 backend/__pycache__/
 "backend/.cache" 
+".env" 
+".env.local" 
