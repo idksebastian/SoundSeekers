@@ -3,9 +3,9 @@ import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
 import { getSongs } from '../api/songs'
 
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
 const HISTORY_KEY = 'seekai_history'
 const MAX_HISTORY = 40
+const BACKEND_URL = 'http://localhost:8000'
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
 
@@ -45,9 +45,7 @@ function parseSongRecommendations(text, allSongs) {
   return { cleanText, recommendedSongs }
 }
 
-const sleep = (ms) => new Promise(r => setTimeout(r, ms))
-
-async function askGemini(messages, songs, currentSong, retries = 3) {
+async function askSeekeAI(messages, songs, currentSong) {
   const songsContext = songs.length > 0
     ? `Canciones disponibles en SoundSeekers: ${songs.slice(0, 20).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : ''
@@ -67,32 +65,18 @@ async function askGemini(messages, songs, currentSong, retries = 3) {
     contents.push({ role, parts: [{ text: msg.content }] })
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents })
-    }
-  )
+  const res = await fetch(`${BACKEND_URL}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: contents })
+  })
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    if (res.status === 429) {
-      if (retries > 0) {
-        // Esperar y reintentar automáticamente
-        await sleep(4000)
-        return askGemini(messages, songs, currentSong, retries - 1)
-      }
-      throw new Error('RATE_LIMIT')
-    }
-    throw new Error(err?.error?.message || 'API_ERROR')
-  }
+  if (!res.ok) throw new Error('BACKEND_ERROR')
 
   const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('EMPTY_RESPONSE')
-  return text
+  console.log('Backend response:', JSON.stringify(data))
+  if (data.error || !data.reply) throw new Error('AI_ERROR')
+  return data.reply
 }
 
 const SUGGESTIONS = [
@@ -154,14 +138,10 @@ export default function AI() {
     setMessages(newMessages)
     setLoading(true)
     try {
-      const reply = await askGemini(newMessages, songs, currentSong)
+      const reply = await askSeekeAI(newMessages, songs, currentSong)
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch (err) {
-      if (err.message === 'RATE_LIMIT') {
-        setError('El límite de requests se alcanzó. Espera 1 minuto e intenta de nuevo 🙏')
-      } else {
-        setError('Hubo un error al conectar con SeekeAI. Intenta de nuevo.')
-      }
+      setError('Hubo un error al conectar con SeekeAI. ¿Está corriendo el backend?')
       setMessages(prev => prev.slice(0, -1))
     } finally {
       setLoading(false)
