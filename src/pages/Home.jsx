@@ -594,13 +594,13 @@ useEffect(() => {
               <Link to="/register" className="footer-link">Crear cuenta</Link>
               <Link to="/login" className="footer-link">Iniciar sesión</Link>
             </div>
-            <div>
-              <p className="footer-col-title">Legal</p>
-              <a href="#" className="footer-link">Términos de uso</a>
-              <a href="#" className="footer-link">Privacidad</a>
-              <a href="#" className="footer-link">Cookies</a>
-              <a href="#" className="footer-link">Contacto</a>
-            </div>
+<div>
+  <p className="footer-col-title">Legal</p>
+  <Link to="/terminos" className="footer-link">Términos de uso</Link>
+  <Link to="/privacidad" className="footer-link">Privacidad</Link>
+  <Link to="/cookies" className="footer-link">Cookies</Link>
+  <Link to="/contacto" className="footer-link">Contacto</Link>
+</div>
           </div>
           <div className="footer-bottom">
             <p className="footer-copy">© 2026 SoundSeekers. Todos los derechos reservados.</p>
