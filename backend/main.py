@@ -3,6 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import random
 import time
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = FastAPI()
 
@@ -13,28 +17,57 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Caché simple en memoria
-_cache = {}
-CACHE_TTL = 300  # 5 minutos
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
-# iTunes Search API — gratuita, sin key, previews de 30s garantizados
+# Caché para recomendaciones de Ánimo
+_cache = {}
+CACHE_TTL = 300
+
 MOOD_QUERIES = {
-    "happy":     ["reggaeton", "salsa", "cumbia", "bachata feliz", "pop latino"],
-    "sad":       ["balada romantica latina", "bolero", "latin ballad sad", "desamor"],
-    "energetic": ["latin trap", "reggaeton perreo", "dembow", "electro latino"],
-    "calm":      ["bossa nova", "latin jazz", "acoustic latino", "flamenco"],
-    "nostalgic": ["salsa clasica", "bolero clasico", "cumbia clasica", "vallenato"],
-    "focused":   ["latin instrumental", "jazz latino", "flamenco guitar", "piano latino"],
+    "happy":     ["reggaeton feliz", "pop latino alegre", "cumbia fiesta", "salsa alegre", "bachata feliz", "pop español positivo"],
+    "sad":       ["balada romántica", "canción triste latina", "desamor latino", "bolero triste", "pop triste español", "indie triste"],
+    "energetic": ["reggaeton perreo", "latin trap", "electrónica latina", "urban latino", "dembow", "trap latino energía"],
+    "calm":      ["acústico latino relajante", "indie español suave", "bossa nova", "flamenco suave", "jazz latino", "lo fi español"],
+    "nostalgic": ["boleros clásicos", "salsa romántica", "cumbia clásica", "vallenato", "ranchera", "merengue clásico"],
+    "focused":   ["instrumental latino", "flamenco moderno", "lo-fi español", "jazz latino concentración", "clásica española", "piano instrumental"],
 }
 
 WEATHER_QUERIES = {
-    "sunny":  ["tropical", "salsa", "merengue", "caribbean"],
-    "rainy":  ["ballad", "romantic latin", "soft latin"],
-    "cloudy": ["indie latino", "folk latin", "acoustic"],
-    "night":  ["latin night", "salsa noche", "bachata"],
-    "cold":   ["acoustic guitar", "latin folk", "soft ballad"],
-    "warm":   ["tropical latin", "cumbia", "salsa"],
+    "sunny":  ["verano latino", "playa tropical", "salsa sol", "caribe"],
+    "rainy":  ["balada lluvia", "romántico lluvioso", "indie lluvia", "melancólico"],
+    "cloudy": ["melancólico español", "indie nublado", "folk latino", "gris"],
+    "night":  ["noche urbana latina", "salsa noche", "reggaeton noche", "bachata noche"],
+    "cold":   ["acústico invierno", "balada fría", "folk invernal", "piano frío"],
+    "warm":   ["tropical español", "tarde latina", "cumbia calurosa", "salsa caliente"],
 }
+
+# ─── ENDPOINT CHAT (SeekeAI) ──────────────────────────────────────────────────
+
+@app.post("/chat")
+async def chat(request: dict):
+    messages = request.get("messages", [])
+
+    async with httpx.AsyncClient() as client:
+        res = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}",
+            json={"contents": messages},
+            timeout=30.0
+        )
+
+    if not res.is_success:
+        return {"error": f"Gemini error {res.status_code}", "reply": None}
+
+    data = res.json()
+    text = (
+        data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+    )
+    return {"reply": text}
+
+
+# ─── ENDPOINT RECOMENDACIONES (Ánimo) ────────────────────────────────────────
 
 async def search_itunes(term: str, limit: int = 15) -> list:
     async with httpx.AsyncClient() as client:
@@ -45,14 +78,13 @@ async def search_itunes(term: str, limit: int = 15) -> list:
                     "term": term,
                     "media": "music",
                     "limit": limit,
-                    "country": "CO",  # Colombia
+                    "country": "CO",
                     "lang": "es_es",
                 },
                 timeout=10.0
             )
             if response.status_code == 200:
-                data = response.json()
-                return data.get("results", [])
+                return response.json().get("results", [])
         except Exception as e:
             print(f"Error en iTunes API: {e}")
     return []
@@ -62,7 +94,6 @@ async def get_recommendations(mood: str, weather: str):
     cache_key = f"{mood}_{weather}"
     now = time.time()
 
-    # Devolver caché si está fresco
     if cache_key in _cache:
         cached = _cache[cache_key]
         if now - cached["timestamp"] < CACHE_TTL:
@@ -74,21 +105,16 @@ async def get_recommendations(mood: str, weather: str):
     weather_queries = WEATHER_QUERIES.get(weather, WEATHER_QUERIES["sunny"])
 
     all_tracks = []
-
-    # Hacer 2 búsquedas con queries distintas
     for _ in range(2):
         mq = random.choice(mood_queries)
         wq = random.choice(weather_queries)
-        query = f"{mq} {wq}"
-        tracks = await search_itunes(query)
+        tracks = await search_itunes(f"{mq} {wq}")
         all_tracks.extend(tracks)
 
-    # Si no hay suficientes, buscar solo por mood
     if len(all_tracks) < 5:
         tracks = await search_itunes(random.choice(mood_queries), limit=20)
         all_tracks.extend(tracks)
 
-    # Filtrar solo los que tienen preview y eliminar duplicados por trackId
     seen_ids = set()
     tracks_with_preview = []
     for t in all_tracks:
@@ -113,12 +139,12 @@ async def get_recommendations(mood: str, weather: str):
             "genre":      track.get("primaryGenreName", ""),
         })
 
-    # Guardar en caché
     if songs:
         _cache[cache_key] = {"songs": songs, "timestamp": now}
 
     return {"songs": songs[:8], "mood": mood, "weather": weather, "cached": False}
 
+
 @app.get("/health")
 def health():
-    return {"status": "ok", "api": "iTunes Search API", "cached_keys": list(_cache.keys())}
+    return {"status": "ok", "gemini": bool(GEMINI_KEY)}
