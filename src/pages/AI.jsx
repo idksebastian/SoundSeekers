@@ -5,7 +5,7 @@ import { getSongs } from '../api/songs'
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
 const HISTORY_KEY = 'seekai_history'
-const MAX_HISTORY = 40 // máximo de mensajes a guardar
+const MAX_HISTORY = 40
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
 
@@ -28,7 +28,6 @@ Responde siempre en español, de forma amigable, concisa y con personalidad musi
 
 const INITIAL_MESSAGE = { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 Tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o ayudarte con cualquier duda sobre la plataforma. ¿En qué te ayudo hoy?' }
 
-// Parsear canciones del mensaje de la IA
 function parseSongRecommendations(text, allSongs) {
   const match = text.match(/\[CANCIONES:([^\]]+)\]/)
   if (!match) return { cleanText: text, recommendedSongs: [] }
@@ -46,7 +45,9 @@ function parseSongRecommendations(text, allSongs) {
   return { cleanText, recommendedSongs }
 }
 
-async function askGemini(messages, songs, currentSong) {
+const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+
+async function askGemini(messages, songs, currentSong, retries = 3) {
   const songsContext = songs.length > 0
     ? `Canciones disponibles en SoundSeekers: ${songs.slice(0, 20).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : ''
@@ -67,7 +68,7 @@ async function askGemini(messages, songs, currentSong) {
   }
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -77,7 +78,14 @@ async function askGemini(messages, songs, currentSong) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    if (res.status === 429) throw new Error('RATE_LIMIT')
+    if (res.status === 429) {
+      if (retries > 0) {
+        // Esperar y reintentar automáticamente
+        await sleep(4000)
+        return askGemini(messages, songs, currentSong, retries - 1)
+      }
+      throw new Error('RATE_LIMIT')
+    }
     throw new Error(err?.error?.message || 'API_ERROR')
   }
 
@@ -106,7 +114,6 @@ export default function AI() {
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
-  // Cargar historial desde localStorage
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem(HISTORY_KEY)
@@ -118,7 +125,6 @@ export default function AI() {
     return [INITIAL_MESSAGE]
   })
 
-  // Guardar historial en localStorage cuando cambia
   useEffect(() => {
     try {
       const toSave = messages.slice(-MAX_HISTORY)
@@ -152,7 +158,7 @@ export default function AI() {
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
     } catch (err) {
       if (err.message === 'RATE_LIMIT') {
-        setError('Demasiadas preguntas seguidas. Espera unos segundos 🙏')
+        setError('El límite de requests se alcanzó. Espera 1 minuto e intenta de nuevo 🙏')
       } else {
         setError('Hubo un error al conectar con SeekeAI. Intenta de nuevo.')
       }
@@ -169,12 +175,9 @@ export default function AI() {
 
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? 'músico'
 
-  // Renderizar mensaje con botones de reproducción
   const renderMessage = (msg) => {
     if (msg.role !== 'assistant') return msg.content
-
     const { cleanText, recommendedSongs } = parseSongRecommendations(msg.content, songs)
-
     return (
       <div>
         <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{cleanText}</p>
@@ -241,7 +244,6 @@ export default function AI() {
             </div>
           </div>
 
-          {/* Canción actual */}
           {currentSong && (
             <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 12, padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
               <img src={currentSong.cover_url || currentSong.coverUrl} alt="" style={{ width: 36, height: 36, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
@@ -263,7 +265,6 @@ export default function AI() {
       {/* Chat */}
       <div style={{ flex: 1, maxWidth: 760, width: '100%', margin: '0 auto', padding: '24px 16px', display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: 120 }}>
 
-        {/* Sugerencias iniciales */}
         {messages.length === 1 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             {SUGGESTIONS.map(s => (
@@ -277,7 +278,6 @@ export default function AI() {
           </div>
         )}
 
-        {/* Mensajes */}
         {messages.map((msg, i) => (
           <div key={i} style={{ display: 'flex', gap: 10, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
             {msg.role === 'assistant' && (
@@ -307,14 +307,12 @@ export default function AI() {
           </div>
         ))}
 
-        {/* Error */}
         {error && (
           <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12, padding: '10px 14px', fontSize: 13, color: '#dc2626', textAlign: 'center' }}>
             {error}
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
