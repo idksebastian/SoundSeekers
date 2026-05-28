@@ -4,18 +4,47 @@ import { useAuth } from '../context/AuthContext'
 import { getSongs } from '../api/songs'
 
 const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const HISTORY_KEY = 'seekai_history'
+const MAX_HISTORY = 40 // máximo de mensajes a guardar
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
 
 Puedes ayudar con:
 - Recomendar canciones y artistas de la plataforma según el gusto del usuario
+- Reproducir canciones de la plataforma cuando el usuario lo pida
 - Analizar la canción que el usuario está escuchando en este momento
 - Responder preguntas sobre la plataforma (cómo subir canciones, cómo seguir artistas, cómo crear playlists, etc.)
 - Dar recomendaciones musicales personalizadas según el estado de ánimo o clima
 - Hablar sobre géneros musicales latinoamericanos, artistas emergentes y tendencias
 - Ayudar a artistas con consejos sobre cómo crecer en la plataforma
 
+IMPORTANTE - Cuando recomiendes o menciones canciones específicas de la plataforma, SIEMPRE incluye al final de tu mensaje una sección especial con este formato exacto:
+[CANCIONES:título1|título2|título3]
+
+Por ejemplo: Si recomiendas "Nicolas" y "PRUEBAA", escribe al final: [CANCIONES:Nicolas|PRUEBAA]
+Solo incluye canciones que existen en la plataforma. Si no recomiendas canciones específicas, no incluyas esa sección.
+
 Responde siempre en español, de forma amigable, concisa y con personalidad musical. Usa emojis ocasionalmente. Escribe en texto plano sin asteriscos ni markdown.`
+
+const INITIAL_MESSAGE = { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 Tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o ayudarte con cualquier duda sobre la plataforma. ¿En qué te ayudo hoy?' }
+
+// Parsear canciones del mensaje de la IA
+function parseSongRecommendations(text, allSongs) {
+  const match = text.match(/\[CANCIONES:([^\]]+)\]/)
+  if (!match) return { cleanText: text, recommendedSongs: [] }
+
+  const titles = match[1].split('|').map(t => t.trim().toLowerCase())
+  const cleanText = text.replace(/\[CANCIONES:[^\]]+\]/, '').trim()
+
+  const recommendedSongs = titles
+    .map(title => allSongs.find(s =>
+      s.title?.toLowerCase().includes(title) ||
+      title.includes(s.title?.toLowerCase())
+    ))
+    .filter(Boolean)
+
+  return { cleanText, recommendedSongs }
+}
 
 async function askGemini(messages, songs, currentSong) {
   const songsContext = songs.length > 0
@@ -28,15 +57,10 @@ async function askGemini(messages, songs, currentSong) {
 
   const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto de la plataforma:\n${songsContext}\n${currentSongContext}`
 
-  // Convertir historial al formato correcto de Gemini: roles user/model alternados
-  // El primer mensaje del sistema va como primer turno de usuario
   const contents = []
-
-  // Inyectar el system prompt como primer mensaje de usuario con respuesta del modelo
   contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
   contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, el asistente musical de SoundSeekers. Estoy listo para ayudarte.' }] })
 
-  // Agregar el historial de mensajes
   for (const msg of messages) {
     const role = msg.role === 'user' ? 'user' : 'model'
     contents.push({ role, parts: [{ text: msg.content }] })
@@ -69,21 +93,38 @@ const SUGGESTIONS = [
   'Analiza la canción que estoy escuchando',
   '¿Cuáles son los artistas más populares?',
   'Recomiéndame música para estudiar',
-  '¿Cómo creo una playlist?',
+  'Reproduce algo de reggaeton',
 ]
 
 export default function AI() {
-  const { currentSong } = usePlayer()
+  const { currentSong, playSong } = usePlayer()
   const { user } = useAuth()
-  const [messages, setMessages] = useState([
-    { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 Tu asistente musical en SoundSeekers. Puedo recomendarte música, analizar lo que estás escuchando o ayudarte con cualquier duda sobre la plataforma. ¿En qué te ayudo hoy?' }
-  ])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
   const [songs, setSongs] = useState([])
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Cargar historial desde localStorage
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.length > 0) return parsed
+      }
+    } catch {}
+    return [INITIAL_MESSAGE]
+  })
+
+  // Guardar historial en localStorage cuando cambia
+  useEffect(() => {
+    try {
+      const toSave = messages.slice(-MAX_HISTORY)
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(toSave))
+    } catch {}
+  }, [messages])
 
   useEffect(() => {
     getSongs().then(setSongs).catch(() => {})
@@ -92,6 +133,11 @@ export default function AI() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  const clearHistory = () => {
+    setMessages([INITIAL_MESSAGE])
+    localStorage.removeItem(HISTORY_KEY)
+  }
 
   const sendMessage = async (text) => {
     const content = text || input.trim()
@@ -110,14 +156,59 @@ export default function AI() {
       } else {
         setError('Hubo un error al conectar con SeekeAI. Intenta de nuevo.')
       }
-      setMessages(prev => prev.slice(0, -1)) // quitar el mensaje del usuario si falló
+      setMessages(prev => prev.slice(0, -1))
     } finally {
       setLoading(false)
       inputRef.current?.focus()
     }
   }
 
+  const handlePlaySong = (song) => {
+    playSong(song, songs)
+  }
+
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? 'músico'
+
+  // Renderizar mensaje con botones de reproducción
+  const renderMessage = (msg) => {
+    if (msg.role !== 'assistant') return msg.content
+
+    const { cleanText, recommendedSongs } = parseSongRecommendations(msg.content, songs)
+
+    return (
+      <div>
+        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{cleanText}</p>
+        {recommendedSongs.length > 0 && (
+          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {recommendedSongs.map(song => (
+              <div key={song.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: 'rgba(124,58,237,0.06)', borderRadius: 10,
+                padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)'
+              }}>
+                <img src={song.cover_url} alt={song.title}
+                  style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {song.title}
+                  </p>
+                  <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>
+                    {song.display_artist || song.artist_name}
+                  </p>
+                </div>
+                <button onClick={() => handlePlaySong(song)}
+                  style={{ width: 30, height: 30, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="11" height="11" fill="white" viewBox="0 0 24 24">
+                    <path d="M5 3l14 9-14 9V3z"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -135,9 +226,18 @@ export default function AI() {
               <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800 }}>SeekeAI</h1>
               <p style={{ margin: 0, fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Tu asistente musical inteligente</p>
             </div>
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: 100 }}>
-              <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', animation: 'pulse 2s infinite' }}/>
-              <span style={{ fontSize: 12, fontWeight: 600 }}>En línea</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(255,255,255,0.15)', padding: '6px 12px', borderRadius: 100 }}>
+                <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', animation: 'pulse 2s infinite' }}/>
+                <span style={{ fontSize: 12, fontWeight: 600 }}>En línea</span>
+              </div>
+              {messages.length > 1 && (
+                <button onClick={clearHistory}
+                  title="Borrar historial"
+                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 100, padding: '6px 12px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  🗑️ Limpiar
+                </button>
+              )}
             </div>
           </div>
 
@@ -196,9 +296,8 @@ export default function AI() {
               fontSize: 14,
               lineHeight: 1.6,
               boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-              whiteSpace: 'pre-wrap',
             }}>
-              {msg.content}
+              {msg.role === 'assistant' ? renderMessage(msg) : msg.content}
             </div>
             {msg.role === 'user' && (
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 800, color: '#7c3aed', flexShrink: 0, marginTop: 2 }}>
