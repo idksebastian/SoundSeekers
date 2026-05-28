@@ -84,7 +84,7 @@ export default function Landing() {
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
         @keyframes float { 0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)} }
       `}</style>
-
+  
       {/* NAVBAR */}
       <nav className="landing-nav">
         <Link to="/" className="landing-logo">

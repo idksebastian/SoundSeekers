@@ -3,8 +3,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { logoutUser } from '../api/auth'
 import { getUserRole, isAdmin, getPendingCount } from '../api/roles'
-import { getNotifications, getUnreadCount, markAllAsRead, markAsRead, subscribeToNotifications } from '../api/notifications'
+import { getNotifications, getUnreadCount, markAllAsRead, markAsRead, subscribeToNotifications, isNotifEnabled } from '../api/notifications'
 import { getPendingFeatsCount } from '../api/songs'
+import { supabase } from '../lib/supabase'
 
 const NOTIFICATION_CONFIG = {
   follow: {
@@ -94,19 +95,23 @@ export default function Navbar() {
     })
 
     const channel = subscribeToNotifications(user.id, async (payload) => {
-      const newNotif = payload.new
-      if (newNotif.from_user_id) {
-        const { data: profile } = await import('../lib/supabase').then(m =>
-          m.supabase.from('profiles').select('user_id, name, artist_name, avatar_url')
-            .eq('user_id', newNotif.from_user_id).single()
-        )
-        setNotifications(prev => [{ ...newNotif, from_profile: profile }, ...prev])
-      } else {
-        setNotifications(prev => [{ ...newNotif, from_profile: null }, ...prev])
-      }
-      setUnreadCount(prev => prev + 1)
-      if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
-    })
+  const newNotif = payload.new
+  if (!isNotifEnabled(user.id, newNotif.type)) return
+
+  let from_profile = null
+  if (newNotif.from_user_id) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_id, name, artist_name, avatar_url')
+      .eq('user_id', newNotif.from_user_id)
+      .single()
+    from_profile = profile ?? null
+  }
+
+  setNotifications(prev => [{ ...newNotif, from_profile }, ...prev])
+  setUnreadCount(prev => prev + 1)
+  if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
+})
 
     return () => { channel.unsubscribe() }
   }, [user])
@@ -143,11 +148,11 @@ export default function Navbar() {
     else if (notif.type === 'presave') navigate(`/artist/${user.id}`)
   }
 
-const handleLogout = async () => {
-  setMenuOpen(false)
-  navigate('/')
-  await logoutUser()
-}
+  const handleLogout = async () => {
+    setMenuOpen(false)
+    navigate('/')
+    await logoutUser()
+  }
 
   const formatTime = (dateStr) => {
     const diff = Date.now() - new Date(dateStr).getTime()
@@ -186,20 +191,14 @@ const handleLogout = async () => {
           <div className="w-8 h-8 rounded-lg bg-purple-700 text-white flex items-center justify-center text-sm font-bold shrink-0">SS</div>
           <span className="hidden md:block" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.3rem', color: '#111', letterSpacing: '0.04em', lineHeight: 1 }}>SoundSeekers</span>
         </Link>
-
-        {/* Links escritorio */}
         <div className="hidden sm:flex items-center gap-1">
           {navLink('/home', 'Inicio')}
           {navLink('/dashboard', 'Explorar')}
           {navLink('/animo', 'Ánimo')}
           {navLink('/community', 'Comunidad')}
-
-          {/* SeekeAI con badge */}
           <Link to="/ai"
             className={`text-sm font-medium transition-all px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
-              location.pathname === '/ai'
-                ? 'text-purple-700 bg-purple-50'
-                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+              location.pathname === '/ai' ? 'text-purple-700 bg-purple-50' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
             }`}>
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
@@ -219,7 +218,6 @@ const handleLogout = async () => {
               <span className="sm:hidden">+</span>
             </Link>
 
-            {/* Notificaciones */}
             <div className="relative" ref={notifRef}>
               <button onClick={handleOpenNotifs}
                 className="relative w-9 h-9 rounded-xl border border-gray-200 hover:border-purple-200 hover:bg-purple-50 flex items-center justify-center transition-all">
@@ -302,7 +300,6 @@ const handleLogout = async () => {
               )}
             </div>
 
-            {/* Menú usuario */}
             <div className="relative">
               <button
                 onClick={() => { setMenuOpen(!menuOpen); setNotifOpen(false) }}
@@ -338,7 +335,6 @@ const handleLogout = async () => {
                       </div>
                     </div>
 
-                    {/* Links móvil */}
                     <div className="sm:hidden border-b border-gray-100 py-1">
                       {[
                         { to: '/home', label: 'Inicio' },
@@ -370,6 +366,17 @@ const handleLogout = async () => {
                           </svg>
                         </div>
                         <span>Mi perfil</span>
+                      </button>
+
+                      <button
+                        onClick={() => { navigate('/settings'); setMenuOpen(false) }}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition text-left group">
+                        <div className="w-7 h-7 rounded-lg bg-gray-100 group-hover:bg-purple-100 flex items-center justify-center transition shrink-0">
+                          <svg className="w-3.5 h-3.5 text-gray-500 group-hover:text-purple-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                        </div>
+                        <span>Ajustes</span>
                       </button>
 
                       {role?.role === 'artist' && (

@@ -1,5 +1,16 @@
 import { supabase } from '../lib/supabase'
 
+export function getNotifPrefs(userId) {
+  try {
+    const defaults = { follow: true, like: true, comment: true, feat_invite: true, presave: true }
+    return { ...defaults, ...JSON.parse(localStorage.getItem(`ss_notif_prefs_${userId}`) || '{}') }
+  } catch { return { follow: true, like: true, comment: true, feat_invite: true, presave: true } }
+}
+
+export function isNotifEnabled(userId, type) {
+  return getNotifPrefs(userId)[type] ?? true
+}
+
 export async function getNotifications() {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return []

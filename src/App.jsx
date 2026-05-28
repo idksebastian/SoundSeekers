@@ -25,6 +25,7 @@ import AlbumDetail from './pages/AlbumDetail'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import AI from './pages/AI'
+import Settings from './pages/Settings'
 
 // Componente que muestra Navbar solo si el usuario está autenticado
 function AppLayout({ children }) {
@@ -60,6 +61,7 @@ export default function App() {
                     <Route path="/artist/:userId" element={<ArtistProfile />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/requests" element={<Requests />} />
+                    <Route path="/settings" element={<Settings />} />
                     <Route path="/upload" element={
                       <ArtistRoute>
                         <Upload />
