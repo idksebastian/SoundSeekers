@@ -1,16 +1,26 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { getSongs } from '../api/songs'
 
 export default function Landing() {
   const { user, loading } = useAuth()
   const navigate = useNavigate()
+  const [stats, setStats] = useState({ songs: 0, artists: 0, streams: 0 })
 
   useEffect(() => {
     if (!loading && user) {
       navigate('/home', { replace: true })
     }
   }, [user, loading])
+
+  useEffect(() => {
+    getSongs().then(songs => {
+      const artistIds = new Set(songs.map(s => s.user_id).filter(Boolean))
+      const totalStreams = songs.reduce((acc, s) => acc + (s.streams ?? 0), 0)
+      setStats({ songs: songs.length, artists: artistIds.size, streams: totalStreams })
+    }).catch(() => {})
+  }, [])
 
   if (loading) return null
 
@@ -139,7 +149,7 @@ export default function Landing() {
         {/* Visual decorativo */}
         <div className="hero-visual">
           <div style={{ position: 'relative', animation: 'float 4s ease-in-out infinite' }}>
-            <div className="hero-badge">🎵 +500 canciones</div>
+            <div className="hero-badge">🎵 {stats.songs > 0 ? `+${stats.songs}` : '+'} canciones</div>
             <div className="hero-card-main">
               <p style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 12px' }}>Reproduciendo ahora</p>
               {[
@@ -190,12 +200,21 @@ export default function Landing() {
 
       <div className="divider"/>
 
-      {/* STATS */}
+      {/* STATS — datos reales desde Supabase */}
       <div className="section">
         <div className="stats-banner">
-          <div><div className="stat-number">500+</div><div className="stat-label">Canciones publicadas</div></div>
-          <div><div className="stat-number">100+</div><div className="stat-label">Artistas activos</div></div>
-          <div><div className="stat-number">10K+</div><div className="stat-label">Reproducciones totales</div></div>
+          <div>
+            <div className="stat-number">{stats.songs > 0 ? `${stats.songs}+` : '—'}</div>
+            <div className="stat-label">Canciones publicadas</div>
+          </div>
+          <div>
+            <div className="stat-number">{stats.artists > 0 ? `${stats.artists}+` : '—'}</div>
+            <div className="stat-label">Artistas activos</div>
+          </div>
+          <div>
+            <div className="stat-number">{stats.streams > 0 ? stats.streams.toLocaleString() : '—'}</div>
+            <div className="stat-label">Reproducciones totales</div>
+          </div>
         </div>
       </div>
 
@@ -228,13 +247,13 @@ export default function Landing() {
               <Link to="/register" className="footer-link">Crear cuenta</Link>
               <Link to="/login" className="footer-link">Iniciar sesión</Link>
             </div>
-<div>
-  <p className="footer-col-title">Legal</p>
-  <Link to="/terminos" className="footer-link">Términos de uso</Link>
-  <Link to="/privacidad" className="footer-link">Privacidad</Link>
-  <Link to="/cookies" className="footer-link">Cookies</Link>
-  <Link to="/contacto" className="footer-link">Contacto</Link>
-</div>
+            <div>
+              <p className="footer-col-title">Legal</p>
+              <Link to="/terminos" className="footer-link">Términos de uso</Link>
+              <Link to="/privacidad" className="footer-link">Privacidad</Link>
+              <Link to="/cookies" className="footer-link">Cookies</Link>
+              <Link to="/contacto" className="footer-link">Contacto</Link>
+            </div>
           </div>
           <div className="footer-bottom">
             <p className="footer-copy">© 2025 SoundSeekers. Todos los derechos reservados.</p>
