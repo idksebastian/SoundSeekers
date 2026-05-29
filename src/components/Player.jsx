@@ -5,11 +5,10 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
   Volume2, VolumeX, ListMusic, Mic2, Disc, Share2,
   MoreHorizontal, ChevronsDown, Shuffle, Repeat, Repeat1,
-  Heart, Plus, Star, TrendingUp, Music2, ChevronUp, Check
+  Heart, Plus, Star, TrendingUp, Music2, ChevronUp, Check, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ─── Extracción de color ─────────────────────────────────────────────────────
 function extractColor(imageUrl, callback) {
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -35,7 +34,6 @@ function extractColor(imageUrl, callback) {
   return () => { cancelled = true; };
 }
 
-// ─── Equalizer animado ───────────────────────────────────────────────────────
 function EqualizerBars({ isPlaying }) {
   return (
     <div className="flex items-end gap-[2px] h-3">
@@ -61,7 +59,6 @@ function formatNumber(n) {
   return `${n}`;
 }
 
-// ════════════════════════════════════════════════════════════════════════════
 export default function Player() {
   const {
     currentSong, isPlaying, isVisible, setIsVisible,
@@ -82,8 +79,8 @@ export default function Player() {
   const [isMuted, setIsMuted]             = useState(false);
   const [prevVolume, setPrevVolume]       = useState(1);
   const [showOpenHint, setShowOpenHint]   = useState(false);
-  const [shared, setShared]               = useState(false); // feedback de compartir
-  const [addedToQueue, setAddedToQueue]   = useState({}); // feedback de añadir a cola
+  const [shared, setShared]               = useState(false);
+  const [addedToQueue, setAddedToQueue]   = useState({});
 
   const coverUrl    = currentSong?.cover_url || currentSong?.coverUrl || '';
   const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
@@ -169,7 +166,6 @@ export default function Player() {
   const cycleRepeat = () => setRepeatMode(p => p === 'none' ? 'all' : p === 'all' ? 'one' : 'none');
   const RepeatIcon  = repeatMode === 'one' ? Repeat1 : Repeat;
 
-  // ── Compartir canción ──
   const handleShare = async () => {
     const text = `🎵 Escuchando "${currentSong.title}" de ${artistName} en SoundSeekers`
     const url  = window.location.href
@@ -184,7 +180,6 @@ export default function Player() {
     } catch {}
   }
 
-  // ── Añadir canción a la cola ──
   const handleAddToQueue = (song, e) => {
     e.stopPropagation()
     setQueue(prev => {
@@ -196,6 +191,13 @@ export default function Player() {
     setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000)
   }
 
+  // Cerrar el mini player completamente
+  const handleClose = (e) => {
+    e.stopPropagation()
+    pauseSong()
+    setIsVisible(false)
+  }
+
   if (!currentSong || !isVisible) return null;
 
   const isCurrentTrack = (song) => song.id === currentSong?.id;
@@ -203,9 +205,7 @@ export default function Player() {
   return (
     <AnimatePresence>
 
-      {/* ══════════════════════════════════════════════════════
-          FULLSCREEN PLAYER
-      ══════════════════════════════════════════════════════ */}
+      {/* FULLSCREEN PLAYER */}
       {isFullscreen && (
         <motion.div
           key="fullscreen"
@@ -216,7 +216,6 @@ export default function Player() {
           className="fixed inset-0 z-[9999] overflow-y-auto overflow-x-hidden text-white"
           style={{ backgroundColor: `rgb(${dominantColor})`, transition: 'background-color 1.2s ease' }}
         >
-          {/* Fondo inmersivo */}
           <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
             <div className="absolute inset-0 opacity-50 blur-[120px] scale-150"
               style={{
@@ -235,8 +234,6 @@ export default function Player() {
           </div>
 
           <div className="min-h-screen flex flex-col">
-
-            {/* Header */}
             <header className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between">
               <button onClick={() => setIsFullscreen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors" aria-label="Cerrar reproductor">
                 <ChevronDown className="w-7 h-7" />
@@ -250,10 +247,7 @@ export default function Player() {
               </button>
             </header>
 
-            {/* Main */}
             <main className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-14 px-6 md:px-16 max-w-6xl mx-auto w-full py-4 md:py-8">
-
-              {/* Portada */}
               <motion.div
                 animate={{ scale: isPlaying ? 1 : 0.93, opacity: isPlaying ? 1 : 0.85 }}
                 transition={{ duration: 0.4, ease: 'easeInOut' }}
@@ -262,10 +256,7 @@ export default function Player() {
                 <img src={coverUrl} alt={currentSong.title} className="w-full h-full object-cover" />
               </motion.div>
 
-              {/* Info + Controles */}
               <div className="flex-1 w-full max-w-[480px]">
-
-                {/* Título + acciones */}
                 <div className="flex items-start justify-between mb-6">
                   <div className="min-w-0 flex-1">
                     <h1 className="text-3xl md:text-4xl font-black leading-tight line-clamp-2 mb-1">{currentSong.title}</h1>
@@ -277,26 +268,20 @@ export default function Player() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-                    <button onClick={() => setIsLiked(p => !p)} className="p-2 hover:scale-110 transition-transform" aria-label={isLiked ? 'Quitar like' : 'Dar like'}>
+                    <button onClick={() => setIsLiked(p => !p)} className="p-2 hover:scale-110 transition-transform">
                       <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-green-400 text-green-400' : 'text-white/50 hover:text-white'}`} />
                     </button>
-                    {/* Botón compartir funcional */}
-                    <button onClick={handleShare} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white relative" aria-label="Compartir">
+                    <button onClick={handleShare} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white">
                       {shared ? <Check className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Barra de progreso fullscreen */}
                 <div className="mb-5">
                   <div className="relative h-1 w-full bg-white/20 rounded-full cursor-pointer group">
                     <div className="absolute h-full bg-white rounded-full transition-all group-hover:bg-green-400" style={{ width: `${progressPct}%` }} />
                     <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
-                    <input type="range" min={0} max={duration || 0} step={0.1} value={progress}
-                      onChange={handleSeek}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      aria-label="Progreso"
-                    />
+                    <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={handleSeek} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   </div>
                   <div className="flex justify-between mt-2 text-[11px] font-bold text-white/40 tabular-nums">
                     <span>{formatTime(progress)}</span>
@@ -304,42 +289,33 @@ export default function Player() {
                   </div>
                 </div>
 
-                {/* Controles principales */}
                 <div className="flex items-center justify-between mb-5">
-                  <button onClick={() => setShuffle(p => !p)}
-                    className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-green-400' : 'text-white/50 hover:text-white'}`} aria-label="Shuffle">
+                  <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <Shuffle className="w-5 h-5" />
                   </button>
                   <div className="flex items-center gap-6">
-                    <button onClick={playPrev} className="text-white hover:scale-110 transition-transform" aria-label="Anterior">
+                    <button onClick={playPrev} className="text-white hover:scale-110 transition-transform">
                       <SkipBack className="w-7 h-7" fill="currentColor" />
                     </button>
-                    <button
-                      onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
-                      className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-xl shadow-black/40"
-                      aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-                    >
+                    <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
+                      className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-xl shadow-black/40">
                       {isPlaying ? <Pause className="w-7 h-7" fill="currentColor" /> : <Play className="w-7 h-7 ml-1" fill="currentColor" />}
                     </button>
-                    <button onClick={playNext} className="text-white hover:scale-110 transition-transform" aria-label="Siguiente">
+                    <button onClick={playNext} className="text-white hover:scale-110 transition-transform">
                       <SkipForward className="w-7 h-7" fill="currentColor" />
                     </button>
                   </div>
-                  <button onClick={cycleRepeat}
-                    className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-green-400' : 'text-white/50 hover:text-white'}`} aria-label="Repetir">
+                  <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <RepeatIcon className="w-5 h-5" />
                   </button>
                 </div>
 
-                {/* Volumen + cola */}
                 <div className="flex items-center gap-3">
                   <button onClick={handleMuteToggle} className="text-white/50 hover:text-white transition-colors flex-shrink-0">
                     {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
-                  <input type="range" min={0} max={1} step={0.01} value={isMuted ? 0 : volume}
-                    onChange={handleVolume} className="flex-1 accent-white h-1 cursor-pointer" aria-label="Volumen" />
-                  <button onClick={() => setShowQueue(p => !p)}
-                    className={`p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0 ${showQueue ? 'text-green-400' : 'text-white/50 hover:text-white'}`} aria-label="Cola">
+                  <input type="range" min={0} max={1} step={0.01} value={isMuted ? 0 : volume} onChange={handleVolume} className="flex-1 accent-white h-1 cursor-pointer" />
+                  <button onClick={() => setShowQueue(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0 ${showQueue ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <ListMusic className="w-4 h-4" />
                   </button>
                 </div>
@@ -350,18 +326,15 @@ export default function Player() {
               </div>
             </main>
 
-            {/* Scroll hint */}
             <div className="pb-6 flex flex-col items-center gap-1.5 text-white/30">
               <span className="text-[9px] font-bold uppercase tracking-widest">Desliza para ver más</span>
               <ChevronsDown className="w-4 h-4 animate-bounce" />
             </div>
           </div>
 
-          {/* Sección scrollable */}
           <div className="bg-black/40 backdrop-blur-3xl w-full border-t border-white/5">
             <div className="max-w-4xl mx-auto px-6 py-16 space-y-16">
 
-              {/* Cola */}
               <AnimatePresence>
                 {showQueue && queue.length > 0 && (
                   <motion.section initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
@@ -393,7 +366,6 @@ export default function Player() {
                 )}
               </AnimatePresence>
 
-              {/* Tracks del álbum + Siguiente */}
               {(albumTracks.length > 0 || nextSong) && (
                 <section>
                   {albumTracks.length > 0 && (
@@ -423,7 +395,6 @@ export default function Player() {
                       </div>
                     </>
                   )}
-
                   {nextSong && (
                     <div className="mt-6">
                       <div className="flex items-center gap-2 mb-3 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -444,7 +415,6 @@ export default function Player() {
                 </section>
               )}
 
-              {/* Acerca del artista */}
               {artistInfo && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-10">
                   <div className="flex items-center gap-2 mb-8 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -493,7 +463,6 @@ export default function Player() {
                 </section>
               )}
 
-              {/* Más canciones del artista */}
               {relatedSongs.length > 0 && (
                 <section>
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -514,32 +483,21 @@ export default function Player() {
                           <h4 className="font-bold text-sm truncate group-hover:text-green-400 transition-colors">{song.title}</h4>
                           <p className="text-xs text-white/40 truncate mt-0.5">{song.display_artist}</p>
                         </div>
-                        {/* Botón añadir a cola — ahora funcional */}
-                        <button
-                          onClick={(e) => handleAddToQueue(song, e)}
-                          className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10 flex-shrink-0"
-                          aria-label="Añadir a cola"
-                          title="Añadir a cola"
-                        >
-                          {addedToQueue[song.id]
-                            ? <Check className="w-4 h-4 text-green-400" />
-                            : <Plus className="w-4 h-4 text-white/60 hover:text-white" />
-                          }
+                        <button onClick={(e) => handleAddToQueue(song, e)}
+                          className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10 flex-shrink-0">
+                          {addedToQueue[song.id] ? <Check className="w-4 h-4 text-green-400" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
                         </button>
                       </div>
                     ))}
                   </div>
                 </section>
               )}
-
             </div>
           </div>
         </motion.div>
       )}
 
-      {/* ══════════════════════════════════════════════════════
-          MINI PLAYER
-      ══════════════════════════════════════════════════════ */}
+      {/* MINI PLAYER */}
       {!isFullscreen && (
         <motion.div
           key="mini"
@@ -549,34 +507,19 @@ export default function Player() {
           transition={{ type: 'spring', damping: 28, stiffness: 220 }}
           className="fixed bottom-0 left-0 right-0 z-50"
         >
-          {/* Barra de progreso interactiva del mini player */}
+          {/* Barra de progreso interactiva */}
           <div className="relative h-[3px] bg-gray-200 w-full group cursor-pointer">
             <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${progressPct}%` }} />
-            {/* Dot handle al hacer hover */}
-            <div
-              className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-purple-600 rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5"
-              style={{ left: `${progressPct}%` }}
-            />
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={progress}
-              onChange={handleSeek}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              style={{ height: '12px', top: '-4px' }}
-              aria-label="Progreso"
-            />
+            <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-purple-600 rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
+            <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={handleSeek}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" style={{ height: '12px', top: '-4px' }} />
           </div>
 
           {/* Hint */}
           <AnimatePresence>
             {showOpenHint && (
-              <motion.div
-                initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-                className="absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-gray-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none whitespace-nowrap"
-              >
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
+                className="absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-gray-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none whitespace-nowrap">
                 <ChevronUp className="w-3 h-3 animate-bounce" />
                 Toca para abrir
               </motion.div>
@@ -586,7 +529,7 @@ export default function Player() {
           <div className="bg-white border-t border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-2xl">
             {/* Portada + info */}
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group"
-              onClick={() => setIsFullscreen(true)} role="button" tabIndex={0} aria-label="Abrir reproductor completo">
+              onClick={() => setIsFullscreen(true)} role="button" tabIndex={0}>
               <div className="relative flex-shrink-0">
                 <motion.img src={coverUrl} alt={currentSong.title} className="w-11 h-11 rounded-lg shadow-md object-cover"
                   animate={{ scale: isPlaying ? [1, 1.04, 1] : 1 }}
@@ -605,26 +548,32 @@ export default function Player() {
             </div>
 
             {/* Like */}
-            <button onClick={() => setIsLiked(p => !p)} className="p-2 flex-shrink-0" aria-label={isLiked ? 'Quitar like' : 'Dar like'}>
+            <button onClick={() => setIsLiked(p => !p)} className="p-2 flex-shrink-0">
               <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-gray-300 hover:text-gray-500'}`} />
             </button>
 
             {/* Controles */}
             <div className="flex items-center gap-1 flex-shrink-0">
-              <button onClick={playPrev} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100" aria-label="Anterior">
+              <button onClick={playPrev} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
                 <SkipBack size={18} fill="currentColor" />
               </button>
-              <button
-                onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
-                className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md"
-                aria-label={isPlaying ? 'Pausar' : 'Reproducir'}
-              >
+              <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
+                className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md">
                 {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" className="ml-0.5" />}
               </button>
-              <button onClick={playNext} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100" aria-label="Siguiente">
+              <button onClick={playNext} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
                 <SkipForward size={18} fill="currentColor" />
               </button>
             </div>
+
+            {/* Botón cerrar */}
+            <button onClick={handleClose}
+              className="p-2 flex-shrink-0 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+              aria-label="Cerrar reproductor"
+              title="Cerrar reproductor"
+            >
+              <X size={16} />
+            </button>
           </div>
         </motion.div>
       )}

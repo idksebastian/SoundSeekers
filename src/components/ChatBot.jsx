@@ -3,7 +3,7 @@ import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
 import { getSongs } from '../api/songs'
 
-const GEMINI_KEY = import.meta.env.VITE_GEMINI_API_KEY
+const BACKEND_URL = 'http://localhost:8000'
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
 
@@ -16,7 +16,7 @@ Puedes ayudar con:
 
 Responde siempre en español, de forma amigable, concisa (máximo 3 párrafos cortos) y con personalidad musical. Usa emojis ocasionalmente. Escribe en texto plano sin asteriscos ni markdown.`
 
-async function askGemini(messages, songs, currentSong) {
+async function askSeekeAI(messages, songs, currentSong) {
   const songsContext = songs.length > 0
     ? `Canciones en SoundSeekers: ${songs.slice(0, 15).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : ''
@@ -27,37 +27,26 @@ async function askGemini(messages, songs, currentSong) {
 
   const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto:\n${songsContext}\n${currentSongContext}`
 
-  // Formato correcto de Gemini: roles user/model alternados
   const contents = []
-
-  // System prompt como primer turno
   contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
   contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, listo para ayudarte con música.' }] })
 
-  // Historial de mensajes
   for (const msg of messages) {
     const role = msg.role === 'user' ? 'user' : 'model'
     contents.push({ role, parts: [{ text: msg.content }] })
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents })
-    }
-  )
+  const res = await fetch(`${BACKEND_URL}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: contents })
+  })
 
-  if (!res.ok) {
-    if (res.status === 429) throw new Error('RATE_LIMIT')
-    throw new Error('API_ERROR')
-  }
+  if (!res.ok) throw new Error('BACKEND_ERROR')
 
   const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('EMPTY_RESPONSE')
-  return text
+  if (data.error || !data.reply) throw new Error('AI_ERROR')
+  return data.reply
 }
 
 export default function ChatBot() {
@@ -97,14 +86,11 @@ export default function ChatBot() {
     setMessages(newMessages)
     setLoading(true)
     try {
-      const reply = await askGemini(newMessages, songs, currentSong)
+      const reply = await askSeekeAI(newMessages, songs, currentSong)
       setMessages(prev => [...prev, { role: 'assistant', content: reply }])
       if (!open) setUnread(n => n + 1)
     } catch (err) {
-      const msg = err.message === 'RATE_LIMIT'
-        ? 'Demasiadas preguntas seguidas. Espera unos segundos 🙏'
-        : 'Hubo un error. Intenta de nuevo.'
-      setMessages(prev => [...prev, { role: 'assistant', content: msg }])
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un error al conectar con SeekeAI. ¿Está corriendo el backend? 🙏' }])
     } finally {
       setLoading(false)
     }
