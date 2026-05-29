@@ -127,9 +127,20 @@ export default function Player() {
           if (currentSong.album_id) q = q.neq('album_id', currentSong.album_id);
           queries.push(q);
         }
+
         const [profileRes, albumRes, relatedRes] = await Promise.all(queries);
         if (cancelled) return;
-        if (profileRes?.data) setArtistInfo(profileRes.data);
+
+        if (profileRes?.data) {
+          // Calcular reproducciones totales desde songs
+          const { data: songsData } = await supabase
+            .from('songs')
+            .select('streams')
+            .eq('user_id', currentSong.user_id)
+          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0
+          setArtistInfo({ ...profileRes.data, total_streams: totalStreams })
+        }
+
         if (albumRes?.data?.length) setAlbumTracks(albumRes.data);
         if (relatedRes?.data?.length) setRelatedSongs(relatedRes.data);
         const queueList = queue || [];
@@ -191,7 +202,6 @@ export default function Player() {
     setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000)
   }
 
-  // Cerrar el mini player completamente
   const handleClose = (e) => {
     e.stopPropagation()
     pauseSong()
@@ -235,14 +245,14 @@ export default function Player() {
 
           <div className="min-h-screen flex flex-col">
             <header className="flex-shrink-0 px-6 pt-6 pb-4 flex items-center justify-between">
-              <button onClick={() => setIsFullscreen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors" aria-label="Cerrar reproductor">
+              <button onClick={() => setIsFullscreen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <ChevronDown className="w-7 h-7" />
               </button>
               <div className="text-center">
                 <p className="text-[10px] uppercase tracking-[0.25em] text-white/50 font-medium">Reproduciendo desde</p>
                 <p className="text-sm font-bold mt-0.5">{currentSong.album_title || currentSong.genre || 'Tu Biblioteca'}</p>
               </div>
-              <button className="p-2 hover:bg-white/10 rounded-full transition-colors" aria-label="Más opciones">
+              <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <MoreHorizontal className="w-6 h-6" />
               </button>
             </header>
@@ -445,9 +455,9 @@ export default function Player() {
                         <div className="text-center md:text-left">
                           <div className="flex items-center gap-1 justify-center md:justify-start">
                             <TrendingUp className="w-4 h-4 text-green-400" />
-                            <p className="font-black text-2xl">{formatNumber(artistInfo.monthly_streams)}</p>
+                            <p className="font-black text-2xl">{formatNumber(artistInfo.total_streams)}</p>
                           </div>
-                          <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">Reproducciones mensuales</p>
+                          <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">Reproducciones totales</p>
                         </div>
                         <div className="h-8 w-px bg-white/10" />
                         <div className="text-center md:text-left">
@@ -507,7 +517,6 @@ export default function Player() {
           transition={{ type: 'spring', damping: 28, stiffness: 220 }}
           className="fixed bottom-0 left-0 right-0 z-50"
         >
-          {/* Barra de progreso interactiva */}
           <div className="relative h-[3px] bg-gray-200 w-full group cursor-pointer">
             <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${progressPct}%` }} />
             <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-purple-600 rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
@@ -515,7 +524,6 @@ export default function Player() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" style={{ height: '12px', top: '-4px' }} />
           </div>
 
-          {/* Hint */}
           <AnimatePresence>
             {showOpenHint && (
               <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
@@ -527,7 +535,6 @@ export default function Player() {
           </AnimatePresence>
 
           <div className="bg-white border-t border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-2xl">
-            {/* Portada + info */}
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group"
               onClick={() => setIsFullscreen(true)} role="button" tabIndex={0}>
               <div className="relative flex-shrink-0">
@@ -547,12 +554,10 @@ export default function Player() {
               </div>
             </div>
 
-            {/* Like */}
             <button onClick={() => setIsLiked(p => !p)} className="p-2 flex-shrink-0">
               <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-gray-300 hover:text-gray-500'}`} />
             </button>
 
-            {/* Controles */}
             <div className="flex items-center gap-1 flex-shrink-0">
               <button onClick={playPrev} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
                 <SkipBack size={18} fill="currentColor" />
@@ -566,12 +571,9 @@ export default function Player() {
               </button>
             </div>
 
-            {/* Botón cerrar */}
             <button onClick={handleClose}
               className="p-2 flex-shrink-0 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
-              aria-label="Cerrar reproductor"
-              title="Cerrar reproductor"
-            >
+              aria-label="Cerrar reproductor">
               <X size={16} />
             </button>
           </div>
