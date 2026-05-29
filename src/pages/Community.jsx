@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react'
-import { getPosts, getLikedPosts } from '../api/community'
+import { useSearchParams } from 'react-router-dom'
+import { getPosts } from '../api/community'
 import { useAuth } from '../context/AuthContext'
 import PostCard from '../components/PostCard'
 import PostModal from '../components/PostModal'
 
 export default function Community() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [posts, setPosts] = useState([])
   const [likedPosts, setLikedPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingLiked, setLoadingLiked] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [tab, setTab] = useState('feed')
+  const [openPostId, setOpenPostId] = useState(null)
 
   const fetchPosts = async () => {
     try {
@@ -29,25 +32,19 @@ export default function Community() {
     if (!user) return
     setLoadingLiked(true)
     try {
-      // Paso 1: traer IDs de posts con like
       const { data: likes, error: likesError } = await (await import('../lib/supabase')).supabase
         .from('post_likes')
         .select('post_id')
         .eq('user_id', user.id)
-
       if (likesError) throw likesError
       if (!likes || likes.length === 0) { setLikedPosts([]); return }
-
       const postIds = likes.map(l => l.post_id).filter(Boolean)
       if (postIds.length === 0) { setLikedPosts([]); return }
-
-      // Paso 2: traer los posts completos
       const { data: postsData, error: postsError } = await (await import('../lib/supabase')).supabase
         .from('posts')
         .select('*, post_likes(count), post_comments(count)')
         .in('id', postIds)
         .order('created_at', { ascending: false })
-
       if (postsError) throw postsError
       setLikedPosts(postsData ?? [])
     } catch (err) {
@@ -59,10 +56,48 @@ export default function Community() {
   }
 
   useEffect(() => { fetchPosts() }, [])
+useEffect(() => {
+  if (openPostId) {
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = ''
+  }
+  return () => { document.body.style.overflow = '' }
+}, [openPostId])
 
   useEffect(() => {
     if (tab === 'liked') fetchLikedPosts()
   }, [tab])
+
+  // ── Leer ?post=ID de la URL y abrir el modal correspondiente
+  useEffect(() => {
+    const postId = searchParams.get('post')
+    if (!postId) return
+
+    const found = posts.find(p => p.id === postId)
+    if (found) {
+      setOpenPostId(postId)
+      return
+    }
+
+    // Si el post no está en la lista todavía, cargarlo directamente
+    const fetchPost = async () => {
+      const { supabase } = await import('../lib/supabase')
+      const { data } = await supabase
+        .from('posts')
+        .select('*, post_likes(count), post_comments(count)')
+        .eq('id', postId)
+        .single()
+      if (data) {
+        setPosts(prev => {
+          const exists = prev.find(p => p.id === data.id)
+          return exists ? prev : [data, ...prev]
+        })
+        setOpenPostId(postId)
+      }
+    }
+    fetchPost()
+  }, [searchParams, posts.length])
 
   const handlePostCreated = (newPost) => {
     setPosts(prev => [newPost, ...prev])
@@ -123,7 +158,6 @@ export default function Community() {
           )}
         </div>
 
-        {/* Tabs */}
         {user && (
           <div className="max-w-3xl mx-auto mt-6 flex gap-1">
             <button
@@ -176,6 +210,11 @@ export default function Community() {
               onLikeToggle={tab === 'liked' ? fetchLikedPosts : fetchPosts}
               onDeleted={handlePostDeleted}
               onUpdated={handlePostUpdated}
+              autoOpenComments={openPostId === post.id}
+              onCommentsOpened={() => {
+                setOpenPostId(null)
+                setSearchParams({})
+              }}
             />
           ))
         )}

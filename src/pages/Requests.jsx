@@ -23,17 +23,22 @@ export default function Requests() {
     init()
   }, [user])
 
-  const handleRespond = async (featId, accept) => {
-    setProcessing(featId)
-    try {
-      await respondFeat(featId, accept)
-      setFeats(prev => prev.filter(f => f.id !== featId))
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setProcessing(null)
-    }
+const handleRespond = async (featId, accept) => {
+  setProcessing(featId)
+  try {
+    await respondFeat(featId, accept)
+    setFeats(prev => {
+      const updated = prev.filter(f => f.id !== featId)
+      // ── NUEVO: notificar al navbar que bajó el contador
+      window.dispatchEvent(new CustomEvent('feat-responded'))
+      return updated
+    })
+  } catch (err) {
+    console.error(err)
+  } finally {
+    setProcessing(null)
   }
+}
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
