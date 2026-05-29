@@ -89,39 +89,50 @@ export default function ArtistProfile() {
   const epList = albums.filter(a => a.type === 'ep')
   const popularSongs = [...songs].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5)
 
-  const SongRow = ({ song, queue }) => {
-    const isCurrentSong = currentSong?.id === song.id
-    const displayName = song.display_artist || song.artist_name
-    return (
-      <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition border border-gray-100">
-        <img src={song.cover_url} alt={song.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-black font-medium text-sm truncate">{song.title}</p>
-          <p className="text-gray-400 text-xs truncate">{displayName}</p>
-        </div>
-        {song.streams > 0 && (
-          <p className="text-xs text-gray-400 hidden sm:block shrink-0">{song.streams.toLocaleString()} rep.</p>
-        )}
-        {isCurrentSong && isPlaying && (
-          <div className="hidden sm:flex items-center gap-1 text-purple-600 text-xs font-medium shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-          </div>
-        )}
-        <button onClick={() => playSong(song, queue)}
-          className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 active:bg-purple-900 flex items-center justify-center transition shrink-0">
-          {isCurrentSong && isPlaying ? (
-            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-            </svg>
-          ) : (
-            <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M5 3l14 9-14 9V3z" />
-            </svg>
-          )}
-        </button>
+const SongRow = ({ song, queue }) => {
+  const isCurrentSong = currentSong?.id === song.id
+  const displayName = song.display_artist || song.artist_name
+  return (
+    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition border border-gray-100">
+      <img src={song.cover_url} alt={song.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-black font-medium text-sm truncate">{song.title}</p>
+        <p className="text-gray-400 text-xs truncate">{displayName}</p>
       </div>
-    )
-  }
+      {song.streams > 0 && (
+        <p className="text-xs text-gray-400 hidden sm:block shrink-0">{song.streams.toLocaleString()} rep.</p>
+      )}
+      {isCurrentSong && isPlaying && (
+        <div className="hidden sm:flex items-center gap-1 text-purple-600 text-xs font-medium shrink-0">
+          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+        </div>
+      )}
+      {/* Botón editar — solo en perfil propio */}
+      {isOwnProfile && (
+        <button
+          onClick={e => { e.stopPropagation(); navigate(`/edit/${song.id}`) }}
+          className="w-9 h-9 rounded-full border border-gray-200 hover:bg-purple-50 hover:border-purple-200 flex items-center justify-center transition shrink-0"
+          title="Editar canción">
+          <svg className="w-3.5 h-3.5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+        </button>
+      )}
+      <button onClick={() => playSong(song, queue)}
+        className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 active:bg-purple-900 flex items-center justify-center transition shrink-0">
+        {isCurrentSong && isPlaying ? (
+          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+          </svg>
+        ) : (
+          <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M5 3l14 9-14 9V3z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  )
+}
 
 const AlbumCard = ({ album }) => (
   <div onClick={() => navigate(`/album/${album.id}`)}

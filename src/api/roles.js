@@ -57,6 +57,26 @@ export async function requestArtistVerification({ userId, artistName, artistBio,
       .insert([{ user_id: userId, role: 'listener', status: 'pending', artist_name: artistName, artist_bio: artistBio, artist_genre: artistGenre, artist_mood: artistMood, accepted_terms_at: new Date().toISOString() }])
     if (error) throw error
   }
+
+  // ── NUEVO: notificar a todos los admins ──
+  try {
+    const { data: admins } = await supabase
+      .from('admin_users')
+      .select('user_id')
+
+    if (admins?.length) {
+      await supabase.from('notifications').insert(
+        admins.map(admin => ({
+          user_id: admin.user_id,
+          type: 'artist_request',
+          from_user_id: userId,
+          reference_id: userId,
+        }))
+      )
+    }
+  } catch (err) {
+    console.warn('Notificación admin no enviada:', err)
+  }
 }
 
 export async function getPendingRequests() {
@@ -87,6 +107,15 @@ export async function approveArtist(userId, artistName) {
   await supabase
     .from('profiles')
     .upsert({ user_id: userId, artist_name: artistName })
+
+  // ── NUEVO: notificación de aceptación ──
+  await supabase.from('notifications').insert([{
+    user_id: userId,
+    type: 'system',
+    from_user_id: null,
+    reference_id: null,
+    message: `¡Felicidades! Tu solicitud para ser artista fue aprobada. Ya puedes subir tu música.`,
+  }])
 
   try {
     const { data: { session } } = await supabase.auth.getSession()

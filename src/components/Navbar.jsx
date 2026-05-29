@@ -58,6 +58,26 @@ const NOTIFICATION_CONFIG = {
       </div>
     )
   },
+  artist_request: {
+    label: 'solicitó ser artista',
+    icon: (
+      <div className="w-7 h-7 rounded-full bg-yellow-100 flex items-center justify-center">
+        <svg className="w-3.5 h-3.5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
+        </svg>
+      </div>
+    )
+  },
+  system: {
+    label: 'Acerca de tu solicitud',
+    icon: (
+      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
+        <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+    )
+  },
 }
 
 export default function Navbar() {
@@ -95,23 +115,24 @@ export default function Navbar() {
     })
 
     const channel = subscribeToNotifications(user.id, async (payload) => {
-  const newNotif = payload.new
-  if (!isNotifEnabled(user.id, newNotif.type)) return
+      const newNotif = payload.new
+      if (!isNotifEnabled(user.id, newNotif.type)) return
 
-  let from_profile = null
-  if (newNotif.from_user_id) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('user_id, name, artist_name, avatar_url')
-      .eq('user_id', newNotif.from_user_id)
-      .single()
-    from_profile = profile ?? null
-  }
+      let from_profile = null
+      if (newNotif.from_user_id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('user_id, name, artist_name, avatar_url')
+          .eq('user_id', newNotif.from_user_id)
+          .single()
+        from_profile = profile ?? null
+      }
 
-  setNotifications(prev => [{ ...newNotif, from_profile }, ...prev])
-  setUnreadCount(prev => prev + 1)
-  if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
-})
+      setNotifications(prev => [{ ...newNotif, from_profile }, ...prev])
+      setUnreadCount(prev => prev + 1)
+      if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
+      if (newNotif.type === 'artist_request') setPendingCount(prev => prev + 1)
+    })
 
     return () => { channel.unsubscribe() }
   }, [user])
@@ -146,6 +167,7 @@ export default function Navbar() {
     else if (notif.type === 'follow') navigate(`/artist/${notif.from_user_id}`)
     else if (notif.type === 'like' || notif.type === 'comment') navigate(`/community?post=${notif.reference_id}`)
     else if (notif.type === 'presave') navigate(`/artist/${user.id}`)
+    else if (notif.type === 'artist_request') navigate('/admin')
   }
 
   const handleLogout = async () => {
@@ -268,13 +290,18 @@ export default function Navbar() {
                         const config = NOTIFICATION_CONFIG[notif.type]
                         const fromName = getFromName(notif)
                         const fromAvatar = getFromAvatar(notif)
+                        const isSystem = notif.type === 'system'
                         return (
                           <button key={notif.id} onClick={() => handleNotifClick(notif)}
                             className={`w-full flex items-start gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition text-left ${
                               !notif.read ? 'bg-purple-50/60' : 'bg-white'
                             }`}>
                             <div className="relative shrink-0">
-                              {fromAvatar ? (
+                              {isSystem ? (
+                                <div className="w-10 h-10 rounded-full bg-purple-700 flex items-center justify-center text-white text-xs font-bold">
+                                  SS
+                                </div>
+                              ) : fromAvatar ? (
                                 <img src={fromAvatar} alt={fromName} className="w-10 h-10 rounded-full object-cover" />
                               ) : (
                                 <div className="w-10 h-10 rounded-full bg-purple-700 flex items-center justify-center text-white text-sm font-bold uppercase">
@@ -285,8 +312,17 @@ export default function Navbar() {
                             </div>
                             <div className="flex-1 min-w-0 pt-0.5">
                               <p className="text-sm text-gray-800 leading-snug">
-                                <span className="font-semibold text-black">{fromName}</span>
-                                {' '}{config?.label ?? 'interactuó contigo'}
+                                {isSystem ? (
+                                  <>
+                                    <span className="font-semibold text-black">SoundSeekers</span>
+                                    <span className="text-gray-600"> · {notif.message ?? config?.label}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="font-semibold text-black">{fromName}</span>
+                                    {' '}{config?.label ?? 'interactuó contigo'}
+                                  </>
+                                )}
                               </p>
                               <p className="text-xs text-gray-400 mt-1">{formatTime(notif.created_at)}</p>
                             </div>

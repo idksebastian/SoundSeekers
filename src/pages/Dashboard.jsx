@@ -67,7 +67,15 @@ export default function Dashboard() {
         setLoading(false)
       }
     }
+
     fetchData()
+
+    const channel = supabase
+      .channel('songs-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'songs' }, () => { fetchData() })
+      .subscribe()
+
+    return () => { channel.unsubscribe() }
   }, [])
 
   const filtered = useMemo(() => {
@@ -98,7 +106,6 @@ export default function Dashboard() {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { display: none; }
-
         .dash-header { background: linear-gradient(135deg, #7c3aed, #6d28d9); padding: 3rem 2rem 5rem; }
         .dash-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 5vw, 3.5rem); color: #fff; margin: 0 0 4px; letter-spacing: 0.02em; }
         .dash-subtitle { font-size: 14px; color: rgba(255,255,255,0.65); margin: 0; }
