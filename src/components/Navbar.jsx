@@ -146,14 +146,6 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
-  // ── NUEVO: escuchar cuando se responde un feat desde Requests
-useEffect(() => {
-  const handler = () => {
-    setFeatCount(prev => Math.max(0, prev - 1))
-  }
-  window.addEventListener('feat-responded', handler)
-  return () => window.removeEventListener('feat-responded', handler)
-}, [])
 
   const handleOpenNotifs = async () => {
     setNotifOpen(prev => !prev)

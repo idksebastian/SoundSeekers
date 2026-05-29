@@ -11,6 +11,7 @@ function timeAgo(dateStr) {
   return `Hace ${Math.floor(diff / 86400)} d`
 }
 
+// Modal de confirmación reutilizable
 function ConfirmModal({ message, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
@@ -23,10 +24,16 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
         <p className="text-center text-gray-800 font-semibold text-base mb-1">¿Estás seguro?</p>
         <p className="text-center text-gray-500 text-sm mb-6">{message}</p>
         <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition font-medium">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition font-medium"
+          >
             Cancelar
           </button>
-          <button onClick={onConfirm} className="flex-1 px-4 py-2.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition font-semibold">
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 text-sm text-white bg-red-500 hover:bg-red-600 rounded-xl transition font-semibold"
+          >
             Eliminar
           </button>
         </div>
@@ -35,13 +42,12 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
   )
 }
 
-export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated, autoOpenComments, onCommentsOpened }) {
+export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
   const { user } = useAuth()
   const [likeCount, setLikeCount] = useState(post.post_likes?.[0]?.count ?? 0)
   const [liked, setLiked] = useState(false)
   const [likeLoading, setLikeLoading] = useState(false)
   const [showComments, setShowComments] = useState(false)
-  const [scrollToLatest, setScrollToLatest] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(post.title)
@@ -52,25 +58,11 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated, aut
   const commentCount = post.post_comments?.[0]?.count ?? 0
   const isOwner = user?.id === post.user_id
 
+  // Cargar estado real del like desde Supabase
   useEffect(() => {
     if (!user) return
     getUserLike(post.id, user.id).then(setLiked)
   }, [post.id, user])
-
-  // Abrir comments si viene de notificación
-  useEffect(() => {
-    if (autoOpenComments) {
-      setShowComments(true)
-      setScrollToLatest(true)
-      onCommentsOpened?.()
-    }
-  }, [autoOpenComments])
-
-  // Bloquear scroll cuando hay modal abierto
-  useEffect(() => {
-    document.body.style.overflow = (showComments || confirmDelete) ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
-  }, [showComments, confirmDelete])
 
   const handleLike = async () => {
     if (!user || likeLoading) return
@@ -238,7 +230,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated, aut
           </button>
 
           <button
-            onClick={() => { setShowComments(true); setScrollToLatest(false) }}
+            onClick={() => setShowComments(true)}
             className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-purple-600 transition"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -249,6 +241,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated, aut
         </div>
       </div>
 
+      {/* Modal de confirmación eliminar post */}
       {confirmDelete && (
         <ConfirmModal
           message="Esta publicación se eliminará permanentemente y no podrás recuperarla."
@@ -260,8 +253,7 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated, aut
       {showComments && (
         <CommentsModal
           post={post}
-          onClose={() => { setShowComments(false); setScrollToLatest(false) }}
-          scrollToLatest={scrollToLatest}
+          onClose={() => setShowComments(false)}
         />
       )}
     </>
