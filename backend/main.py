@@ -17,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+MISTRAL_KEY = os.getenv("MISTRAL_API_KEY")
 
 # Caché para recomendaciones de Ánimo
 _cache = {}
@@ -41,28 +41,46 @@ WEATHER_QUERIES = {
     "warm":   ["tropical español", "tarde latina", "cumbia calurosa", "salsa caliente"],
 }
 
-# ─── ENDPOINT CHAT (SeekeAI) ──────────────────────────────────────────────────
+# ─── ENDPOINT CHAT (SeekeAI via Mistral) ─────────────────────────────────────
 
 @app.post("/chat")
 async def chat(request: dict):
     messages = request.get("messages", [])
 
+    # Convertir formato Gemini → formato Mistral/OpenAI
+    mistral_messages = []
+    for m in messages:
+        role = m.get("role", "user")
+        if role == "model":
+            role = "assistant"
+        parts = m.get("parts", [{}])
+        text = parts[0].get("text", "") if parts else ""
+        mistral_messages.append({"role": role, "content": text})
+
     async with httpx.AsyncClient() as client:
         res = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}",
-            json={"contents": messages},
+            "https://api.mistral.ai/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {MISTRAL_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "mistral-small-latest",
+                "messages": mistral_messages,
+                "max_tokens": 1024,
+            },
             timeout=30.0
         )
 
     if not res.is_success:
-        return {"error": f"Gemini error {res.status_code}", "reply": None}
+        print(f"Mistral error: {res.status_code} - {res.text}")
+        return {"error": f"Mistral error {res.status_code}", "reply": None}
 
     data = res.json()
     text = (
-        data.get("candidates", [{}])[0]
-            .get("content", {})
-            .get("parts", [{}])[0]
-            .get("text", "")
+        data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
     )
     return {"reply": text}
 
@@ -129,14 +147,14 @@ async def get_recommendations(mood: str, weather: str):
     songs = []
     for track in tracks_with_preview[:12]:
         songs.append({
-            "title":      track.get("trackName", "Sin título"),
-            "artist":     track.get("artistName", "Artista desconocido"),
-            "coverUrl":   track.get("artworkUrl100", "").replace("100x100", "300x300"),
-            "previewUrl": track.get("previewUrl"),
+            "title":       track.get("trackName", "Sin título"),
+            "artist":      track.get("artistName", "Artista desconocido"),
+            "coverUrl":    track.get("artworkUrl100", "").replace("100x100", "300x300"),
+            "previewUrl":  track.get("previewUrl"),
             "externalUrl": track.get("trackViewUrl", ""),
-            "albumTitle": track.get("collectionName", ""),
-            "duration":   int(track.get("trackTimeMillis", 30000) / 1000),
-            "genre":      track.get("primaryGenreName", ""),
+            "albumTitle":  track.get("collectionName", ""),
+            "duration":    int(track.get("trackTimeMillis", 30000) / 1000),
+            "genre":       track.get("primaryGenreName", ""),
         })
 
     if songs:
@@ -147,4 +165,4 @@ async def get_recommendations(mood: str, weather: str):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "gemini": bool(GEMINI_KEY)}
+    return {"status": "ok", "mistral": bool(MISTRAL_KEY)}
