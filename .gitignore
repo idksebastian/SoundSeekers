@@ -33,3 +33,4 @@ backend/__pycache__/
 ".env.local" 
 ".env" 
 ".env*.local" 
+".env" 
