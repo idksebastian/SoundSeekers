@@ -1,58 +1,115 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 import { getSongs } from '../api/songs'
 
 const HISTORY_KEY = 'seekai_history'
 const MAX_HISTORY = 40
 const BACKEND_URL = 'http://localhost:8000'
 
-const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de descubrimiento musical para artistas emergentes latinoamericanos.
+const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de música emergente latinoamericana.
 
-SOLO puedes ayudar con temas relacionados a:
-- Música, géneros musicales y artistas latinoamericanos
-- Canciones y artistas disponibles en SoundSeekers (los que aparecen en el contexto)
-- Reproducir canciones de la plataforma cuando el usuario lo pida
-- Recomendaciones musicales según estado de ánimo o clima
-- Funciones de la plataforma (cómo subir canciones, seguir artistas, etc.)
+Tu especialidad es TODO lo relacionado con música. Responde con confianza sobre:
+- Artistas, bandas, vocalistas, músicos de cualquier época y género (Kurt Cobain de Nirvana, Freddie Mercury de Queen, Bad Bunny, etc.)
+- Historia de la música, géneros, movimientos musicales
+- Canciones, álbumes, discografías, letras y su significado
+- Curiosidades, anécdotas y datos de la industria musical
+- Instrumentos musicales y técnicas
+- Recomendaciones según estado de ánimo, clima o situación
+- Canciones y artistas disponibles en SoundSeekers
+- Cómo usar la plataforma SoundSeekers (subir canciones, seguir artistas, feats, presave, etc.)
 - Análisis de la canción que el usuario está escuchando
-- Consejos para artistas sobre cómo crecer en la plataforma
+- Consejos para artistas emergentes
 
-PROHIBIDO responder sobre cualquier tema fuera de música y SoundSeekers. Si el usuario pregunta algo no relacionado (programación, matemáticas, política, etc.), responde exactamente: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵 ¿Hay algo musical en lo que pueda ayudarte?"
+IMPORTANTE: Si el usuario pregunta sobre un artista que no conoces, NO lo rechaces. Asume que podría ser un artista emergente y responde: "No tengo información sobre ese artista aún, pero podría ser un artista emergente. ¿Está en SoundSeekers? Puedes buscarlo en la plataforma." Nunca uses la respuesta de rechazo para preguntas que puedan ser sobre música o artistas.
 
-Sobre artistas: Solo menciona artistas que aparezcan en el contexto de canciones de SoundSeekers. No inventes artistas ni confirmes existencia de artistas que no estén en ese contexto.
+Solo rechaza preguntas completamente ajenas a la música como matemáticas, programación, medicina, cocina, política, etc. En esos casos di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵 ¿Hay algo musical en lo que pueda ayudarte?"
 
-IMPORTANTE - Cuando recomiendes canciones específicas de la plataforma, SIEMPRE incluye al final de tu mensaje:
-[CANCIONES:título1|título2|título3]
+Cuando el usuario quiera reproducir una canción de SoundSeekers, responde incluyendo al final: [PLAY:titulo_exacto_de_la_cancion]
+Cuando el usuario pida recomendaciones de canciones de SoundSeekers, incluye al final: [CANCIONES:titulo1|titulo2|titulo3]
 
-Solo incluye canciones que existen en la plataforma. Si no recomiendas canciones específicas, no incluyas esa sección.
+Cuando el usuario pida ayuda para navegar a una sección de la plataforma, incluye al final uno de estos tags según corresponda:
+[NAV:upload] para subir música
+[NAV:dashboard] para explorar música
+[NAV:community] para la comunidad
+[NAV:animo] para recomendaciones por ánimo
+[NAV:profile] para ver el perfil
+[NAV:settings] para ajustes
+[NAV:requests] para solicitudes de feat
 
-Responde siempre en español, de forma amigable, concisa y con personalidad musical. Usa emojis ocasionalmente. Escribe en texto plano sin asteriscos ni markdown.`
+Formato de respuesta:
+- Nunca uses asteriscos ni markdown
+- Nunca uses # para títulos
+- Usa saltos de línea simples para separar ideas
+- Para listas usa • al inicio de cada ítem
+- Escribe de forma conversacional y natural
+- Máximo 3-4 oraciones por respuesta salvo que pidan más detalle
+
+Responde siempre en español, de forma amigable y concisa. Usa emojis ocasionalmente.`
 
 const INITIAL_MESSAGE = { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 Tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o ayudarte con cualquier duda sobre la plataforma. ¿En qué te ayudo hoy?' }
 
-function parseSongRecommendations(text, allSongs) {
-  const match = text.match(/\[CANCIONES:([^\]]+)\]/)
-  if (!match) return { cleanText: text, recommendedSongs: [] }
+const NAV_CONFIG = {
+  upload: { label: 'Ir a Subir música', path: '/upload', icon: '🎵' },
+  dashboard: { label: 'Ir a Explorar', path: '/dashboard', icon: '🔍' },
+  community: { label: 'Ir a Comunidad', path: '/community', icon: '💬' },
+  animo: { label: 'Ir a Ánimo y Clima', path: '/animo', icon: '🎭' },
+  profile: { label: 'Ir a mi Perfil', path: '/profile', icon: '👤' },
+  settings: { label: 'Ir a Ajustes', path: '/settings', icon: '⚙️' },
+  requests: { label: 'Ir a Solicitudes', path: '/requests', icon: '🤝' },
+}
 
-  const titles = match[1].split('|').map(t => t.trim().toLowerCase())
-  const cleanText = text.replace(/\[CANCIONES:[^\]]+\]/, '').trim()
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
 
-  const recommendedSongs = titles
-    .map(title => allSongs.find(s =>
-      s.title?.toLowerCase().includes(title) ||
-      title.includes(s.title?.toLowerCase())
-    ))
-    .filter(Boolean)
+function parseMessage(text, allSongs) {
+  let cleanText = cleanMarkdown(text)
 
-  return { cleanText, recommendedSongs }
+  // Extraer canciones recomendadas
+  const songsMatch = cleanText.match(/\[CANCIONES:([^\]]+)\]/)
+  let recommendedSongs = []
+  if (songsMatch) {
+    const titles = songsMatch[1].split('|').map(t => t.trim().toLowerCase())
+    cleanText = cleanText.replace(/\[CANCIONES:[^\]]+\]/, '').trim()
+    recommendedSongs = titles
+      .map(title => allSongs.find(s =>
+        s.title?.toLowerCase().includes(title) ||
+        title.includes(s.title?.toLowerCase())
+      ))
+      .filter(Boolean)
+  }
+
+  // Extraer canción a reproducir directamente
+  const playMatch = cleanText.match(/\[PLAY:([^\]]+)\]/)
+  let playSongTitle = null
+  if (playMatch) {
+    playSongTitle = playMatch[1].trim().toLowerCase()
+    cleanText = cleanText.replace(/\[PLAY:[^\]]+\]/, '').trim()
+  }
+
+  // Extraer navegación
+  const navMatch = cleanText.match(/\[NAV:([^\]]+)\]/)
+  let navKey = null
+  if (navMatch) {
+    navKey = navMatch[1].trim()
+    cleanText = cleanText.replace(/\[NAV:[^\]]+\]/, '').trim()
+  }
+
+  return { cleanText, recommendedSongs, playSongTitle, navKey }
 }
 
 async function askSeekeAI(messages, songs, currentSong) {
   const songsContext = songs.length > 0
     ? `Canciones disponibles en SoundSeekers: ${songs.slice(0, 20).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : ''
-
   const currentSongContext = currentSong
     ? `El usuario está escuchando ahora: "${currentSong.title}" de ${currentSong.display_artist || currentSong.artist_name} (${currentSong.genre || 'Sin género'}).`
     : 'El usuario no está escuchando ninguna canción ahora mismo.'
@@ -62,10 +119,8 @@ async function askSeekeAI(messages, songs, currentSong) {
   const contents = []
   contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
   contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, el asistente musical de SoundSeekers. Estoy listo para ayudarte.' }] })
-
   for (const msg of messages) {
-    const role = msg.role === 'user' ? 'user' : 'model'
-    contents.push({ role, parts: [{ text: msg.content }] })
+    contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.content }] })
   }
 
   const res = await fetch(`${BACKEND_URL}/chat`, {
@@ -73,11 +128,8 @@ async function askSeekeAI(messages, songs, currentSong) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ messages: contents })
   })
-
   if (!res.ok) throw new Error('BACKEND_ERROR')
-
   const data = await res.json()
-  console.log('Backend response:', JSON.stringify(data))
   if (data.error || !data.reply) throw new Error('AI_ERROR')
   return data.reply
 }
@@ -86,7 +138,7 @@ const SUGGESTIONS = [
   '¿Qué canción me recomiendas ahora mismo?',
   '¿Cómo subo mis canciones a SoundSeekers?',
   'Analiza la canción que estoy escuchando',
-  '¿Cuáles son los artistas más populares?',
+  'Quiero convertirme en artista',
   'Recomiéndame música para estudiar',
   'Reproduce algo de reggaeton',
 ]
@@ -94,10 +146,14 @@ const SUGGESTIONS = [
 export default function AI() {
   const { currentSong, playSong } = usePlayer()
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [songs, setSongs] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
+  const [previewAudio, setPreviewAudio] = useState(null)
+  const [playingPreview, setPlayingPreview] = useState(null)
+  const audioRef = useRef(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
 
@@ -114,14 +170,11 @@ export default function AI() {
 
   useEffect(() => {
     try {
-      const toSave = messages.slice(-MAX_HISTORY)
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(toSave))
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(messages.slice(-MAX_HISTORY)))
     } catch {}
   }, [messages])
 
-  useEffect(() => {
-    getSongs().then(setSongs).catch(() => {})
-  }, [])
+  useEffect(() => { getSongs().then(setSongs).catch(() => {}) }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -130,6 +183,22 @@ export default function AI() {
   const clearHistory = () => {
     setMessages([INITIAL_MESSAGE])
     localStorage.removeItem(HISTORY_KEY)
+  }
+
+  const handlePlayPreview = (previewUrl, songId) => {
+    if (playingPreview === songId) {
+      audioRef.current?.pause()
+      setPlayingPreview(null)
+      return
+    }
+    if (audioRef.current) {
+      audioRef.current.pause()
+    }
+    const audio = new Audio(previewUrl)
+    audioRef.current = audio
+    audio.play()
+    audio.onended = () => setPlayingPreview(null)
+    setPlayingPreview(songId)
   }
 
   const sendMessage = async (text) => {
@@ -142,7 +211,17 @@ export default function AI() {
     setLoading(true)
     try {
       const reply = await askSeekeAI(newMessages, songs, currentSong)
-      setMessages(prev => [...prev, { role: 'assistant', content: reply }])
+      const cleaned = cleanMarkdown(reply)
+
+      // Auto-play si detecta [PLAY:]
+      const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
+      if (playMatch) {
+        const title = playMatch[1].trim().toLowerCase()
+        const song = songs.find(s => s.title?.toLowerCase().includes(title) || title.includes(s.title?.toLowerCase()))
+        if (song) playSong(song, songs)
+      }
+
+      setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
     } catch (err) {
       setError('Hubo un error al conectar con SeekeAI. ¿Está corriendo el backend?')
       setMessages(prev => prev.slice(0, -1))
@@ -152,45 +231,65 @@ export default function AI() {
     }
   }
 
-  const handlePlaySong = (song) => {
-    playSong(song, songs)
-  }
-
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? 'músico'
 
   const renderMessage = (msg) => {
-    if (msg.role !== 'assistant') return msg.content
-    const { cleanText, recommendedSongs } = parseSongRecommendations(msg.content, songs)
+    if (msg.role !== 'assistant') return <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+    const { cleanText, recommendedSongs, playSongTitle, navKey } = parseMessage(msg.content, songs)
+
+    const songToPlay = playSongTitle
+      ? songs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
+      : null
+
     return (
       <div>
-        <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{cleanText}</p>
+        <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{cleanText}</p>
+
+        {/* Canción a reproducir directamente */}
+        {songToPlay && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(124,58,237,0.06)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(124,58,237,0.15)' }}>
+            <img src={songToPlay.cover_url} alt={songToPlay.title} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{songToPlay.title}</p>
+              <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>{songToPlay.display_artist || songToPlay.artist_name}</p>
+            </div>
+            <button onClick={() => playSong(songToPlay, songs)}
+              style={{ width: 36, height: 36, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
+              <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+            </button>
+          </div>
+        )}
+
+        {/* Lista de recomendaciones de SoundSeekers */}
         {recommendedSongs.length > 0 && (
           <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
             {recommendedSongs.map(song => (
-              <div key={song.id} style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: 'rgba(124,58,237,0.06)', borderRadius: 10,
-                padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)'
-              }}>
-                <img src={song.cover_url} alt={song.title}
-                  style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
+              <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(124,58,237,0.06)', borderRadius: 10, padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)' }}>
+                <img src={song.cover_url} alt={song.title} style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {song.title}
-                  </p>
-                  <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>
-                    {song.display_artist || song.artist_name}
-                  </p>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                  <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>{song.display_artist || song.artist_name}</p>
                 </div>
-                <button onClick={() => handlePlaySong(song)}
+                <button onClick={() => playSong(song, songs)}
                   style={{ width: 30, height: 30, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <svg width="11" height="11" fill="white" viewBox="0 0 24 24">
-                    <path d="M5 3l14 9-14 9V3z"/>
-                  </svg>
+                  <svg width="11" height="11" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
                 </button>
               </div>
             ))}
           </div>
+        )}
+
+        {/* Botón de navegación */}
+        {navKey && NAV_CONFIG[navKey] && (
+          <button
+            onClick={() => navigate(NAV_CONFIG[navKey].path)}
+            style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
+            <span>{NAV_CONFIG[navKey].icon}</span>
+            {NAV_CONFIG[navKey].label}
+            <svg width="14" height="14" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
         )}
       </div>
     )
@@ -219,7 +318,6 @@ export default function AI() {
               </div>
               {messages.length > 1 && (
                 <button onClick={clearHistory}
-                  title="Borrar historial"
                   style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 100, padding: '6px 12px', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   🗑️ Limpiar
                 </button>
@@ -252,7 +350,7 @@ export default function AI() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
             {SUGGESTIONS.map(s => (
               <button key={s} onClick={() => sendMessage(s)}
-                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 100, padding: '8px 14px', fontSize: 12, color: '#7c3aed', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s' }}
+                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 100, padding: '8px 14px', fontSize: 12, color: '#7c3aed', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
                 onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.borderColor = '#7c3aed' }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#e5e7eb' }}>
                 {s}
@@ -322,12 +420,12 @@ export default function AI() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
             placeholder="Pregúntame sobre música, artistas o la plataforma..."
-            style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 100, padding: '12px 20px', fontSize: 14, outline: 'none', fontFamily: 'inherit', transition: 'border-color 0.15s' }}
+            style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 100, padding: '12px 20px', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
             onFocus={e => e.target.style.borderColor = '#7c3aed'}
             onBlur={e => e.target.style.borderColor = '#e5e7eb'}
           />
           <button onClick={() => sendMessage()} disabled={!input.trim() || loading}
-            style={{ width: 46, height: 46, borderRadius: '50%', background: input.trim() && !loading ? '#7c3aed' : '#e5e7eb', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.15s' }}>
+            style={{ width: 46, height: 46, borderRadius: '50%', background: input.trim() && !loading ? '#7c3aed' : '#e5e7eb', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="18" height="18" fill={input.trim() && !loading ? '#fff' : '#9ca3af'} viewBox="0 0 24 24">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>
