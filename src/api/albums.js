@@ -101,7 +101,25 @@ export async function togglePresave(albumId) {
     await supabase.from('presaves').delete().eq('id', existing.id)
     return false
   } else {
+    // Guardar presave + notificar al artista
     await supabase.from('presaves').insert([{ album_id: albumId, user_id: session.user.id }])
+
+    // Notificar al dueño del álbum
+    const { data: album } = await supabase
+      .from('albums')
+      .select('user_id')
+      .eq('id', albumId)
+      .single()
+
+    if (album && album.user_id !== session.user.id) {
+      await supabase.from('notifications').insert([{
+        user_id: album.user_id,
+        type: 'presave',
+        from_user_id: session.user.id,
+        reference_id: albumId,
+      }])
+    }
+
     return true
   }
 }
@@ -124,4 +142,43 @@ export async function hasPresaved(albumId) {
     .eq('user_id', session.user.id)
     .single()
   return !!data
+}
+
+// Publicar álbumes en presave cuya fecha ya llegó y notificar a todos los presavers
+export async function publishDueAlbums() {
+  const now = new Date().toISOString()
+
+  const { data: albums, error } = await supabase
+    .from('albums')
+    .select('*, presaves(user_id)')
+    .eq('status', 'presave')
+    .lte('presave_date', now)
+
+  if (error || !albums?.length) return
+
+  for (const album of albums) {
+    // Publicar el álbum
+    await supabase
+      .from('albums')
+      .update({ status: 'published' })
+      .eq('id', album.id)
+
+    // Publicar todas las canciones del álbum
+    await supabase
+      .from('songs')
+      .update({ status: 'published' })
+      .eq('album_id', album.id)
+
+    // Notificar a cada presaver
+    const presavers = album.presaves ?? []
+    for (const p of presavers) {
+      await supabase.from('notifications').insert([{
+        user_id: p.user_id,
+        type: 'system',
+        from_user_id: album.user_id,
+        reference_id: album.id,
+        message: `"${album.title}" ya está disponible. ¡Escúchalo ahora! 🎵`,
+      }])
+    }
+  }
 }
