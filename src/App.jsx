@@ -1,6 +1,8 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-import { PlayerProvider } from './context/PlayerContext'
+import { PlayerProvider, usePlayer } from './context/PlayerContext'
+import { useAuth } from './context/AuthContext'
+import { useEffect, useRef } from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 import ArtistRoute from './components/ArtistRoute'
 import PageTransition from './components/PageTransition'
@@ -31,25 +33,45 @@ import Privacidad from './pages/Privacidad'
 import Cookies from './pages/Cookies'
 import Contacto from './pages/Contacto'
 
-// Componente que muestra Navbar solo si el usuario está autenticado
-function AppLayout({ children }) {
-  return children
+function PlayerAuthBridge() {
+  const { user } = useAuth()
+  const { stopAndClear, restoreForUser, setActiveUserId } = usePlayer()
+  const prevUserIdRef = useRef(null)
+
+  useEffect(() => {
+    const currentId = user?.id ?? null
+    const prevId = prevUserIdRef.current
+
+    if (currentId === prevId) return
+
+    if (!currentId && prevId) {
+      stopAndClear()
+      setActiveUserId(null)
+    } else if (currentId && currentId !== prevId) {
+      if (prevId) stopAndClear()
+      setActiveUserId(currentId)
+      restoreForUser(currentId)
+    }
+
+    prevUserIdRef.current = currentId
+  }, [user?.id])
+
+  return null
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <PlayerProvider>
+    <PlayerProvider>
+      <AuthProvider>
         <BrowserRouter>
+          <PlayerAuthBridge />
           <Routes>
-            {/* Rutas públicas — sin Navbar ni Player */}
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* Rutas protegidas — con Navbar, PageTransition y Player */}
             <Route path="/*" element={
               <ProtectedRoute>
                 <Navbar />
@@ -83,13 +105,12 @@ export default function App() {
             } />
           </Routes>
 
-          {/* Player y ChatBot fuera de las rutas pero dentro del BrowserRouter */}
           <ProtectedRoute silent>
             <Player />
             <ChatBot />
           </ProtectedRoute>
         </BrowserRouter>
-      </PlayerProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </PlayerProvider>
   )
 }
