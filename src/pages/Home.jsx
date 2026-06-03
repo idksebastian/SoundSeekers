@@ -82,8 +82,6 @@ export default function Home() {
         }
 
         const published = data.filter(s => s.status === 'published')
-        const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
-        if (sorted[0]) setTopSong(sorted[0])
 
         const genreMap = {}
         data.forEach(s => { if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1 })
@@ -93,11 +91,8 @@ export default function Home() {
         published.forEach(song => {
           if (song.user_id && !artistMap[song.user_id])
             artistMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, genre: song.genre, user_id: song.user_id, streams: 0 }
-          if (artistMap[song.user_id]) artistMap[song.user_id].streams += (song.streams ?? 0)
         })
-        const artistList = Object.values(artistMap)
-        setArtists(artistList.slice(0, 8))
-        setTopArtist([...artistList].sort((a, b) => b.streams - a.streams)[0])
+        setArtists(Object.values(artistMap).slice(0, 8))
 
         const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
         if (userIds.length > 0) {
@@ -114,6 +109,69 @@ export default function Home() {
           const { data: albumsData } = await supabase.from('albums').select('*').in('id', albumIds).in('status', ['published', 'presave'])
           if (albumsData) setAlbums(albumsData)
         }
+
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: weeklyStreams } = await supabase
+          .from('streams')
+          .select('song_id')
+          .gte('created_at', weekAgo)
+
+        if (weeklyStreams?.length) {
+          const streamCount = {}
+          weeklyStreams.forEach(s => {
+            streamCount[s.song_id] = (streamCount[s.song_id] ?? 0) + 1
+          })
+
+          const publishedIds = new Set(published.map(s => s.id))
+          const topSongId = Object.entries(streamCount)
+            .filter(([id]) => publishedIds.has(id))
+            .sort((a, b) => b[1] - a[1])[0]?.[0]
+
+          if (topSongId) {
+            const song = published.find(s => s.id === topSongId)
+            if (song) setTopSong({ ...song, weeklyStreams: streamCount[topSongId] })
+          } else {
+            const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+            if (sorted[0]) setTopSong(sorted[0])
+          }
+
+          const artistWeeklyMap = {}
+          Object.entries(streamCount).forEach(([songId, count]) => {
+            const song = published.find(s => s.id === songId)
+            if (!song) return
+            if (!artistWeeklyMap[song.user_id]) {
+              artistWeeklyMap[song.user_id] = {
+                name: song.artist_name, cover: song.cover_url,
+                genre: song.genre, user_id: song.user_id, streams: 0
+              }
+            }
+            artistWeeklyMap[song.user_id].streams += count
+          })
+
+          const artistWeeklyList = Object.values(artistWeeklyMap)
+          if (artistWeeklyList.length) {
+            setTopArtist([...artistWeeklyList].sort((a, b) => b.streams - a.streams)[0])
+          } else {
+            const fallbackMap = {}
+            published.forEach(song => {
+              if (!fallbackMap[song.user_id])
+                fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, genre: song.genre, user_id: song.user_id, streams: 0 }
+              fallbackMap[song.user_id].streams += (song.streams ?? 0)
+            })
+            setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
+          }
+        } else {
+          const fallbackMap = {}
+          published.forEach(song => {
+            if (!fallbackMap[song.user_id])
+              fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, genre: song.genre, user_id: song.user_id, streams: 0 }
+            fallbackMap[song.user_id].streams += (song.streams ?? 0)
+          })
+          const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+          if (sorted[0]) setTopSong(sorted[0])
+          setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
+        }
+
       } catch (err) {
         console.error(err)
       } finally {
@@ -170,7 +228,9 @@ export default function Home() {
       tag: 'Artista de la semana',
       title: topArtist?.name ?? 'Artista destacado',
       subtitle: topArtist?.genre ?? '',
-      desc: `${(topArtist?.streams ?? 0).toLocaleString()} reproducciones esta semana`,
+      desc: topArtist?.streams
+        ? `${topArtist.streams.toLocaleString()} reproducciones esta semana`
+        : 'Artista más escuchado esta semana',
       img: topArtist ? (artistAvatars[topArtist.user_id] || topArtist.cover) : null,
       action: () => topArtist && navigate(`/artist/${topArtist.user_id}`),
       btnLabel: 'Ver perfil',
@@ -180,7 +240,9 @@ export default function Home() {
       tag: 'Canción de la semana',
       title: topSong?.title ?? 'Canción destacada',
       subtitle: topSong?.display_artist || topSong?.artist_name || '',
-      desc: `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
+      desc: topSong?.weeklyStreams
+        ? `${topSong.weeklyStreams.toLocaleString()} reproducciones esta semana · ${topSong?.genre ?? ''}`
+        : `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
       img: topSong?.cover_url ?? null,
       action: () => topSong && playSong(topSong, publishedSongs),
       btnLabel: 'Reproducir',
@@ -348,22 +410,15 @@ export default function Home() {
         .footer-brand-desc { font-size: 12px; color: #6b7280; line-height: 1.6; max-width: 260px; margin: 0 0 16px; }
         @media (min-width: 600px) { .footer-brand-desc { font-size: 13px; margin: 0 0 20px; } }
         .footer-socials { display: flex; gap: 8px; }
-        @media (min-width: 600px) { .footer-socials { gap: 10px; } }
         .footer-social-btn { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; text-decoration: none; }
-        @media (min-width: 600px) { .footer-social-btn { width: 36px; height: 36px; border-radius: 10px; } }
         .footer-social-btn:hover { background: #7c3aed; border-color: #7c3aed; }
         .footer-col-title { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
-        @media (min-width: 600px) { .footer-col-title { font-size: 11px; margin-bottom: 16px; } }
         .footer-link { display: block; font-size: 12px; color: #9ca3af; text-decoration: none; margin-bottom: 8px; transition: color 0.15s; }
-        @media (min-width: 600px) { .footer-link { font-size: 13px; margin-bottom: 10px; } }
         .footer-link:hover { color: #fff; }
         .footer-bottom { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
         .footer-copy { font-size: 11px; color: #4b5563; }
-        @media (min-width: 600px) { .footer-copy { font-size: 12px; } }
         .footer-badge { display: inline-flex; align-items: center; gap: 5px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.25); border-radius: 100px; padding: 3px 10px; font-size: 10px; color: #a78bfa; font-weight: 600; }
-        @media (min-width: 600px) { .footer-badge { font-size: 11px; padding: 4px 12px; gap: 6px; } }
         .divider { height: 1px; background: #f3f4f6; max-width: 1100px; margin: 0 auto 1.5rem; }
-        @media (min-width: 600px) { .divider { margin: 0 auto 2rem; } }
         .skeleton { background: #f3f4f6; border-radius: 8px; animation: shimmer 1.5s infinite; }
         @keyframes shimmer { 0%,100%{opacity:1}50%{opacity:0.5} }
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
