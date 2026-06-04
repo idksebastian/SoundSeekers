@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase'
 
-export async function createSong({ title, genre, description, coverFile, audioFile, albumId, duration, tags, collaborators, credits, trackNumber, collaboratorNames }) {
+export async function createSong({ title, genre, description, coverFile, audioFile, albumId, duration, tags, collaborators, credits, trackNumber, collaboratorNames, presaveDate, status }) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
 
@@ -46,6 +46,8 @@ export async function createSong({ title, genre, description, coverFile, audioFi
       credits: credits?.length ? credits : [],
       track_number: trackNumber ?? null,
       streams: 0,
+      status: status ?? 'published',
+      presave_date: presaveDate ?? null,
     }])
     .select()
     .single()
@@ -76,12 +78,14 @@ export async function getSongs() {
   const { data, error } = await supabase
     .from('songs')
     .select('*')
+    .in('status', ['published', 'presave'])  // ── mostrar ambos
     .order('created_at', { ascending: false })
   if (error) throw error
   return data
 }
 
 export async function getMySongs(userId) {
+  // En perfil propio mostramos todas (published + presave)
   const { data, error } = await supabase
     .from('songs')
     .select('*')
@@ -178,4 +182,81 @@ export async function respondFeat(featId, accept) {
     .update({ status: accept ? 'accepted' : 'rejected' })
     .eq('id', featId)
   if (error) throw error
+}
+
+// Publicar canciones en presave cuya fecha ya llegó y notificar presavers
+export async function publishDueSongs() {
+  const now = new Date().toISOString()
+
+  // Buscar singles en presave cuya fecha ya llegó
+  const { data: songs, error } = await supabase
+    .from('songs')
+    .select('*')
+    .eq('status', 'presave')
+    .lte('presave_date', now)
+
+  if (error || !songs?.length) return
+
+  for (const song of songs) {
+    // Publicar la canción
+    await supabase
+      .from('songs')
+      .update({ status: 'published' })
+      .eq('id', song.id)
+
+    // Buscar presavers del álbum si tiene album_id
+    // Para singles sin álbum no hay tabla de presaves de song, se notifica
+    // solo si el artista lo maneja manualmente desde admin
+    // (extensión futura: tabla song_presaves)
+  }
+}
+export async function toggleSongPresave(songId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No hay sesión activa')
+
+  const { data: existing } = await supabase
+    .from('song_presaves')
+    .select('id')
+    .eq('song_id', songId)
+    .eq('user_id', session.user.id)
+    .single()
+
+  if (existing) {
+    await supabase.from('song_presaves').delete().eq('id', existing.id)
+    return false
+  } else {
+    await supabase.from('song_presaves').insert([{ song_id: songId, user_id: session.user.id }])
+
+    // Notificar al artista
+    const { data: song } = await supabase.from('songs').select('user_id, title').eq('id', songId).single()
+    if (song && song.user_id !== session.user.id) {
+      await supabase.from('notifications').insert([{
+        user_id: song.user_id,
+        type: 'presave',
+        from_user_id: session.user.id,
+        reference_id: songId,
+      }])
+    }
+    return true
+  }
+}
+
+export async function hasSongPresaved(songId) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return false
+  const { data } = await supabase
+    .from('song_presaves')
+    .select('id')
+    .eq('song_id', songId)
+    .eq('user_id', session.user.id)
+    .single()
+  return !!data
+}
+
+export async function getSongPresaveCount(songId) {
+  const { count } = await supabase
+    .from('song_presaves')
+    .select('*', { count: 'exact', head: true })
+    .eq('song_id', songId)
+  return count ?? 0
 }

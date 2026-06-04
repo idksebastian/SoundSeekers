@@ -1,6 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
-import { PlayerProvider } from './context/PlayerContext'
+import { PlayerProvider, usePlayer } from './context/PlayerContext'
+import { ThemeProvider, useTheme } from './context/ThemeContext'
+import { useAuth } from './context/AuthContext'
+import { useEffect } from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
 import ArtistRoute from './components/ArtistRoute'
 import PageTransition from './components/PageTransition'
@@ -31,65 +34,98 @@ import Privacidad from './pages/Privacidad'
 import Cookies from './pages/Cookies'
 import Contacto from './pages/Contacto'
 
-// Componente que muestra Navbar solo si el usuario está autenticado
-function AppLayout({ children }) {
-  return children
+function PlayerAuthBridge() {
+  const { user } = useAuth()
+  const { stopAndClear, restoreForUser, setActiveUserId } = usePlayer()
+  const prevUserIdRef = { current: null }
+
+  useEffect(() => {
+    const currentId = user?.id ?? null
+    const prevId = prevUserIdRef.current
+
+    if (currentId === prevId) return
+
+    if (!currentId && prevId) {
+      stopAndClear()
+      setActiveUserId(null)
+    } else if (currentId && currentId !== prevId) {
+      if (prevId) stopAndClear()
+      setActiveUserId(currentId)
+      restoreForUser(currentId)
+    }
+
+    prevUserIdRef.current = currentId
+  }, [user?.id])
+
+  return null
+}
+
+function ThemeAuthBridge() {
+  const { user } = useAuth()
+  const { setThemeUserId } = useTheme()
+
+  useEffect(() => {
+    setThemeUserId(user?.id ?? null)
+  }, [user?.id])
+
+  return null
 }
 
 export default function App() {
   return (
-    <AuthProvider>
+    <ThemeProvider>
       <PlayerProvider>
-        <BrowserRouter>
-          <Routes>
-            {/* Rutas públicas — sin Navbar ni Player */}
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
+        <AuthProvider>
+          <BrowserRouter>
+            <PlayerAuthBridge />
+            <ThemeAuthBridge />
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
 
-            {/* Rutas protegidas — con Navbar, PageTransition y Player */}
-            <Route path="/*" element={
-              <ProtectedRoute>
-                <Navbar />
-                <PageTransition>
-                  <Routes>
-                    <Route path="/terminos" element={<Terminos />} />
-                    <Route path="/privacidad" element={<Privacidad />} />
-                    <Route path="/cookies" element={<Cookies />} />
-                    <Route path="/contacto" element={<Contacto />} />
-                    <Route path="/home" element={<Home />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/community" element={<Community />} />
-                    <Route path="/animo" element={<Animo />} />
-                    <Route path="/ai" element={<AI />} />
-                    <Route path="/admin" element={<Admin />} />
-                    <Route path="/album/:albumId" element={<AlbumDetail />} />
-                    <Route path="/artist/:userId" element={<ArtistProfile />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/requests" element={<Requests />} />
-                    <Route path="/settings" element={<Settings />} />
-                    <Route path="/upload" element={
-                      <ArtistRoute>
-                        <Upload />
-                      </ArtistRoute>
-                    } />
-                    <Route path="/edit/:id" element={<EditSong />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </PageTransition>
-              </ProtectedRoute>
-            } />
-          </Routes>
+              <Route path="/*" element={
+                <ProtectedRoute>
+                  <Navbar />
+                  <PageTransition>
+                    <Routes>
+                      <Route path="/terminos" element={<Terminos />} />
+                      <Route path="/privacidad" element={<Privacidad />} />
+                      <Route path="/cookies" element={<Cookies />} />
+                      <Route path="/contacto" element={<Contacto />} />
+                      <Route path="/home" element={<Home />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/community" element={<Community />} />
+                      <Route path="/animo" element={<Animo />} />
+                      <Route path="/ai" element={<AI />} />
+                      <Route path="/admin" element={<Admin />} />
+                      <Route path="/album/:albumId" element={<AlbumDetail />} />
+                      <Route path="/artist/:userId" element={<ArtistProfile />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/requests" element={<Requests />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/upload" element={
+                        <ArtistRoute>
+                          <Upload />
+                        </ArtistRoute>
+                      } />
+                      <Route path="/edit/:id" element={<EditSong />} />
+                      <Route path="*" element={<NotFound />} />
+                    </Routes>
+                  </PageTransition>
+                </ProtectedRoute>
+              } />
+            </Routes>
 
-          {/* Player y ChatBot fuera de las rutas pero dentro del BrowserRouter */}
-          <ProtectedRoute silent>
-            <Player />
-            <ChatBot />
-          </ProtectedRoute>
-        </BrowserRouter>
+            <ProtectedRoute silent>
+              <Player />
+              <ChatBot />
+            </ProtectedRoute>
+          </BrowserRouter>
+        </AuthProvider>
       </PlayerProvider>
-    </AuthProvider>
+    </ThemeProvider>
   )
 }
