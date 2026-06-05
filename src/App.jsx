@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { PlayerProvider, usePlayer } from './context/PlayerContext'
-import { ThemeProvider, useTheme } from './context/ThemeContext'
 import { useAuth } from './context/AuthContext'
 import { useEffect } from 'react'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -60,25 +59,12 @@ function PlayerAuthBridge() {
   return null
 }
 
-function ThemeAuthBridge() {
-  const { user } = useAuth()
-  const { setThemeUserId } = useTheme()
-
-  useEffect(() => {
-    setThemeUserId(user?.id ?? null)
-  }, [user?.id])
-
-  return null
-}
-
 export default function App() {
   return (
-    <ThemeProvider>
       <PlayerProvider>
         <AuthProvider>
           <BrowserRouter>
             <PlayerAuthBridge />
-            <ThemeAuthBridge />
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<Login />} />
@@ -126,6 +112,5 @@ export default function App() {
           </BrowserRouter>
         </AuthProvider>
       </PlayerProvider>
-    </ThemeProvider>
   )
 }
