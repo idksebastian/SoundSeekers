@@ -91,8 +91,13 @@ export default function Settings() {
   const [avatarFile, setAvatarFile] = useState(null)
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', tiktok: '', youtube: '', website: '' })
+
+  const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [resetSent, setResetSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -174,14 +179,29 @@ export default function Settings() {
 
   const handleChangePassword = async (e) => {
     e.preventDefault()
-    if (newPassword !== confirmPassword) return setError('Las contraseñas no coinciden.')
-    if (newPassword.length < 6) return setError('Mínimo 6 caracteres.')
-    setLoading(true); setError('')
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
-    setLoading(false)
+    setError(''); setMsg('')
+    if (!currentPassword) return setError('Ingresa tu contraseña actual.')
+    if (newPassword.length < 6) return setError('La nueva contraseña debe tener mínimo 6 caracteres.')
+    if (newPassword !== confirmPassword) return setError('Las contraseñas nuevas no coinciden.')
+    if (currentPassword === newPassword) return setError('La nueva contraseña debe ser diferente a la actual.')
+    setLoading(true)
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
+      if (signInError) return setError('La contraseña actual es incorrecta.')
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
+      if (updateError) return setError(updateError.message)
+      setMsg('Contraseña actualizada correctamente.')
+      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+    } catch { setError('Ocurrió un error. Intenta de nuevo.') }
+    finally { setLoading(false) }
+  }
+
+  const handleForgotPassword = async () => {
+    setResetLoading(true); setError(''); setMsg('')
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, { redirectTo: `${window.location.origin}/reset-password` })
+    setResetLoading(false)
     if (error) return setError(error.message)
-    setMsg('Contraseña actualizada correctamente.')
-    setNewPassword(''); setConfirmPassword('')
+    setResetSent(true)
   }
 
   const handleDeleteAccount = async () => {
@@ -205,41 +225,23 @@ export default function Settings() {
     <div className="min-h-screen bg-gray-50 pb-32" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
-
         .settings-header { background: linear-gradient(135deg, #7c3aed, #6d28d9); padding: 1.5rem 1rem 3.5rem; }
         @media (min-width: 600px) { .settings-header { padding: 2rem 2rem 4rem; } }
-
         .settings-layout { max-width: 1100px; margin: -1.5rem auto 0; padding: 0 1rem; }
         @media (min-width: 600px) { .settings-layout { margin: -2rem auto 0; padding: 0 2rem; } }
-
-        /* Desktop: 2 columnas */
-        @media (min-width: 768px) {
-          .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; }
-          .settings-sidebar-desktop { display: block; }
-          .settings-tabs-mobile { display: none; }
-        }
-
-        /* Mobile: 1 columna */
-        @media (max-width: 767px) {
-          .settings-sidebar-desktop { display: none; }
-          .settings-tabs-mobile { display: flex; }
-        }
-
+        @media (min-width: 768px) { .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; } .settings-sidebar-desktop { display: block; } .settings-tabs-mobile { display: none; } }
+        @media (max-width: 767px) { .settings-sidebar-desktop { display: none; } .settings-tabs-mobile { display: flex; } }
         .settings-sidebar-desktop { background: #fff; border-radius: 20px; padding: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); position: sticky; top: 84px; }
-
         .settings-tabs-mobile { overflow-x: auto; gap: 6px; padding: 0 0 8px; margin-bottom: 12px; }
         .settings-tab-mobile { flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 100px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; color: #6b7280; }
         .settings-tab-mobile.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
         .settings-tab-mobile.danger { color: #ef4444; border-color: #fecaca; }
         .settings-tab-mobile.danger.active { background: #ef4444; color: #fff; border-color: #ef4444; }
-
         .settings-content { background: #fff; border-radius: 20px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); min-height: 400px; }
         @media (min-width: 600px) { .settings-content { padding: 2rem; } }
-
         .sidebar-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: none; cursor: pointer; text-align: left; font-size: 13px; font-weight: 600; font-family: inherit; margin-bottom: 2px; transition: all 0.15s; }
       `}</style>
 
-      {/* Header */}
       <div className="settings-header">
         <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button onClick={() => navigate(-1)} style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -262,7 +264,6 @@ export default function Settings() {
 
       <div className="settings-layout">
 
-        {/* Sidebar desktop */}
         <div className="settings-sidebar-desktop">
           {visibleSections.map(s => (
             <button key={s.id} className="sidebar-btn"
@@ -281,9 +282,7 @@ export default function Settings() {
           ))}
         </div>
 
-        {/* Contenido */}
         <div>
-          {/* Tabs mobile */}
           <div className="settings-tabs-mobile">
             {visibleSections.map(s => (
               <button key={s.id}
@@ -299,7 +298,6 @@ export default function Settings() {
 
           <div className="settings-content">
 
-            {/* STATS */}
             {activeSection === 'stats' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Estadísticas</h3>
@@ -360,7 +358,6 @@ export default function Settings() {
               </div>
             )}
 
-            {/* EDIT PROFILE */}
             {activeSection === 'edit' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Editar perfil</h3>
@@ -444,13 +441,13 @@ export default function Settings() {
               </div>
             )}
 
-            {/* ACCOUNT */}
             {activeSection === 'account' && (
               <div className="space-y-5">
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Cuenta</h3>
                   <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Administra tu información de cuenta.</p>
                 </div>
+
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
                   {[
                     { label: 'Correo', value: user?.email },
@@ -464,25 +461,78 @@ export default function Settings() {
                     </div>
                   ))}
                 </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-black mb-3">Cambiar contraseña</h4>
-                  {error && <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-xl mb-3">{error}</div>}
-                  {msg && <div className="bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-2 rounded-xl mb-3">{msg}</div>}
+
+                <div className="border border-gray-100 rounded-2xl p-5 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-bold text-black mb-0.5">Cambiar contraseña</h4>
+                    <p className="text-xs text-gray-400">Ingresa tu contraseña actual para poder cambiarla.</p>
+                  </div>
+
+                  {error && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2.5 rounded-xl">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                      {error}
+                    </div>
+                  )}
+                  {msg && (
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-2.5 rounded-xl">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                      {msg}
+                    </div>
+                  )}
+
                   <form onSubmit={handleChangePassword} className="space-y-3">
-                    <input type="password" placeholder="Nueva contraseña" value={newPassword} onChange={e => setNewPassword(e.target.value)}
-                      className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                    <input type="password" placeholder="Confirmar contraseña" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
-                      className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
-                    <button type="submit" disabled={loading}
-                      className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50">
-                      {loading ? 'Guardando...' : 'Actualizar contraseña'}
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-gray-600">Contraseña actual</label>
+                      <input type="password" placeholder="••••••••" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)}
+                        className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                    </div>
+                    <div className="border-t border-gray-100 pt-3 space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-600">Nueva contraseña</label>
+                        <input type="password" placeholder="Mínimo 6 caracteres" value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                          className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-gray-600">Confirmar nueva contraseña</label>
+                        <input type="password" placeholder="Repite la nueva contraseña" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
+                          className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                        {confirmPassword && (
+                          <p className={`text-xs font-medium mt-1 ${newPassword === confirmPassword ? 'text-emerald-500' : 'text-red-400'}`}>
+                            {newPassword === confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+                      className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
+                      {loading
+                        ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Verificando...</>
+                        : 'Actualizar contraseña'
+                      }
                     </button>
                   </form>
+
+                  <div className="pt-1">
+                    {resetSent ? (
+                      <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-600 text-xs px-3 py-2.5 rounded-xl">
+                        <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        Te enviamos un correo a <span className="font-semibold">{user?.email}</span>
+                      </div>
+                    ) : (
+                      <button onClick={handleForgotPassword} disabled={resetLoading}
+                        className="text-xs text-purple-600 hover:text-purple-800 font-semibold hover:underline transition disabled:opacity-50 flex items-center gap-1">
+                        {resetLoading
+                          ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Enviando...</>
+                          : '¿Olvidaste tu contraseña?'
+                        }
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* NOTIFICATIONS */}
             {activeSection === 'notifications' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Notificaciones</h3>
@@ -491,7 +541,6 @@ export default function Settings() {
               </div>
             )}
 
-            {/* DANGER */}
             {activeSection === 'danger' && (
               <div className="space-y-5">
                 <div>

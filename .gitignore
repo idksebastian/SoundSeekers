@@ -34,3 +34,13 @@ backend/__pycache__/
 ".env" 
 ".env*.local" 
 ".env" 
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+backend/venv/
+
+# Environment variables
+.env

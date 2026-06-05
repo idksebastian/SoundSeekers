@@ -20,21 +20,15 @@ const GENRES = [
   { label: 'Rap', value: 'Rap' },
 ]
 
-function getHistoryKey(userId) {
-  return `ss_recently_played_${userId ?? 'guest'}`
-}
-
+function getHistoryKey(userId) { return `ss_recently_played_${userId ?? 'guest'}` }
 function getHistory(userId) {
-  try {
-    return JSON.parse(localStorage.getItem(getHistoryKey(userId)) || '[]')
-  } catch { return [] }
+  try { return JSON.parse(localStorage.getItem(getHistoryKey(userId)) || '[]') }
+  catch { return [] }
 }
-
 function addToHistory(item, userId) {
   try {
     const prev = getHistory(userId).filter(h => h.id !== item.id)
-    const next = [item, ...prev].slice(0, 12)
-    localStorage.setItem(getHistoryKey(userId), JSON.stringify(next))
+    localStorage.setItem(getHistoryKey(userId), JSON.stringify([item, ...prev].slice(0, 12)))
   } catch {}
 }
 
@@ -55,11 +49,11 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState([])
   const [slide, setSlide] = useState(0)
   const [recentlyPlayed, setRecentlyPlayed] = useState([])
+  const [songPresaves, setSongPresaves] = useState({})
+  const [presaving, setPresaving] = useState(null)
   const slideInterval = useRef(null)
 
-  useEffect(() => {
-    setRecentlyPlayed(getHistory(user?.id))
-  }, [user?.id])
+  useEffect(() => { setRecentlyPlayed(getHistory(user?.id)) }, [user?.id])
 
   useEffect(() => {
     if (!currentSong) return
@@ -75,21 +69,53 @@ export default function Home() {
       try {
         const data = await getSongs()
         setAllSongs(data)
-        const sorted = [...data].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
-        if (sorted[0]) setTopSong(sorted[0])
+
+        if (user) {
+          const presaveSongs = data.filter(s => s.status === 'presave' && !s.album_id)
+          if (presaveSongs.length > 0) {
+            const presaveMap = {}
+            await Promise.all(presaveSongs.map(async s => {
+              presaveMap[s.id] = await hasSongPresaved(s.id)
+            }))
+            setSongPresaves(presaveMap)
+          }
+        }
+
+        const published = data.filter(s => s.status === 'published')
+
         const genreMap = {}
         data.forEach(s => { if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1 })
         setGenreCounts(Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([genre, count]) => ({ genre, count })))
+
+        const buildTopGenre = (genreCount) => {
+          const entries = Object.entries(genreCount)
+          return entries.length > 0 ? entries.sort((x, y) => y[1] - x[1])[0][0] : ''
+        }
+
         const artistMap = {}
-        data.forEach(song => {
-          if (song.user_id && !artistMap[song.user_id])
-            artistMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, genre: song.genre, user_id: song.user_id, streams: 0 }
-          if (artistMap[song.user_id]) artistMap[song.user_id].streams += (song.streams ?? 0)
+        published.forEach(song => {
+          if (!song.user_id) return
+          if (!artistMap[song.user_id]) {
+            artistMap[song.user_id] = {
+              name: song.artist_name,
+              cover: song.cover_url,
+              user_id: song.user_id,
+              streams: 0,
+              genreCount: {},
+            }
+          }
+          if (song.genre) {
+            artistMap[song.user_id].genreCount[song.genre] = (artistMap[song.user_id].genreCount[song.genre] ?? 0) + 1
+          }
         })
-        const artistList = Object.values(artistMap)
-        setArtists(artistList.slice(0, 8))
-        const top = [...artistList].sort((a, b) => b.streams - a.streams)[0]
-        setTopArtist(top)
+
+        Object.values(artistMap).forEach(a => {
+          a.genre = buildTopGenre(a.genreCount)
+          delete a.genreCount
+        })
+
+        setArtists(Object.values(artistMap).slice(0, 8))
+
         const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
         if (userIds.length > 0) {
           const { data: profilesData } = await supabase.from('profiles').select('user_id, avatar_url').in('user_id', userIds)
@@ -99,11 +125,87 @@ export default function Home() {
             setArtistAvatars(avatarMap)
           }
         }
+
         const albumIds = [...new Set(data.filter(s => s.album_id).map(s => s.album_id))]
         if (albumIds.length > 0) {
           const { data: albumsData } = await supabase.from('albums').select('*').in('id', albumIds).in('status', ['published', 'presave'])
           if (albumsData) setAlbums(albumsData)
         }
+
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: weeklyStreams } = await supabase
+          .from('streams')
+          .select('song_id')
+          .gte('created_at', weekAgo)
+
+        if (weeklyStreams?.length) {
+          const streamCount = {}
+          weeklyStreams.forEach(s => {
+            streamCount[s.song_id] = (streamCount[s.song_id] ?? 0) + 1
+          })
+
+          const publishedIds = new Set(published.map(s => s.id))
+          const topSongId = Object.entries(streamCount)
+            .filter(([id]) => publishedIds.has(id))
+            .sort((a, b) => b[1] - a[1])[0]?.[0]
+
+          if (topSongId) {
+            const song = published.find(s => s.id === topSongId)
+            if (song) setTopSong({ ...song, weeklyStreams: streamCount[topSongId] })
+          } else {
+            const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+            if (sorted[0]) setTopSong(sorted[0])
+          }
+
+          const artistWeeklyMap = {}
+          Object.entries(streamCount).forEach(([songId, count]) => {
+            const song = published.find(s => s.id === songId)
+            if (!song) return
+            if (!artistWeeklyMap[song.user_id]) {
+              artistWeeklyMap[song.user_id] = {
+                name: song.artist_name, cover: song.cover_url,
+                user_id: song.user_id, streams: 0, genreCount: {}
+              }
+            }
+            artistWeeklyMap[song.user_id].streams += count
+            if (song.genre) {
+              artistWeeklyMap[song.user_id].genreCount[song.genre] = (artistWeeklyMap[song.user_id].genreCount[song.genre] ?? 0) + 1
+            }
+          })
+
+          Object.values(artistWeeklyMap).forEach(a => {
+            a.genre = buildTopGenre(a.genreCount)
+            delete a.genreCount
+          })
+
+          const artistWeeklyList = Object.values(artistWeeklyMap)
+          if (artistWeeklyList.length) {
+            setTopArtist([...artistWeeklyList].sort((a, b) => b.streams - a.streams)[0])
+          } else {
+            const fallbackMap = {}
+            published.forEach(song => {
+              if (!fallbackMap[song.user_id])
+                fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
+              fallbackMap[song.user_id].streams += (song.streams ?? 0)
+              if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
+            })
+            Object.values(fallbackMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
+            setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
+          }
+        } else {
+          const fallbackMap = {}
+          published.forEach(song => {
+            if (!fallbackMap[song.user_id])
+              fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
+            fallbackMap[song.user_id].streams += (song.streams ?? 0)
+            if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
+          })
+          Object.values(fallbackMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
+          const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+          if (sorted[0]) setTopSong(sorted[0])
+          setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
+        }
+
       } catch (err) {
         console.error(err)
       } finally {
@@ -111,7 +213,7 @@ export default function Home() {
       }
     }
     fetchData()
-  }, [])
+  }, [user])
 
   useEffect(() => {
     slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
@@ -122,12 +224,16 @@ export default function Home() {
     if (!search.trim()) { setSearchResults([]); return }
     const q = search.toLowerCase()
     setSearchResults(allSongs.filter(s =>
-      s.title?.toLowerCase().includes(q) ||
-      s.artist_name?.toLowerCase().includes(q) ||
-      s.display_artist?.toLowerCase().includes(q) ||
-      s.genre?.toLowerCase().includes(q)
+      s.status === 'published' && (
+        s.title?.toLowerCase().includes(q) ||
+        s.artist_name?.toLowerCase().includes(q) ||
+        s.display_artist?.toLowerCase().includes(q) ||
+        s.genre?.toLowerCase().includes(q)
+      )
     ).slice(0, 6))
   }, [search, allSongs])
+
+  const publishedSongs = useMemo(() => allSongs.filter(s => s.status === 'published'), [allSongs])
 
   const gridItems = useMemo(() => {
     if (selectedGenre) {
@@ -156,7 +262,9 @@ export default function Home() {
       tag: 'Artista de la semana',
       title: topArtist?.name ?? 'Artista destacado',
       subtitle: topArtist?.genre ?? '',
-      desc: `${(topArtist?.streams ?? 0).toLocaleString()} reproducciones esta semana`,
+      desc: topArtist?.streams
+        ? `${topArtist.streams.toLocaleString()} reproducciones esta semana`
+        : 'Artista más escuchado esta semana',
       img: topArtist ? (artistAvatars[topArtist.user_id] || topArtist.cover) : null,
       action: () => topArtist && navigate(`/artist/${topArtist.user_id}`),
       btnLabel: 'Ver perfil',
@@ -166,9 +274,11 @@ export default function Home() {
       tag: 'Canción de la semana',
       title: topSong?.title ?? 'Canción destacada',
       subtitle: topSong?.display_artist || topSong?.artist_name || '',
-      desc: `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
+      desc: topSong?.weeklyStreams
+        ? `${topSong.weeklyStreams.toLocaleString()} reproducciones esta semana · ${topSong?.genre ?? ''}`
+        : `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
       img: topSong?.cover_url ?? null,
-      action: () => topSong && playSong(topSong, allSongs),
+      action: () => topSong && playSong(topSong, publishedSongs),
       btnLabel: 'Reproducir',
     },
     {
@@ -183,9 +293,20 @@ export default function Home() {
     },
   ]
 
-  const handlePlayItem = (item) => {
-    if (item.type === 'song') playSong(item.data, allSongs)
-    else navigate(`/album/${item.data.id}`)
+  const handlePlayItem = async (item) => {
+    if (item.type === 'album') { navigate(`/album/${item.data.id}`); return }
+    if (item.data.status === 'presave') {
+      if (item.data.album_id) { navigate(`/album/${item.data.album_id}`); return }
+      if (!user) { navigate('/login'); return }
+      setPresaving(item.data.id)
+      try {
+        const saved = await toggleSongPresave(item.data.id)
+        setSongPresaves(prev => ({ ...prev, [item.data.id]: saved }))
+      } catch (err) { console.error(err) }
+      finally { setPresaving(null) }
+      return
+    }
+    playSong(item.data, publishedSongs)
   }
 
   return (
@@ -262,6 +383,8 @@ export default function Home() {
         .now-dot { position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%; background: #7c3aed; animation: pulse 1.5s infinite; }
         .card-tag { position: absolute; bottom: 6px; left: 6px; font-size: 9px; font-weight: 700; color: #fff; background: rgba(124,58,237,0.8); padding: 2px 6px; border-radius: 100px; }
         .album-badge { position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 700; color: #fff; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 100px; backdrop-filter: blur(4px); }
+        .presave-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
+        .presave-badge { font-size: 9px; font-weight: 700; color: #fff; background: rgba(124,58,237,0.85); padding: 3px 8px; border-radius: 100px; }
 
         .artists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
         @media (max-width: 400px) { .artists-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
@@ -308,7 +431,6 @@ export default function Home() {
         @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.3} }
       `}</style>
 
-      {/* HERO SLIDER */}
       {!loading && (
         <div style={{ paddingTop: '1rem' }}>
           <div className="hero-slider" onClick={slides[slide].action}>
@@ -326,9 +448,7 @@ export default function Home() {
               {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
               <p className="slide-desc">{slides[slide].desc}</p>
               <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
-                {slides[slide].type === 'song' && (
-                  <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                )}
+                {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
                 {slides[slide].btnLabel}
               </button>
             </div>
@@ -342,30 +462,26 @@ export default function Home() {
         </div>
       )}
 
-      {/* RECENTLY PLAYED */}
       {recentlyPlayed.length > 0 && (
         <div className="section">
           <div className="section-header">
-            <h2 className="section-title">
-              {user ? `Bienvenido, ${userName} 👋` : 'Recién escuchado'}
-            </h2>
+            <h2 className="section-title">{user ? `Bienvenido, ${userName}` : 'Recién escuchado'}</h2>
           </div>
           <div className="recent-grid">
             {recentlyPlayed.slice(0, 6).map(item => (
               <div key={item.id} className="recent-item"
                 onClick={() => {
                   if (item.type === 'album') navigate(`/album/${item.id}`)
-                  else if (item.songObj) playSong(item.songObj, allSongs)
+                  else if (item.songObj) playSong(item.songObj, publishedSongs)
                 }}>
-                {item.cover ? (
-                  <img src={item.cover} alt={item.title} className="recent-item-cover"/>
-                ) : (
-                  <div className="recent-item-cover-placeholder">
-                    <svg width="18" height="18" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
-                    </svg>
-                  </div>
-                )}
+                {item.cover
+                  ? <img src={item.cover} alt={item.title} className="recent-item-cover"/>
+                  : <div className="recent-item-cover-placeholder">
+                      <svg width="18" height="18" fill="none" stroke="#7c3aed" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+                      </svg>
+                    </div>
+                }
                 <div className="recent-item-info">
                   <p className="recent-item-title">{item.title}</p>
                   <p className="recent-item-sub">{item.type === 'album' ? 'Álbum' : item.artist}</p>
@@ -379,7 +495,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* SEARCH */}
       <div className="search-wrap">
         <div style={{ position: 'relative' }}>
           <svg style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#9ca3af' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -390,7 +505,7 @@ export default function Home() {
         {searchResults.length > 0 && (
           <div className="search-results">
             {searchResults.map(song => (
-              <div key={song.id} className="search-result-item" onClick={() => { playSong(song, allSongs); setSearch('') }}>
+              <div key={song.id} className="search-result-item" onClick={() => { playSong(song, publishedSongs); setSearch('') }}>
                 <img src={song.cover_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ fontSize: '13px', color: '#111', margin: 0, fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
@@ -405,7 +520,6 @@ export default function Home() {
 
       <div className="divider"/>
 
-      {/* GENRES */}
       {genreCounts.length > 0 && (
         <div className="genre-bar">
           <button className={`genre-pill ${!selectedGenre ? 'active' : ''}`} onClick={() => setSelectedGenre(null)}>Todo</button>
@@ -418,7 +532,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* MAIN GRID */}
       <div className="section">
         <div className="section-header">
           <h2 className="section-title">{selectedGenre || 'Recién subidas'}</h2>
@@ -442,31 +555,50 @@ export default function Home() {
               const isAlbum = item.type === 'album'
               const d = item.data
               const isCurrentSong = !isAlbum && currentSong?.id === d.id
+              const isPresave = !isAlbum && d.status === 'presave'
+              const isAlbumPresave = isAlbum && d.status === 'presave'
+              const isSaved = songPresaves[d.id]
               return (
                 <div key={`${item.type}-${d.id}`} className="grid-card" onClick={() => handlePlayItem(item)}>
                   <div className="grid-card-img-wrap">
-                    {d.cover_url ? (
-                      <img src={d.cover_url} alt={d.title} className="grid-card-img"/>
+                    {d.cover_url
+                      ? <img src={d.cover_url} alt={d.title} className="grid-card-img"/>
+                      : <div style={{ width: '100%', height: '100%', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="28" height="28" fill="none" stroke="#7c3aed" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                        </div>
+                    }
+                    {(isPresave || isAlbumPresave) ? (
+                      <div className="presave-overlay">
+                        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
+                        </svg>
+                        <span className="presave-badge">
+                          {isPresave
+                            ? (presaving === d.id ? '...' : isSaved ? 'Presave Hecho' : 'Hacer Presave')
+                            : 'Próximamente'
+                          }
+                        </span>
+                      </div>
                     ) : (
-                      <div style={{ width: '100%', height: '100%', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="28" height="28" fill="none" stroke="#7c3aed" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                      <div className="grid-card-overlay">
+                        <button className="grid-play-btn">
+                          {isCurrentSong && isPlaying
+                            ? <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                            : <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                          }
+                        </button>
                       </div>
                     )}
-                    <div className="grid-card-overlay">
-                      <button className="grid-play-btn">
-                        {isCurrentSong && isPlaying
-                          ? <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                          : <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                        }
-                      </button>
-                    </div>
                     {isCurrentSong && isPlaying && <div className="now-dot"/>}
-                    {isAlbum && <span className="album-badge">{d.type === 'ep' ? 'EP' : 'Álbum'}</span>}
-                    {!isAlbum && d.genre && <span className="card-tag">{d.genre}</span>}
+                    {isAlbum && !isAlbumPresave && <span className="album-badge">{d.type === 'ep' ? 'EP' : 'Álbum'}</span>}
+                    {!isAlbum && !isPresave && d.genre && <span className="card-tag">{d.genre}</span>}
                   </div>
                   <p className="grid-card-title">{d.title}</p>
                   <p className="grid-card-sub">
-                    {isAlbum ? `${d.release_date ? new Date(d.release_date).getFullYear() : '—'}` : (d.display_artist || d.artist_name)}
+                    {isAlbum
+                      ? (isAlbumPresave ? 'Próximamente' : `${d.release_date ? new Date(d.release_date).getFullYear() : '—'}`)
+                      : (isPresave ? (isSaved ? 'Presave Hecho' : 'Hacer Presave →') : (d.display_artist || d.artist_name))
+                    }
                   </p>
                 </div>
               )
@@ -477,7 +609,6 @@ export default function Home() {
 
       <div className="divider"/>
 
-      {/* ARTISTS */}
       {artists.length > 0 && (
         <div className="section">
           <div className="section-header">
@@ -487,7 +618,7 @@ export default function Home() {
           <div className="artists-grid">
             {artists.map(artist => {
               const avatar = artistAvatars[artist.user_id]
-              const streams = allSongs.filter(s => s.user_id === artist.user_id).reduce((acc, s) => acc + (s.streams ?? 0), 0)
+              const streams = publishedSongs.filter(s => s.user_id === artist.user_id).reduce((acc, s) => acc + (s.streams ?? 0), 0)
               return (
                 <div key={artist.user_id} className="artist-card" onClick={() => navigate(`/artist/${artist.user_id}`)}>
                   <div className="artist-img-wrap">
@@ -506,18 +637,16 @@ export default function Home() {
         </div>
       )}
 
-      {/* STATS */}
-      {!loading && allSongs.length > 0 && (
+      {!loading && publishedSongs.length > 0 && (
         <div style={{ padding: '0 1rem 2.5rem' }}>
           <div className="stats-banner">
-            <div><div className="stat-number">{allSongs.length}+</div><div className="stat-label">Canciones publicadas</div></div>
+            <div><div className="stat-number">{publishedSongs.length}+</div><div className="stat-label">Canciones publicadas</div></div>
             <div><div className="stat-number">{artists.length}+</div><div className="stat-label">Artistas activos</div></div>
-            <div><div className="stat-number">{allSongs.reduce((a, s) => a + (s.streams ?? 0), 0).toLocaleString()}</div><div className="stat-label">Reproducciones totales</div></div>
+            <div><div className="stat-number">{publishedSongs.reduce((a, s) => a + (s.streams ?? 0), 0).toLocaleString()}</div><div className="stat-label">Reproducciones totales</div></div>
           </div>
         </div>
       )}
 
-      {/* HOW IT WORKS */}
       <div className="section">
         <div className="section-header">
           <h2 className="section-title">¿Cómo funciona?</h2>
@@ -538,7 +667,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* CTA */}
       {!user && (
         <div className="section">
           <div style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 50%, #5b21b6 100%)', borderRadius: '20px', padding: '2.5rem 1.5rem', textAlign: 'center', boxShadow: '0 20px 60px rgba(124,58,237,0.3)' }}>
@@ -559,7 +687,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* FOOTER */}
       <footer className="footer">
         <div className="footer-inner">
           <div className="footer-top">
@@ -567,9 +694,9 @@ export default function Home() {
               <p className="footer-brand-name">SoundSeekers</p>
               <p className="footer-brand-desc">Plataforma de música emergente latinoamericana. Descubre, conecta y comparte tu sonido con el mundo.</p>
               <div className="footer-socials">
-                <a href="#" className="footer-social-btn"><svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg></a>
-                <a href="#" className="footer-social-btn"><svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.79 1.54V6.79a4.85 4.85 0 01-1.02-.1z"/></svg></a>
-                <a href="#" className="footer-social-btn"><svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a>
+                <a href="https://www.instagram.com/soundseekers.co/" className="footer-social-btn">
+                  <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                </a>
               </div>
             </div>
             <div>
