@@ -134,7 +134,7 @@ const SUGGESTIONS = [
 ]
 
 export default function AI() {
-  const { currentSong, playSong } = usePlayer()
+  const { currentSong, playSong, isVisible, isFullscreen } = usePlayer()
   const { user } = useAuth()
   const navigate = useNavigate()
   const [allSongs, setAllSongs] = useState([])
@@ -371,7 +371,7 @@ export default function AI() {
         </div>
       </div>
 
-      <div style={{ flex: 1, maxWidth: 760, width: '100%', margin: '0 auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: 100 }}>
+      <div style={{ flex: 1, maxWidth: 760, width: '100%', margin: '0 auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: isVisible && !isFullscreen ? 160 : 100 }}>
         {messages.length === 1 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
             {SUGGESTIONS.map(s => (
@@ -437,7 +437,7 @@ export default function AI() {
         <div ref={bottomRef}/>
       </div>
 
-      <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '10px 12px', zIndex: 40 }}>
+      <div style={{ position: 'fixed', bottom: isVisible && !isFullscreen ? 72 : 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '10px 12px', zIndex: 40, transition: 'bottom 0.3s ease' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8 }}>
           <input
             ref={inputRef}
