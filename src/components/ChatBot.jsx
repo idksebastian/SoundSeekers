@@ -3,13 +3,14 @@ import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { getSongs } from '../api/songs'
+import { supabase } from '../lib/supabase'
 
 const BACKEND_URL = 'http://localhost:8000'
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de música emergente latinoamericana.
 
 Tu especialidad es TODO lo relacionado con música. Responde con confianza sobre:
-- Artistas, bandas, vocalistas, músicos de cualquier época y género
+- Artistas, bandas, vocalistas, músicos de cualquier época y género (Kurt Cobain de Nirvana, Freddie Mercury de Queen, Bad Bunny, etc.)
 - Historia de la música, géneros, movimientos musicales
 - Canciones, álbumes, discografías, letras y su significado
 - Curiosidades y datos de la industria musical
@@ -20,10 +21,14 @@ Tu especialidad es TODO lo relacionado con música. Responde con confianza sobre
 - Consejos para artistas emergentes
 
 IMPORTANTE: Tienes conocimiento de TODOS los artistas mundialmente famosos. Si el usuario pregunta sobre cualquier artista conocido, responde con confianza. Solo si genuinamente no reconoces el artista, sugiere que podría ser emergente en SoundSeekers.
-Cuando el usuario mencione un estado de ánimo, sugiere canciones de SoundSeekers si hay disponibles, o recomienda ir a Ánimo para recomendaciones con preview.
 
 Responde SIEMPRE preguntas musicales, sin importar si el artista es famoso o emergente. Ejemplos de lo que SÍ debes responder: "¿Quién es el vocalista de Maroon 5?" → Adam Levine. "¿Qué géneros hace Bad Bunny?" → Trap latino, reggaeton. "¿Cuándo murió Kurt Cobain?" → 1994. NUNCA digas que no puedes responder preguntas musicales sobre artistas famosos. Solo rechaza preguntas completamente ajenas a la música como matemáticas, cocina, política, etc. En ese caso di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵"
+
 Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir. Solo sugiere reproducir canciones que estén en esa lista. Nunca sugieras reproducir canciones que no estén en el contexto.
+
+Cuando el usuario pregunte cómo subir canciones o quiera subir música:
+- Si es artista verificado: explica brevemente el proceso e incluye [NAV:upload]
+- Si NO es artista verificado: dile que primero debe solicitar verificación de artista en su perfil e incluye [NAV:profile]
 
 Cuando quiera reproducir una canción de SoundSeekers: [PLAY:titulo_exacto]
 Cuando pida recomendaciones de SoundSeekers: [CANCIONES:titulo1|titulo2|titulo3]
@@ -84,14 +89,18 @@ function parseMessage(text, publishedSongs) {
   return { cleanText, recommendedSongs, playSongTitle, navKey }
 }
 
-async function askSeekeAI(messages, publishedSongs, currentSong) {
+async function askSeekeAI(messages, publishedSongs, currentSong, isArtist = false) {
   const songsContext = publishedSongs.length > 0
     ? `Canciones publicadas en SoundSeekers (SOLO estas están disponibles para reproducir): ${publishedSongs.slice(0, 15).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : 'No hay canciones publicadas en SoundSeekers aún.'
   const currentSongContext = currentSong
     ? `El usuario está escuchando: "${currentSong.title}" de ${currentSong.display_artist || currentSong.artist_name}.`
     : ''
-  const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto:\n${songsContext}\n${currentSongContext}`
+  const artistContext = isArtist
+    ? 'El usuario ES artista verificado en SoundSeekers, puede subir canciones directamente en /upload.'
+    : 'El usuario NO es artista verificado. Si pregunta cómo subir canciones, dile que primero debe solicitar verificación de artista en su perfil.'
+
+  const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto:\n${songsContext}\n${currentSongContext}\n${artistContext}`
   const contents = []
   contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
   contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, listo para ayudarte con música.' }] })
@@ -114,6 +123,7 @@ export default function ChatBot() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [isArtist, setIsArtist] = useState(false)
   const [messages, setMessages] = useState([
     { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 ¿En qué te ayudo hoy?' }
   ])
@@ -128,6 +138,14 @@ export default function ChatBot() {
 
   const chatKey = getChatKey(user?.id)
   const publishedSongs = allSongs.filter(s => s.status === 'published')
+
+  // Cargar rol del usuario
+  useEffect(() => {
+    if (!user) return
+    supabase.from('user_roles').select('role').eq('user_id', user.id).single()
+      .then(({ data }) => setIsArtist(data?.role === 'artist'))
+      .catch(() => {})
+  }, [user?.id])
 
   useEffect(() => {
     const key = getChatKey(user?.id)
@@ -179,7 +197,7 @@ export default function ChatBot() {
     setMessages(newMessages)
     setLoading(true)
     try {
-      const reply = await askSeekeAI(newMessages, publishedSongs, currentSong)
+      const reply = await askSeekeAI(newMessages, publishedSongs, currentSong, isArtist)
       const cleaned = cleanMarkdown(reply)
       const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
       if (playMatch) {
