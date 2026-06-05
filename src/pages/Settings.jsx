@@ -4,16 +4,20 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { logoutUser } from '../api/auth'
 import { updateProfile, getFollowStats } from '../api/profile'
-import { getMySongs } from '../api/songs'
+import { getMySongs, deleteSong, updateSong } from '../api/songs'
 import { getArtistAlbums } from '../api/albums'
+import { usePlayer } from '../context/PlayerContext'
 
 const SECTIONS = [
   { id: 'stats', label: 'Estadísticas', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', artist: true },
+  { id: 'songs', label: 'Mis canciones', icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z', artist: true },
   { id: 'edit', label: 'Editar perfil', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
   { id: 'account', label: 'Cuenta', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
   { id: 'notifications', label: 'Notificaciones', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
   { id: 'danger', label: 'Zona de peligro', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', danger: true },
 ]
+
+const GENRES = ['Reggaeton', 'Hip-Hop', 'Champeta', 'Electrónica', 'Pop', 'Indie', 'Jazz', 'Folk', 'Vallenato', 'Salsa', 'Rap', 'Otro']
 
 function NotificationSettings({ userId, isArtist }) {
   const STORAGE_KEY = `ss_notif_prefs_${userId}`
@@ -47,7 +51,7 @@ function NotificationSettings({ userId, isArtist }) {
           <div key={item.key}
             style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: prefs[item.key] ? item.bg : '#f9fafb', borderRadius: '14px', border: `1px solid ${prefs[item.key] ? item.bg : '#f3f4f6'}`, transition: 'all 0.2s', cursor: 'pointer' }}
             onClick={() => toggle(item.key)}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: prefs[item.key] ? '#fff' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: prefs[item.key] ? '0 2px 8px rgba(0,0,0,0.06)' : 'none' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: prefs[item.key] ? '#fff' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="16" height="16" fill="none" stroke={prefs[item.key] ? item.color : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={item.icon}/></svg>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -80,11 +84,15 @@ const NAME_CHANGE_DAYS = 30
 
 export default function Settings() {
   const { user } = useAuth()
+  const { playSong } = usePlayer()
   const navigate = useNavigate()
   const avatarInputRef = useRef(null)
+  const coverInputRef = useRef(null)
   const [activeSection, setActiveSection] = useState('edit')
   const [role, setRole] = useState(null)
   const [loadingRole, setLoadingRole] = useState(true)
+
+  // Edit profile state
   const [name, setName] = useState('')
   const [artistName, setArtistName] = useState('')
   const [description, setDescription] = useState('')
@@ -92,6 +100,7 @@ export default function Settings() {
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', tiktok: '', youtube: '', website: '' })
 
+  // Account state
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -101,9 +110,23 @@ export default function Settings() {
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Stats state
   const [stats, setStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [songStats, setSongStats] = useState([])
+
+  // Songs state
+  const [songs, setSongs] = useState([])
+  const [loadingSongs, setLoadingSongs] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
+  const [editingSong, setEditingSong] = useState(null) // song being edited
+  const [editForm, setEditForm] = useState({ title: '', genre: '', description: '' })
+  const [editCoverFile, setEditCoverFile] = useState(null)
+  const [editCoverPreview, setEditCoverPreview] = useState(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [songMsg, setSongMsg] = useState('')
 
   useEffect(() => {
     if (!user) return
@@ -120,16 +143,30 @@ export default function Settings() {
     fetchRole()
   }, [user])
 
+  // Cargar canciones cuando se activa la sección
+  useEffect(() => {
+    if (activeSection !== 'songs' || !user) return
+    const fetchSongs = async () => {
+      setLoadingSongs(true)
+      try {
+        const data = await getMySongs(user.id)
+        setSongs(data)
+      } catch (err) { console.error(err) }
+      finally { setLoadingSongs(false) }
+    }
+    fetchSongs()
+  }, [activeSection, user])
+
   useEffect(() => {
     if (activeSection !== 'stats' || !user) return
     const fetchStats = async () => {
       setLoadingStats(true)
       try {
-        const [songs, followData, albums] = await Promise.all([getMySongs(user.id), getFollowStats(user.id), getArtistAlbums(user.id)])
-        const totalStreams = songs.reduce((a, s) => a + (s.streams ?? 0), 0)
-        const topSongs = [...songs].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5)
+        const [songsData, followData, albums] = await Promise.all([getMySongs(user.id), getFollowStats(user.id), getArtistAlbums(user.id)])
+        const totalStreams = songsData.reduce((a, s) => a + (s.streams ?? 0), 0)
+        const topSongs = [...songsData].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5)
         const { data: presavesData } = await supabase.from('presaves').select('id', { count: 'exact' }).in('album_id', albums.map(a => a.id))
-        setStats({ totalStreams, totalSongs: songs.length, totalAlbums: albums.length, followers: followData.followers, following: followData.following, presaves: presavesData?.length ?? 0 })
+        setStats({ totalStreams, totalSongs: songsData.length, totalAlbums: albums.length, followers: followData.followers, following: followData.following, presaves: presavesData?.length ?? 0 })
         setSongStats(topSongs)
       } catch (err) { console.error(err) }
       finally { setLoadingStats(false) }
@@ -210,6 +247,62 @@ export default function Settings() {
     navigate('/register')
   }
 
+  // ── Song management ──────────────────────────────────────────────────────────
+  const handleDeleteSong = async (songId) => {
+    if (confirmDeleteId !== songId) { setConfirmDeleteId(songId); return }
+    setDeletingId(songId)
+    try {
+      await deleteSong(songId)
+      setSongs(prev => prev.filter(s => s.id !== songId))
+      setConfirmDeleteId(null)
+      setSongMsg('Canción eliminada correctamente.')
+      setTimeout(() => setSongMsg(''), 3000)
+    } catch (err) { console.error(err) }
+    finally { setDeletingId(null) }
+  }
+
+  const openEditSong = (song) => {
+    setEditingSong(song)
+    setEditForm({ title: song.title, genre: song.genre ?? '', description: song.description ?? '' })
+    setEditCoverFile(null)
+    setEditCoverPreview(song.cover_url)
+  }
+
+  const handleEditCoverChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setEditCoverFile(file)
+    setEditCoverPreview(URL.createObjectURL(file))
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editForm.title.trim()) return
+    setSavingEdit(true)
+    try {
+      let coverUrl = editingSong.cover_url
+      if (editCoverFile) {
+        const ext = editCoverFile.name.split('.').pop()
+        const path = `${user.id}/${Date.now()}_cover.${ext}`
+        const { error: uploadError } = await supabase.storage.from('covers').upload(path, editCoverFile, { upsert: true })
+        if (!uploadError) {
+          const { data } = supabase.storage.from('covers').getPublicUrl(path)
+          coverUrl = data.publicUrl
+        }
+      }
+      const updated = await updateSong(editingSong.id, {
+        title: editForm.title.trim(),
+        genre: editForm.genre,
+        description: editForm.description.trim(),
+        cover_url: coverUrl,
+      })
+      setSongs(prev => prev.map(s => s.id === updated.id ? updated : s))
+      setEditingSong(null)
+      setSongMsg('Canción actualizada correctamente.')
+      setTimeout(() => setSongMsg(''), 3000)
+    } catch (err) { console.error(err) }
+    finally { setSavingEdit(false) }
+  }
+
   const visibleSections = SECTIONS.filter(s => !s.artist || isArtist)
 
   if (loadingRole) return (
@@ -240,8 +333,11 @@ export default function Settings() {
         .settings-content { background: #fff; border-radius: 20px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); min-height: 400px; }
         @media (min-width: 600px) { .settings-content { padding: 2rem; } }
         .sidebar-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: none; cursor: pointer; text-align: left; font-size: 13px; font-weight: 600; font-family: inherit; margin-bottom: 2px; transition: all 0.15s; }
+        .song-card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid #f3f4f6; background: #fafafa; transition: all 0.15s; }
+        .song-card:hover { background: #f5f3ff; border-color: #ede9fe; }
       `}</style>
 
+      {/* Header */}
       <div className="settings-header">
         <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
           <button onClick={() => navigate(-1)} style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -264,6 +360,7 @@ export default function Settings() {
 
       <div className="settings-layout">
 
+        {/* Sidebar desktop */}
         <div className="settings-sidebar-desktop">
           {visibleSections.map(s => (
             <button key={s.id} className="sidebar-btn"
@@ -283,6 +380,7 @@ export default function Settings() {
         </div>
 
         <div>
+          {/* Tabs mobile */}
           <div className="settings-tabs-mobile">
             {visibleSections.map(s => (
               <button key={s.id}
@@ -298,6 +396,7 @@ export default function Settings() {
 
           <div className="settings-content">
 
+            {/* ── ESTADÍSTICAS ── */}
             {activeSection === 'stats' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Estadísticas</h3>
@@ -320,7 +419,7 @@ export default function Settings() {
                         { label: 'Álbumes / EPs', value: stats.totalAlbums.toLocaleString(), icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', color: '#f59e0b', bg: '#fffbeb' },
                         { label: 'Presaves', value: stats.presaves.toLocaleString(), icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z', color: '#6366f1', bg: '#eef2ff' },
                       ].map(card => (
-                        <div key={card.label} style={{ background: card.bg, borderRadius: '14px', padding: '0.9rem', border: `1px solid ${card.bg}` }}>
+                        <div key={card.label} style={{ background: card.bg, borderRadius: '14px', padding: '0.9rem' }}>
                           <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
                             <svg width="14" height="14" fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={card.icon}/></svg>
                           </div>
@@ -338,7 +437,7 @@ export default function Settings() {
                             const pct = Math.max(4, Math.round(((song.streams ?? 0) / maxStreams) * 100))
                             return (
                               <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', borderRadius: '12px', background: idx === 0 ? '#f5f3ff' : '#f9fafb' }}>
-                                <span style={{ fontSize: '11px', color: '#9ca3af', width: '14px', textAlign: 'right', flexShrink: 0 }}>{idx + 1}</span>
+                                <span style={{ fontSize: '11px', color: '#9ca3af', width: '14px', flexShrink: 0 }}>{idx + 1}</span>
                                 <img src={song.cover_url} alt={song.title} style={{ width: '34px', height: '34px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }}/>
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                   <p style={{ fontSize: '12px', fontWeight: '600', color: '#111', margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
@@ -358,6 +457,174 @@ export default function Settings() {
               </div>
             )}
 
+            {/* ── MIS CANCIONES ── */}
+            {activeSection === 'songs' && (
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: 0 }}>Mis canciones</h3>
+                  <button onClick={() => navigate('/upload')}
+                    className="flex items-center gap-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+                    Subir canción
+                  </button>
+                </div>
+                <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Gestiona las canciones que has publicado.</p>
+
+                {songMsg && (
+                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-600 text-sm px-4 py-3 rounded-xl mb-4">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
+                    {songMsg}
+                  </div>
+                )}
+
+                {/* Modal editar canción */}
+                {editingSong && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setEditingSong(null)}>
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+                      <div className="flex items-center justify-between mb-5">
+                        <h4 className="text-base font-bold text-black">Editar canción</h4>
+                        <button onClick={() => setEditingSong(null)} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+
+                      {/* Portada editable */}
+                      <div className="flex items-center gap-4 mb-5">
+                        <div className="relative group cursor-pointer shrink-0" onClick={() => coverInputRef.current?.click()}>
+                          <img src={editCoverPreview} alt={editingSong.title} className="w-16 h-16 rounded-xl object-cover"/>
+                          <div className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+                          </div>
+                          <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange}/>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-black truncate">{editingSong.title}</p>
+                          <p className="text-xs text-gray-400">Clic en la imagen para cambiar la portada</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">Título</label>
+                          <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} maxLength={80}
+                            className="w-full bg-white border border-gray-300 text-black rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"/>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">Género</label>
+                          <select value={editForm.genre} onChange={e => setEditForm(p => ({ ...p, genre: e.target.value }))}
+                            className="w-full bg-white border border-gray-300 text-black rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                            {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-gray-600">Descripción</label>
+                          <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} maxLength={300}
+                            className="w-full bg-white border border-gray-300 text-black rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"/>
+                          <p className="text-xs text-gray-400 text-right">{editForm.description.length}/300</p>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 mt-5">
+                        <button onClick={() => setEditingSong(null)}
+                          className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition">
+                          Cancelar
+                        </button>
+                        <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.title.trim()}
+                          className="flex-1 py-2.5 rounded-xl bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
+                          {savingEdit ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Guardando...</> : 'Guardar cambios'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {loadingSongs ? (
+                  <div className="flex justify-center py-12">
+                    <svg className="w-7 h-7 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                    </svg>
+                  </div>
+                ) : songs.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-7 h-7 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 font-medium text-sm">No has subido canciones aún</p>
+                    <button onClick={() => navigate('/upload')} className="mt-3 text-sm text-purple-600 font-semibold hover:underline">
+                      + Subir primera canción
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {songs.map(song => {
+                      const isConfirming = confirmDeleteId === song.id
+                      return (
+                        <div key={song.id} className={`song-card ${isConfirming ? '!border-red-200 !bg-red-50' : ''}`}>
+                          {/* Portada */}
+                          <img src={song.cover_url} alt={song.title} className="w-12 h-12 rounded-xl object-cover shrink-0"/>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-black truncate">{song.title}</p>
+                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                              <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-medium">{song.genre}</span>
+                              <span className="text-xs text-gray-400 flex items-center gap-1">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z"/></svg>
+                                {(song.streams ?? 0).toLocaleString()} rep.
+                              </span>
+                            </div>
+                            {isConfirming && <p className="text-xs text-red-500 font-medium mt-1">¿Confirmar eliminación? Esta acción no se puede deshacer.</p>}
+                          </div>
+
+                          {/* Acciones */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Play */}
+                            <button onClick={() => playSong(song)}
+                              className="w-8 h-8 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 flex items-center justify-center transition"
+                              title="Reproducir">
+                              <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                            </button>
+
+                            {/* Editar */}
+                            <button onClick={() => openEditSong(song)}
+                              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
+                              title="Editar">
+                              <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            </button>
+
+                            {/* Eliminar */}
+                            <button
+                              onClick={() => handleDeleteSong(song.id)}
+                              disabled={deletingId === song.id}
+                              className={`w-8 h-8 rounded-full flex items-center justify-center transition disabled:opacity-50 ${isConfirming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-100 hover:bg-red-50'}`}
+                              title={isConfirming ? 'Confirmar eliminación' : 'Eliminar'}>
+                              {deletingId === song.id ? (
+                                <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                              ) : (
+                                <svg className={`w-3.5 h-3.5 ${isConfirming ? 'text-white' : 'text-gray-500 group-hover:text-red-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                              )}
+                            </button>
+
+                            {/* Cancelar confirmación */}
+                            {isConfirming && (
+                              <button onClick={() => setConfirmDeleteId(null)}
+                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
+                                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── EDITAR PERFIL ── */}
             {activeSection === 'edit' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Editar perfil</h3>
@@ -441,13 +708,13 @@ export default function Settings() {
               </div>
             )}
 
+            {/* ── CUENTA ── */}
             {activeSection === 'account' && (
               <div className="space-y-5">
                 <div>
                   <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Cuenta</h3>
                   <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Administra tu información de cuenta.</p>
                 </div>
-
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
                   {[
                     { label: 'Correo', value: user?.email },
@@ -461,26 +728,13 @@ export default function Settings() {
                     </div>
                   ))}
                 </div>
-
                 <div className="border border-gray-100 rounded-2xl p-5 space-y-4">
                   <div>
                     <h4 className="text-sm font-bold text-black mb-0.5">Cambiar contraseña</h4>
                     <p className="text-xs text-gray-400">Ingresa tu contraseña actual para poder cambiarla.</p>
                   </div>
-
-                  {error && (
-                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2.5 rounded-xl">
-                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                      {error}
-                    </div>
-                  )}
-                  {msg && (
-                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-2.5 rounded-xl">
-                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-                      {msg}
-                    </div>
-                  )}
-
+                  {error && <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2.5 rounded-xl"><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{error}</div>}
+                  {msg && <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-600 text-xs px-3 py-2.5 rounded-xl"><svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>{msg}</div>}
                   <form onSubmit={handleChangePassword} className="space-y-3">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-gray-600">Contraseña actual</label>
@@ -506,13 +760,9 @@ export default function Settings() {
                     </div>
                     <button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}
                       className="w-full h-10 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
-                      {loading
-                        ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Verificando...</>
-                        : 'Actualizar contraseña'
-                      }
+                      {loading ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Verificando...</> : 'Actualizar contraseña'}
                     </button>
                   </form>
-
                   <div className="pt-1">
                     {resetSent ? (
                       <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 text-blue-600 text-xs px-3 py-2.5 rounded-xl">
@@ -521,11 +771,8 @@ export default function Settings() {
                       </div>
                     ) : (
                       <button onClick={handleForgotPassword} disabled={resetLoading}
-                        className="text-xs text-purple-600 hover:text-purple-800 font-semibold hover:underline transition disabled:opacity-50 flex items-center gap-1">
-                        {resetLoading
-                          ? <><svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Enviando...</>
-                          : '¿Olvidaste tu contraseña?'
-                        }
+                        className="text-xs text-purple-600 hover:text-purple-800 font-semibold hover:underline transition disabled:opacity-50">
+                        {resetLoading ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
                       </button>
                     )}
                   </div>
@@ -533,6 +780,7 @@ export default function Settings() {
               </div>
             )}
 
+            {/* ── NOTIFICACIONES ── */}
             {activeSection === 'notifications' && (
               <div>
                 <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Notificaciones</h3>
@@ -541,6 +789,7 @@ export default function Settings() {
               </div>
             )}
 
+            {/* ── ZONA DE PELIGRO ── */}
             {activeSection === 'danger' && (
               <div className="space-y-5">
                 <div>
