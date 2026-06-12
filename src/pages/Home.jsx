@@ -691,7 +691,7 @@ export default function Home() {
         <div className="footer-inner">
           <div className="footer-top">
             <div>
-              <p className="footer-brand-name">SoundSeekers</p>
+              <img src="/logo-soundseekers.png" alt="SoundSeekers" className="h-14 w-auto object-contain mb-4" />
               <p className="footer-brand-desc">Plataforma de música emergente latinoamericana. Descubre, conecta y comparte tu sonido con el mundo.</p>
               <div className="footer-socials">
                 <a href="https://www.instagram.com/soundseekers.co/" className="footer-social-btn">

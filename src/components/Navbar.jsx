@@ -210,8 +210,7 @@ export default function Navbar() {
     <nav className="bg-white text-black px-4 sm:px-6 py-3 flex justify-between items-center border-b border-gray-200 sticky top-0 z-40">
       <div className="flex items-center gap-2 sm:gap-6">
         <Link to="/home" className="flex items-center gap-2 shrink-0">
-          <div className="w-8 h-8 rounded-lg bg-purple-700 text-white flex items-center justify-center text-sm font-bold shrink-0">SS</div>
-          <span className="hidden md:block" style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.3rem', color: '#111', letterSpacing: '0.04em', lineHeight: 1 }}>SoundSeekers</span>
+          <img src="/logo-soundseekers.png" alt="SoundSeekers" className="h-8 w-auto object-contain" />
         </Link>
         <div className="hidden sm:flex items-center gap-1">
           {navLink('/home', 'Inicio')}
