@@ -40,14 +40,11 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
         onClick={onClose}
       />
 
-      {/* Sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:px-4">
-        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[70vh]">
+      {/* Modal centrado — igual en mobile y desktop */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl flex flex-col max-h-[70vh]">
 
-          {/* Handle bar (mobile) */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 rounded-full bg-gray-200" />
-          </div>
+          {/* Sin handle bar: modal centrado no necesita el indicador de sheet */}
 
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
