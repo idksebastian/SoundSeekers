@@ -13,9 +13,7 @@ load_dotenv()
 GEMINI_KEY  = os.getenv("GEMINI_API_KEY")
 MISTRAL_KEY = os.getenv("MISTRAL_API_KEY")
 SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")  # service role, no anon
-
-# ─── CRON: publicar presaves vencidos ────────────────────────────────────────
+SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
 async def publish_due_presaves():
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
@@ -28,7 +26,6 @@ async def publish_due_presaves():
     }
     async with httpx.AsyncClient() as client:
         try:
-            # 1. Buscar álbumes en presave vencidos
             res = await client.get(
                 f"{SUPABASE_URL}/rest/v1/albums",
                 headers=headers,
@@ -44,21 +41,18 @@ async def publish_due_presaves():
             for album in albums:
                 album_id = album["id"]
 
-                # 2. Publicar el álbum
                 await client.patch(
                     f"{SUPABASE_URL}/rest/v1/albums?id=eq.{album_id}",
                     headers=headers,
                     json={"status": "published"}
                 )
 
-                # 3. Publicar las canciones del álbum
                 await client.patch(
                     f"{SUPABASE_URL}/rest/v1/songs?album_id=eq.{album_id}",
                     headers=headers,
                     json={"status": "published"}
                 )
 
-                # 4. Obtener presavers
                 res_p = await client.get(
                     f"{SUPABASE_URL}/rest/v1/presaves",
                     headers=headers,
@@ -67,7 +61,6 @@ async def publish_due_presaves():
                 presavers = res_p.json() if res_p.is_success else []
                 print(f"[Presave cron] Notificando {len(presavers)} presavers del álbum {album['title']}")
 
-                # 5. Notificar a cada presaver
                 for p in presavers:
                     await client.post(
                         f"{SUPABASE_URL}/rest/v1/notifications",
@@ -81,7 +74,6 @@ async def publish_due_presaves():
                         }
                     )
 
-            # 6. Buscar singles en presave vencidos
             res_s = await client.get(
                 f"{SUPABASE_URL}/rest/v1/songs",
                 headers=headers,
@@ -106,8 +98,6 @@ async def publish_due_presaves():
             print(f"[Presave cron] Error: {e}")
 
 
-# ─── LIFESPAN (arranque y apagado) ───────────────────────────────────────────
-
 scheduler = AsyncIOScheduler()
 
 @asynccontextmanager
@@ -120,18 +110,18 @@ async def lifespan(app: FastAPI):
     print("[Scheduler] Cron detenido")
 
 
-# ─── APP ──────────────────────────────────────────────────────────────────────
-
 app = FastAPI(lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://soundseekers.vercel.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ─── CACHÉ ────────────────────────────────────────────────────────────────────
 
 _cache = {}
 CACHE_TTL = 300
@@ -154,8 +144,6 @@ WEATHER_QUERIES = {
     "warm":   ["tropical español", "tarde latina", "cumbia calurosa", "salsa caliente"],
 }
 
-
-# ─── GEMINI ───────────────────────────────────────────────────────────────────
 
 async def call_gemini(messages: list) -> str | None:
     if not GEMINI_KEY:
@@ -181,8 +169,6 @@ async def call_gemini(messages: list) -> str | None:
         print(f"Gemini exception: {e}")
         return None
 
-
-# ─── MISTRAL (fallback) ───────────────────────────────────────────────────────
 
 async def call_mistral(messages: list) -> str | None:
     if not MISTRAL_KEY:
@@ -223,8 +209,6 @@ async def call_mistral(messages: list) -> str | None:
         print(f"Mistral exception: {e}")
         return None
 
-
-# ─── ENDPOINTS ────────────────────────────────────────────────────────────────
 
 @app.post("/chat")
 async def chat(request: dict):
@@ -325,8 +309,6 @@ def health():
         "scheduler": scheduler.running,
     }
 
-
-# ─── Endpoint manual para forzar el cron (útil para pruebas) ─────────────────
 
 @app.post("/admin/publish-presaves")
 async def force_publish_presaves():
