@@ -7,32 +7,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
-node_modules/
+node_modules
 dist/
-dist-ssr/
-
-# Environment variables
+dist-ssr
+env.local
 .env
-.env.local
-.env.*.local
-
-# Backend Python
-backend/.env
-backend/venv/
-backend/__pycache__/
-backend/.cache/
-
-# Python general
-__pycache__/
-*.pyc
-*.pyo
-venv/
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
-.idea/
+.idea
 .DS_Store
 *.suo
 *.ntvs*
@@ -40,5 +24,25 @@ venv/
 *.sln
 *.sw?
 
-# Supabase
-supabase/.temp/
+# Backend Python
+backend/venv/
+backend/.env
+backend/__pycache__/
+"backend/.cache" 
+".env" 
+".env.local" 
+".env" 
+".env*.local" 
+".env" 
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+backend/venv/
+
+# Environment variables
+.
+
+supabase/.temp/ 

@@ -229,8 +229,7 @@ export default function Navbar() {
           </Link>
         </div>
       </div>
-
-      <div className="flex gap-2 sm:gap-3 items-center">
+      <div className="flex gap-3 items-center">
         {user ? (
           <>
             <Link to="/upload"
