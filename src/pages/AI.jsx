@@ -6,7 +6,7 @@ import { getSongs } from '../api/songs'
 import { supabase } from '../lib/supabase'
 
 const MAX_HISTORY = 40
-const BACKEND_URL = 'http://localhost:8000'
+const BACKEND_URL = 'https://soundseekers.onrender.com'
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de música emergente latinoamericana.
 
@@ -162,7 +162,6 @@ export default function AI() {
     return [INITIAL_MESSAGE]
   })
 
-  // Cargar rol del usuario
   useEffect(() => {
     if (!user) return
     supabase.from('user_roles').select('role').eq('user_id', user.id).single()
@@ -235,7 +234,7 @@ export default function AI() {
       }
       setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
     } catch {
-      setError('Hubo un error al conectar con SeekeAI. ¿Está corriendo el backend?')
+      setError('Hubo un error al conectar con SeekeAI. Intenta de nuevo.')
       setMessages(prev => prev.slice(0, -1))
     } finally {
       setLoading(false)
@@ -447,7 +446,7 @@ export default function AI() {
         <div ref={bottomRef}/>
       </div>
 
-      <div style={{ position: 'fixed', bottom: isVisible && !isFullscreen ? 72 : 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '10px 12px', zIndex: 40, transition: 'bottom 0.3s ease' }}>
+      <div style={{ position: 'fixed', bottom: isVisible && !isFullscreen ? 72 : 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '10px 12px', zIndex: 150, transition: 'bottom 0.3s ease' }}>
         <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8 }}>
           <input
             ref={inputRef}

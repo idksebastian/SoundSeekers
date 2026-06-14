@@ -368,8 +368,9 @@ export default function Home() {
         .recent-play-btn { width: 32px; height: 32px; border-radius: 50%; background: #7c3aed; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; opacity: 0; transition: opacity 0.15s; }
         .recent-item:hover .recent-play-btn { opacity: 1; }
 
-        .main-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
-        @media (max-width: 400px) { .main-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+        .main-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+        @media (min-width: 500px) { .main-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (min-width: 800px) { .main-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; } }
         .grid-card { cursor: pointer; }
         .grid-card-img-wrap { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: #f3f4f6; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
         .grid-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
