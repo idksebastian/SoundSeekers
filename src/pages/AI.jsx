@@ -6,7 +6,7 @@ import { getSongs } from '../api/songs'
 import { supabase } from '../lib/supabase'
 
 const MAX_HISTORY = 40
-const BACKEND_URL = 'https://soundseekers.onrender.com'
+const BACKEND_URL = 'http://localhost:8000'
 
 const SYSTEM_PROMPT = `Eres SeekeAI, el asistente musical inteligente de SoundSeekers, una plataforma de música emergente latinoamericana.
 
