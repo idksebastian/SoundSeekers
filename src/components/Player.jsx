@@ -87,7 +87,7 @@ export default function Player() {
   const progressPct = duration ? (progress / duration) * 100 : 0;
 
   useEffect(() => {
-    if (currentSong) setIsFullscreen(true);
+    if (currentSong && isPlaying) setIsFullscreen(true);
   }, [currentSong?.id]);
 
   useEffect(() => {
