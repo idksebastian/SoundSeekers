@@ -116,8 +116,7 @@ export default function Landing() {
       {/* NAVBAR */}
       <nav className="landing-nav">
         <Link to="/" className="landing-logo">
-          <div className="landing-logo-icon">SS</div>
-          <span className="landing-logo-name">SoundSeekers</span>
+          <img src="/logo-soundseekers.png" alt="SoundSeekers" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
         </Link>
         <div className="landing-nav-links">
           <Link to="/login" className="btn-outline">Iniciar sesión</Link>
@@ -238,7 +237,7 @@ export default function Landing() {
         <div className="footer-inner">
           <div className="footer-top">
             <div style={{ gridColumn: '1 / -1' }}>
-              <p className="footer-brand-name">SoundSeekers</p>
+              <img src="/logo-soundseekers.png" alt="SoundSeekers" style={{ height: '40px', width: 'auto', objectFit: 'contain', marginBottom: '8px', filter: 'brightness(0) invert(1)' }} />
               <p className="footer-brand-desc">Plataforma de música emergente latinoamericana. Descubre, conecta y comparte tu sonido con el mundo.</p>
             </div>
             <div>

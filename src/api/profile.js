@@ -151,3 +151,18 @@ export async function getPublicProfileStreams(userId) {
 
   return count ?? 0
 }
+export async function getFollowers(userId) {
+  const { data } = await supabase
+    .from('follows')
+    .select('follower_id, profiles(user_id, name, artist_name, avatar_url)')
+    .eq('following_id', userId)
+  return data?.map(f => f.profiles).filter(Boolean) ?? []
+}
+
+export async function getFollowing(userId) {
+  const { data } = await supabase
+    .from('follows')
+    .select('following_id, profiles(user_id, name, artist_name, avatar_url)')
+    .eq('follower_id', userId)
+  return data?.map(f => f.profiles).filter(Boolean) ?? []
+}

@@ -342,14 +342,15 @@ export default function Home() {
         @media (min-width: 600px) { .search-results { left: 2rem; right: 2rem; } }
         .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
         .search-result-item:hover { background: #f5f3ff; }
-
+        @media (min-width: 600px) { .slider-arrow { display: flex !important; } }
+        
         .genre-bar { display: flex; gap: 8px; overflow-x: auto; padding: 0 1rem 1.5rem; max-width: 1100px; margin: 0 auto; }
         @media (min-width: 600px) { .genre-bar { padding: 0 2rem 1.5rem; } }
         .genre-pill { flex-shrink: 0; padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.15s; font-family: inherit; }
         .genre-pill.active { background: #7c3aed; color: #fff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,0.25); }
         .genre-pill:hover:not(.active) { border-color: #7c3aed; color: #7c3aed; }
 
-        .section { max-width: 1100px; margin: 0 auto; padding: 0 1rem 2.5rem; }
+        .section { max-width: 1100px; margin: 0 auto; padding: 0 1rem 2.5rem; overflow: hidden; }
         @media (min-width: 600px) { .section { padding: 0 2rem 3rem; } }
         .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
         .section-title { font-size: 1.1rem; font-weight: 800; color: #111; margin: 0; }
@@ -368,10 +369,14 @@ export default function Home() {
         .recent-play-btn { width: 32px; height: 32px; border-radius: 50%; background: #7c3aed; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; opacity: 0; transition: opacity 0.15s; }
         .recent-item:hover .recent-play-btn { opacity: 1; }
 
-        .main-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 14px; }
-        @media (max-width: 400px) { .main-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
-        .grid-card { cursor: pointer; }
-        .grid-card-img-wrap { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: #f3f4f6; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .main-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        @media (min-width: 500px) { .main-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
+        @media (min-width: 800px) { .main-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; } }
+
+        /* ── FIX: tarjetas uniformes independiente del tipo (álbum vs canción) ── */
+        .grid-card { cursor: pointer; min-width: 0; overflow: hidden; }
+        .grid-card-img-wrap { position: relative; aspect-ratio: 1 / 1; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: #f3f4f6; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+
         .grid-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
         .grid-card:hover .grid-card-img { transform: scale(1.07); }
         .grid-card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
@@ -432,35 +437,62 @@ export default function Home() {
       `}</style>
 
       {!loading && (
-        <div style={{ paddingTop: '1rem' }}>
-          <div className="hero-slider" onClick={slides[slide].action}>
-            {slides.map((s, i) => (
-              <div key={i} className="slide-bg" style={{
-                backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
-                opacity: slide === i ? 1 : 0,
-                zIndex: slide === i ? 1 : 0,
-              }}/>
-            ))}
-            <div className="slide-overlay" style={{ zIndex: 2 }}/>
-            <div className="slide-content" style={{ zIndex: 3 }}>
-              <span className="slide-tag">{slides[slide].tag}</span>
-              <h1 className="slide-title">{slides[slide].title}</h1>
-              {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
-              <p className="slide-desc">{slides[slide].desc}</p>
-              <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
-                {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
-                {slides[slide].btnLabel}
-              </button>
-            </div>
-            <div className="slide-dots" style={{ zIndex: 4 }}>
-              {slides.map((_, i) => (
-                <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
-                  onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+  <div style={{ paddingTop: '1rem' }}>
+    <div className="hero-slider"
+      onClick={slides[slide].action}
+      onTouchStart={e => { slideInterval.current && clearInterval(slideInterval.current); const x = e.touches[0].clientX; e.currentTarget._touchX = x }}
+      onTouchEnd={e => {
+        const dx = e.changedTouches[0].clientX - (e.currentTarget._touchX ?? 0)
+        if (Math.abs(dx) > 40) {
+          setSlide(s => dx < 0 ? (s + 1) % 3 : (s + 2) % 3)
+        }
+        slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
+      }}>
+      {slides.map((s, i) => (
+        <div key={i} className="slide-bg" style={{
+          backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
+          opacity: slide === i ? 1 : 0,
+          zIndex: slide === i ? 1 : 0,
+        }}/>
+      ))}
+      <div className="slide-overlay" style={{ zIndex: 2 }}/>
+      <div className="slide-content" style={{ zIndex: 3 }}>
+        <span className="slide-tag">{slides[slide].tag}</span>
+        <h1 className="slide-title">{slides[slide].title}</h1>
+        {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
+        <p className="slide-desc">{slides[slide].desc}</p>
+        <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
+          {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
+          {slides[slide].btnLabel}
+        </button>
+      </div>
+
+      <button
+        onClick={e => { e.stopPropagation(); setSlide(s => (s + 2) % 3); clearInterval(slideInterval.current) }}
+        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+        className="slider-arrow"
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
+        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); setSlide(s => (s + 1) % 3); clearInterval(slideInterval.current) }}
+        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+        className="slider-arrow"
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
+        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+
+      <div className="slide-dots" style={{ zIndex: 4 }}>
+        {slides.map((_, i) => (
+          <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
 
       {recentlyPlayed.length > 0 && (
         <div className="section">
@@ -691,7 +723,7 @@ export default function Home() {
         <div className="footer-inner">
           <div className="footer-top">
             <div>
-              <img src="/logo-soundseekers.png" alt="SoundSeekers" className="h-14 w-auto object-contain mb-4" />
+              <img src="/logo-soundseekers.png" alt="SoundSeekers" style={{ height: '40px', width: 'auto', objectFit: 'contain', marginBottom: '8px', filter: 'brightness(0) invert(1)' }} />
               <p className="footer-brand-desc">Plataforma de música emergente latinoamericana. Descubre, conecta y comparte tu sonido con el mundo.</p>
               <div className="footer-socials">
                 <a href="https://www.instagram.com/soundseekers.co/" className="footer-social-btn">

@@ -5,8 +5,72 @@ import { getMySongs, deleteSong } from '../api/songs'
 import { useNavigate } from 'react-router-dom'
 import { usePlayer } from '../context/PlayerContext'
 import ArtistModal from '../components/ArtistModal'
+import { supabase } from '../lib/supabase'
 
 const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
+
+const LISTENER_LEVELS = [
+  {
+    label: 'Curioso',
+    desc: 'Registrarte en SoundSeekers',
+    min: 0,
+    max: 10,
+    color: '#7c3aed',
+    bg: '#f5f3ff',
+    border: '#e9d5ff',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Explorador',
+    desc: '10 reproducciones',
+    min: 10,
+    max: 20,
+    color: '#2563eb',
+    bg: '#eff6ff',
+    border: '#bfdbfe',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Melómano',
+    desc: '20 reproducciones',
+    min: 20,
+    max: 50,
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#a5f3fc',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M3 18v-6a9 9 0 0118 0v6"/>
+        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Descubridor',
+    desc: '50 reproducciones',
+    min: 50,
+    max: 50,
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+      </svg>
+    ),
+  },
+]
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -18,6 +82,7 @@ export default function Profile() {
   const [showArtistModal, setShowArtistModal] = useState(false)
   const [songs, setSongs] = useState([])
   const [stats, setStats] = useState({ followers: 0, following: 0, streams: 0 })
+  const [listenerStreams, setListenerStreams] = useState(0)
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
@@ -35,6 +100,14 @@ export default function Profile() {
       setSongs(mySongs)
       const streams = await getSongStreams(mySongs.map(s => s.id))
       setStats({ ...followStats, streams })
+
+      if (userRole?.role !== 'artist') {
+        const { count } = await supabase
+          .from('streams')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', u.id)
+        setListenerStreams(count ?? 0)
+      }
     } catch (err) {
       console.error(err)
     } finally {
@@ -63,11 +136,18 @@ export default function Profile() {
   const isArtist = role?.role === 'artist'
   const isPending = role?.status === 'pending'
   const artistLevel = isArtist ? getArtistLevel(stats.streams, stats.followers) : null
-  const listenerLevel = !isArtist ? getListenerLevel(stats.streams) : null
+  const listenerLevel = !isArtist ? getListenerLevel(listenerStreams) : null
   const avatarPreview = user?.user_metadata?.avatar_url ?? null
   const bio = role?.artist_bio ?? role?.description ?? null
   const socials = { instagram: role?.instagram, twitter: role?.twitter, tiktok: role?.tiktok, youtube: role?.youtube, website: role?.website }
   const hasSocials = Object.values(socials).some(Boolean)
+
+  const currentLevelIdx = LISTENER_LEVELS.findIndex(l => l.label === listenerLevel?.level)
+  const currentLevel = LISTENER_LEVELS[currentLevelIdx] ?? LISTENER_LEVELS[0]
+  const nextLevel = LISTENER_LEVELS[currentLevelIdx + 1] ?? null
+  const progressPct = nextLevel
+    ? Math.min(100, Math.round(((listenerStreams - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100))
+    : 100
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
@@ -95,17 +175,13 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
-
       {showArtistModal && (
         <ArtistModal userId={user.id} onSuccess={() => { setShowArtistModal(false); loadData() }} onClose={() => { setShowArtistModal(false); loadData() }} />
       )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
 
-        {/* Card de perfil */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
-
-          {/* Header: avatar + info + botón ajustes */}
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 shrink-0">
               {avatarPreview ? (
@@ -124,7 +200,13 @@ export default function Profile() {
                     {isArtist ? (
                       <span className={`text-xs px-2 py-0.5 rounded-full border font-medium shrink-0 ${artistLevel.color}`}>{artistLevel.level}</span>
                     ) : (
-                      <span className="text-xs px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-500 font-medium shrink-0">{listenerLevel.icon} {listenerLevel.level}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full border border-purple-200 bg-purple-50 text-purple-600 font-medium shrink-0 flex items-center gap-1">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+                          <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                          <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                        {listenerLevel?.level}
+                      </span>
                     )}
                   </div>
                   <p className="text-gray-400 text-xs sm:text-sm truncate">{user?.email}</p>
@@ -149,7 +231,6 @@ export default function Profile() {
             </div>
           </div>
 
-          {/* Mood selector */}
           {isArtist && (
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-2 font-medium">Estado de hoy</p>
@@ -164,7 +245,6 @@ export default function Profile() {
             </div>
           )}
 
-          {/* Stats — scroll horizontal en mobile muy pequeño */}
           <div className="flex gap-4 mt-4 pt-4 border-t border-gray-100 overflow-x-auto">
             <div className="text-center shrink-0">
               <p className="text-xl sm:text-2xl font-bold text-black">{songs.length}</p>
@@ -199,7 +279,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Mis canciones */}
         {isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
             <h2 className="text-base sm:text-lg font-bold text-black mb-4">Mis canciones</h2>
@@ -253,24 +332,78 @@ export default function Profile() {
           </div>
         )}
 
-        {/* Nivel de oyente */}
         {!isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
-            <h2 className="text-base sm:text-lg font-bold text-black mb-1">Tu nivel de oyente</h2>
-            <p className="text-gray-400 text-sm mb-4">Escucha más música para subir de nivel.</p>
-            <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              {[
-                { icon: '👀', label: 'Curioso', desc: 'Registrarte', done: true },
-                { icon: '🗺️', label: 'Explorador', desc: '10 reproducciones', done: stats.streams >= 10 },
-                { icon: '🎧', label: 'Melómano', desc: '20 reproducciones', done: stats.streams >= 20 },
-                { icon: '🔭', label: 'Descubridor', desc: '50 reproducciones', done: stats.streams >= 50 },
-              ].map(lvl => (
-                <div key={lvl.label} className={`p-3 rounded-xl border ${lvl.done ? 'border-purple-200 bg-purple-50' : 'border-gray-100 bg-gray-50 opacity-50'}`}>
-                  <p className="text-xl mb-1">{lvl.icon}</p>
-                  <p className={`text-sm font-semibold ${lvl.done ? 'text-purple-700' : 'text-gray-400'}`}>{lvl.label}</p>
-                  <p className="text-xs text-gray-400">{lvl.desc}</p>
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-base sm:text-lg font-bold text-black">Tu nivel de oyente</h2>
+              <span className="text-xs text-gray-400 font-medium">{listenerStreams} rep. totales</span>
+            </div>
+            <p className="text-gray-400 text-sm mb-5">Escucha más música en SoundSeekers para subir de nivel.</p>
+
+            {nextLevel && (
+              <div className="mb-5 p-3.5 rounded-xl border border-gray-100 bg-gray-50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div style={{ color: currentLevel.color }}>
+                      {currentLevel.icon}
+                    </div>
+                    <span className="text-sm font-bold text-gray-800">{currentLevel.label}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">→</span>
+                    <div style={{ color: nextLevel.color }}>
+                      {nextLevel.icon}
+                    </div>
+                    <span className="text-sm font-semibold" style={{ color: nextLevel.color }}>{nextLevel.label}</span>
+                  </div>
                 </div>
-              ))}
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${progressPct}%`, background: `linear-gradient(to right, ${currentLevel.color}, ${nextLevel.color})` }}/>
+                </div>
+                <p className="text-xs text-gray-400 mt-1.5 text-right">
+                  {listenerStreams} / {nextLevel.min} reproducciones para {nextLevel.label}
+                </p>
+              </div>
+            )}
+
+            {nextLevel === null && (
+              <div className="mb-5 p-3.5 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
+                <div className="text-amber-500">{currentLevel.icon}</div>
+                <div>
+                  <p className="text-sm font-bold text-amber-700">¡Nivel máximo alcanzado!</p>
+                  <p className="text-xs text-amber-600">Eres un verdadero Descubridor de música.</p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+              {LISTENER_LEVELS.map((lvl, idx) => {
+                const done = listenerStreams >= lvl.min
+                return (
+                  <div key={lvl.label}
+                    className="p-3 rounded-xl border transition-all"
+                    style={{
+                      borderColor: done ? lvl.border : '#f3f4f6',
+                      background: done ? lvl.bg : '#f9fafb',
+                      opacity: done ? 1 : 0.5,
+                    }}>
+                    <div className="mb-1.5" style={{ color: done ? lvl.color : '#9ca3af' }}>
+                      {lvl.icon}
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.label}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{lvl.desc}</p>
+                    {done && (
+                      <div className="mt-1.5 flex items-center gap-1">
+                        <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ color: lvl.color }}>
+                          <path d="M20 6L9 17l-5-5"/>
+                        </svg>
+                        <span className="text-xs font-semibold" style={{ color: lvl.color }}>Desbloqueado</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

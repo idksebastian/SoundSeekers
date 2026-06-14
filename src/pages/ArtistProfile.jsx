@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPublicProfile, getPublicProfileStreams, isFollowing, toggleFollow } from '../api/profile'
+import { getPublicProfile, getPublicProfileStreams, isFollowing, toggleFollow, getFollowers, getFollowing } from '../api/profile'
 import { getMySongs, getAppearsIn } from '../api/songs'
 import { getArtistAlbums } from '../api/albums'
 import { useAuth } from '../context/AuthContext'
@@ -8,8 +8,133 @@ import { usePlayer } from '../context/PlayerContext'
 import { getUserRole } from '../api/roles'
 import SkeletonSongRow from '../components/SkeletonSongRow'
 
-
 const TABS = ['Populares', 'Álbumes', 'EPs', 'Singles', 'Aparece en']
+
+function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentUserId }) {
+  const [users, setUsers] = useState(initialUsers)
+  const [loadingFollow, setLoadingFollow] = useState({})
+
+  useEffect(() => { setUsers(initialUsers) }, [initialUsers])
+
+  const handleToggleFollow = async (e, targetUserId) => {
+    e.stopPropagation()
+    if (!currentUserId) return
+    setLoadingFollow(prev => ({ ...prev, [targetUserId]: true }))
+    try {
+      const newStatus = await toggleFollow(targetUserId)
+      setUsers(prev => prev.map(u =>
+        u.user_id === targetUserId ? { ...u, is_following: newStatus } : u
+      ))
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingFollow(prev => ({ ...prev, [targetUserId]: false }))
+    }
+  }
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:px-4">
+        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[70vh]">
+
+          {/* Handle bar (mobile) */}
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-gray-200" />
+          </div>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <h3 className="text-base font-bold text-black">{title}</h3>
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
+            >
+              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* List */}
+          <div className="overflow-y-auto flex-1 py-2">
+            {users.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-14 gap-2">
+                <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+                <p className="text-gray-400 text-sm">No hay usuarios aún.</p>
+              </div>
+            ) : (
+              users.map(u => {
+                const isMe = u.user_id === currentUserId
+                const isFollowingUser = u.is_following
+                const isLoading = loadingFollow[u.user_id]
+                return (
+                  <div
+                    key={u.user_id}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 cursor-pointer transition"
+                    onClick={() => { onNavigate(u.user_id); onClose() }}
+                  >
+                    {/* Avatar */}
+                    <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                      {u.avatar_url ? (
+                        <img src={u.avatar_url} alt={u.artist_name || u.name} className="w-full h-full object-cover"/>
+                      ) : (
+                        <div className="w-full h-full bg-purple-700 flex items-center justify-center text-sm font-bold text-white uppercase">
+                          {(u.artist_name || u.name)?.[0] ?? '?'}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-black truncate leading-tight">
+                        {u.artist_name || u.name}
+                      </p>
+                      {u.artist_name && u.name && (
+                        <p className="text-xs text-gray-400 truncate">{u.name}</p>
+                      )}
+                      {u.artist_genre && (
+                        <p className="text-xs text-gray-400 truncate">{u.artist_genre}</p>
+                      )}
+                    </div>
+
+                    {/* Follow button — no se muestra en el propio perfil */}
+                    {!isMe && currentUserId && (
+                      <button
+                        onClick={(e) => handleToggleFollow(e, u.user_id)}
+                        disabled={isLoading}
+                        className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition min-w-[80px] text-center ${
+                          isFollowingUser
+                            ? 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
+                            : 'bg-purple-700 text-white border-purple-700 hover:bg-purple-800'
+                        }`}
+                      >
+                        {isLoading ? (
+                          <svg className="w-3.5 h-3.5 animate-spin mx-auto" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          </svg>
+                        ) : isFollowingUser ? 'Siguiendo' : 'Seguir'}
+                      </button>
+                    )}
+                  </div>
+                )
+              })
+            )}
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
 
 export default function ArtistProfile() {
   const { userId } = useParams()
@@ -26,9 +151,11 @@ export default function ArtistProfile() {
   const [loadingFollow, setLoadingFollow] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [showSettings, setShowSettings] = useState(false)
   const [role, setRole] = useState(null)
   const [activeTab, setActiveTab] = useState('Populares')
+  const [followModal, setFollowModal] = useState(null) // 'followers' | 'following' | null
+  const [followModalUsers, setFollowModalUsers] = useState([])
+  const [loadingModal, setLoadingModal] = useState(false)
 
   const isOwnProfile = user?.id === userId
 
@@ -84,81 +211,105 @@ export default function ArtistProfile() {
     }
   }
 
+  // Al abrir el modal se consulta is_following para cada usuario
+  const handleOpenFollowModal = async (type) => {
+    setFollowModal(type)
+    setLoadingModal(true)
+    try {
+      const rawUsers = type === 'followers'
+        ? await getFollowers(userId)
+        : await getFollowing(userId)
+
+      // Si el usuario está logueado, enriquecemos cada entrada con is_following
+      if (user) {
+        const enriched = await Promise.all(
+          rawUsers.map(async (u) => {
+            if (u.user_id === user.id) return { ...u, is_following: false }
+            try {
+              const status = await isFollowing(u.user_id)
+              return { ...u, is_following: status }
+            } catch {
+              return { ...u, is_following: false }
+            }
+          })
+        )
+        setFollowModalUsers(enriched)
+      } else {
+        setFollowModalUsers(rawUsers.map(u => ({ ...u, is_following: false })))
+      }
+    } catch {
+      setFollowModalUsers([])
+    } finally {
+      setLoadingModal(false)
+    }
+  }
+
   const singles = songs.filter(s => !s.album_id)
   const albumList = albums.filter(a => a.type === 'album')
   const epList = albums.filter(a => a.type === 'ep')
   const popularSongs = [...songs].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5)
 
-const SongRow = ({ song, queue }) => {
-  const isCurrentSong = currentSong?.id === song.id
-  const displayName = song.display_artist || song.artist_name
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition border border-gray-100">
-      <img src={song.cover_url} alt={song.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-black font-medium text-sm truncate">{song.title}</p>
-        <p className="text-gray-400 text-xs truncate">{displayName}</p>
-      </div>
-      {song.streams > 0 && (
-        <p className="text-xs text-gray-400 hidden sm:block shrink-0">{song.streams.toLocaleString()} rep.</p>
-      )}
-      {isCurrentSong && isPlaying && (
-        <div className="hidden sm:flex items-center gap-1 text-purple-600 text-xs font-medium shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+  const SongRow = ({ song, queue }) => {
+    const isCurrentSong = currentSong?.id === song.id
+    const displayName = song.display_artist || song.artist_name
+    return (
+      <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 active:bg-gray-100 transition border border-gray-100">
+        <img src={song.cover_url} alt={song.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-black font-medium text-sm truncate">{song.title}</p>
+          <p className="text-gray-400 text-xs truncate">{displayName}</p>
         </div>
-      )}
-      {/* Botón editar — solo en perfil propio */}
-      {isOwnProfile && (
-        <button
-          onClick={e => { e.stopPropagation(); navigate(`/edit/${song.id}`) }}
-          className="w-9 h-9 rounded-full border border-gray-200 hover:bg-purple-50 hover:border-purple-200 flex items-center justify-center transition shrink-0"
-          title="Editar canción">
-          <svg className="w-3.5 h-3.5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-          </svg>
-        </button>
-      )}
-      <button onClick={() => playSong(song, queue)}
-        className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 active:bg-purple-900 flex items-center justify-center transition shrink-0">
-        {isCurrentSong && isPlaying ? (
-          <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-          </svg>
-        ) : (
-          <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M5 3l14 9-14 9V3z" />
-          </svg>
+        {song.streams > 0 && (
+          <p className="text-xs text-gray-400 hidden sm:block shrink-0">{song.streams.toLocaleString()} rep.</p>
         )}
-      </button>
+        {isCurrentSong && isPlaying && (
+          <div className="hidden sm:flex items-center gap-1 text-purple-600 text-xs font-medium shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+          </div>
+        )}
+        {isOwnProfile && (
+          <button onClick={e => { e.stopPropagation(); navigate(`/edit/${song.id}`) }}
+            className="w-9 h-9 rounded-full border border-gray-200 hover:bg-purple-50 hover:border-purple-200 flex items-center justify-center transition shrink-0">
+            <svg className="w-3.5 h-3.5 text-gray-400 hover:text-purple-600" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+        )}
+        <button onClick={() => playSong(song, queue)}
+          className="w-9 h-9 rounded-full bg-purple-700 hover:bg-purple-800 active:bg-purple-900 flex items-center justify-center transition shrink-0">
+          {isCurrentSong && isPlaying ? (
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+          ) : (
+            <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+          )}
+        </button>
+      </div>
+    )
+  }
+
+  const AlbumCard = ({ album }) => (
+    <div onClick={() => navigate(`/album/${album.id}`)}
+      className="bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition cursor-pointer">
+      <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-gray-200">
+        {album.cover_url ? (
+          <img src={album.cover_url} alt={album.title} className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full bg-purple-100 flex items-center justify-center">
+            <svg className="w-8 h-8 text-purple-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+          </div>
+        )}
+        {album.status === 'presave' && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
+            <span className="text-white text-xs font-bold bg-purple-600 px-2 py-1 rounded-full">Próximamente</span>
+          </div>
+        )}
+      </div>
+      <p className="text-sm font-semibold text-black truncate">{album.title}</p>
+      <p className="text-xs text-gray-400 mt-0.5">
+        {album.release_date ? new Date(album.release_date).getFullYear() : '—'} · {album.type === 'ep' ? 'EP' : album.type === 'album' ? 'Álbum' : 'Single'}
+      </p>
     </div>
   )
-}
-
-const AlbumCard = ({ album }) => (
-  <div onClick={() => navigate(`/album/${album.id}`)}
-    className="bg-gray-50 rounded-2xl p-3 hover:bg-gray-100 transition cursor-pointer">
-    <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-gray-200">
-      {album.cover_url ? (
-        <img src={album.cover_url} alt={album.title} className="w-full h-full object-cover" />
-      ) : (
-        <div className="w-full h-full bg-purple-100 flex items-center justify-center">
-          <svg className="w-8 h-8 text-purple-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z" />
-          </svg>
-        </div>
-      )}
-      {album.status === 'presave' && (
-        <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">
-          <span className="text-white text-xs font-bold bg-purple-600 px-2 py-1 rounded-full">Próximamente</span>
-        </div>
-      )}
-    </div>
-    <p className="text-sm font-semibold text-black truncate">{album.title}</p>
-    <p className="text-xs text-gray-400 mt-0.5">
-      {album.release_date ? new Date(album.release_date).getFullYear() : '—'} · {album.type === 'ep' ? 'EP' : album.type === 'album' ? 'Álbum' : 'Single'}
-    </p>
-  </div>
-)
 
   if (loading) return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
@@ -196,14 +347,24 @@ const AlbumCard = ({ album }) => (
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
-      {showSettings && (
-        <SettingsModal user={user} role={role}
-          onClose={() => setShowSettings(false)}
-          onProfileUpdated={async () => { await loadData(); setShowSettings(false) }} />
+
+      {followModal && (
+        <FollowModal
+          title={
+            followModal === 'followers'
+              ? `Seguidores (${profile?.followers ?? 0})`
+              : `Siguiendo (${profile?.following ?? 0})`
+          }
+          users={loadingModal ? [] : followModalUsers}
+          onClose={() => setFollowModal(null)}
+          onNavigate={(uid) => navigate(`/artist/${uid}`)}
+          currentUserId={user?.id ?? null}
+        />
       )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
 
+        {/* Profile card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -251,8 +412,8 @@ const AlbumCard = ({ album }) => (
                   }`}>
                   {loadingFollow ? (
                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                     </svg>
                   ) : following ? 'Siguiendo' : 'Seguir'}
                 </button>
@@ -261,34 +422,40 @@ const AlbumCard = ({ album }) => (
                 <button onClick={() => navigate('/settings')}
                   className="w-8 h-8 rounded-full border border-gray-200 hover:bg-gray-50 flex items-center justify-center transition">
                   <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                   </svg>
                 </button>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 sm:gap-6 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-100">
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-100">
             <div className="text-center">
-              <p className="text-xl sm:text-2xl font-bold text-black">{songs.length}</p>
-              <p className="text-xs text-gray-400">Canciones</p>
+              <p className="text-lg sm:text-2xl font-bold text-black leading-tight">{songs.length}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Canciones</p>
             </div>
+            <button
+              className="text-center hover:bg-gray-50 rounded-xl transition py-1 cursor-pointer"
+              onClick={() => handleOpenFollowModal('followers')}>
+              <p className="text-lg sm:text-2xl font-bold text-black leading-tight">{profile?.followers ?? 0}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Seguidores</p>
+            </button>
+            <button
+              className="text-center hover:bg-gray-50 rounded-xl transition py-1 cursor-pointer"
+              onClick={() => handleOpenFollowModal('following')}>
+              <p className="text-lg sm:text-2xl font-bold text-black leading-tight">{profile?.following ?? 0}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Siguiendo</p>
+            </button>
             <div className="text-center">
-              <p className="text-xl sm:text-2xl font-bold text-black">{profile?.followers ?? 0}</p>
-              <p className="text-xs text-gray-400">Seguidores</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl sm:text-2xl font-bold text-black">{profile?.following ?? 0}</p>
-              <p className="text-xs text-gray-400">Siguiendo</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xl sm:text-2xl font-bold text-black">{streams}</p>
-              <p className="text-xs text-gray-400">Reproducciones</p>
+              <p className="text-lg sm:text-2xl font-bold text-black leading-tight truncate">{streams.toLocaleString()}</p>
+              <p className="text-xs text-gray-400 mt-0.5">Reproducciones</p>
             </div>
           </div>
         </div>
 
+        {/* Tabs + content */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex gap-1 p-2 border-b border-gray-100 overflow-x-auto">
             {TABS.filter(tab => {
@@ -320,25 +487,21 @@ const AlbumCard = ({ album }) => (
                 ) : popularSongs.map(song => <SongRow key={song.id} song={song} queue={popularSongs} />)}
               </div>
             )}
-
             {activeTab === 'Álbumes' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {albumList.map(album => <AlbumCard key={album.id} album={album} />)}
               </div>
             )}
-
             {activeTab === 'EPs' && (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {epList.map(album => <AlbumCard key={album.id} album={album} />)}
               </div>
             )}
-
             {activeTab === 'Singles' && (
               <div className="space-y-3">
                 {singles.map(song => <SongRow key={song.id} song={song} queue={singles} />)}
               </div>
             )}
-
             {activeTab === 'Aparece en' && (
               <div className="space-y-3">
                 {appearsIn.map(song => <SongRow key={song.id} song={song} queue={appearsIn} />)}
