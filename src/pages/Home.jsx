@@ -433,35 +433,61 @@ export default function Home() {
       `}</style>
 
       {!loading && (
-        <div style={{ paddingTop: '1rem' }}>
-          <div className="hero-slider" onClick={slides[slide].action}>
-            {slides.map((s, i) => (
-              <div key={i} className="slide-bg" style={{
-                backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
-                opacity: slide === i ? 1 : 0,
-                zIndex: slide === i ? 1 : 0,
-              }}/>
-            ))}
-            <div className="slide-overlay" style={{ zIndex: 2 }}/>
-            <div className="slide-content" style={{ zIndex: 3 }}>
-              <span className="slide-tag">{slides[slide].tag}</span>
-              <h1 className="slide-title">{slides[slide].title}</h1>
-              {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
-              <p className="slide-desc">{slides[slide].desc}</p>
-              <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
-                {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
-                {slides[slide].btnLabel}
-              </button>
-            </div>
-            <div className="slide-dots" style={{ zIndex: 4 }}>
-              {slides.map((_, i) => (
-                <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
-                  onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+  <div style={{ paddingTop: '1rem' }}>
+    <div className="hero-slider"
+      onClick={slides[slide].action}
+      onTouchStart={e => { slideInterval.current && clearInterval(slideInterval.current); const x = e.touches[0].clientX; e.currentTarget._touchX = x }}
+      onTouchEnd={e => {
+        const dx = e.changedTouches[0].clientX - (e.currentTarget._touchX ?? 0)
+        if (Math.abs(dx) > 40) {
+          setSlide(s => dx < 0 ? (s + 1) % 3 : (s + 2) % 3)
+        }
+        slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
+      }}>
+      {slides.map((s, i) => (
+        <div key={i} className="slide-bg" style={{
+          backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
+          opacity: slide === i ? 1 : 0,
+          zIndex: slide === i ? 1 : 0,
+        }}/>
+      ))}
+      <div className="slide-overlay" style={{ zIndex: 2 }}/>
+      <div className="slide-content" style={{ zIndex: 3 }}>
+        <span className="slide-tag">{slides[slide].tag}</span>
+        <h1 className="slide-title">{slides[slide].title}</h1>
+        {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
+        <p className="slide-desc">{slides[slide].desc}</p>
+        <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
+          {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
+          {slides[slide].btnLabel}
+        </button>
+      </div>
+
+      {/* Flechas navegación */}
+      <button
+        onClick={e => { e.stopPropagation(); setSlide(s => (s + 2) % 3); clearInterval(slideInterval.current) }}
+        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
+        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button
+        onClick={e => { e.stopPropagation(); setSlide(s => (s + 1) % 3); clearInterval(slideInterval.current) }}
+        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
+        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </button>
+
+      <div className="slide-dots" style={{ zIndex: 4 }}>
+        {slides.map((_, i) => (
+          <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
+            onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
 
       {recentlyPlayed.length > 0 && (
         <div className="section">
