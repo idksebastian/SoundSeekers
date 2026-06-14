@@ -58,7 +58,7 @@ export default function Animo() {
     setSearched(true)
     setSongs([])
     try {
-      const res = await fetch(`http://localhost:8000/recommendations?mood=${selectedMood}&weather=${selectedWeather}`)
+      const res = await fetch(`https://soundseekers.onrender.com/recommendations?mood=${selectedMood}&weather=${selectedWeather}`)
       if (!res.ok) throw new Error('Error en el servidor')
       const data = await res.json()
       setSongs(data.songs ?? [])
