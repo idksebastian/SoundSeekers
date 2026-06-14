@@ -1,0 +1,188 @@
+import { supabase } from '../lib/supabase'
+
+export async function getUserRole(userId) {
+  const { data } = await supabase
+    .from('user_roles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+  return data
+}
+
+export async function createListenerRole(userId) {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .insert([{ user_id: userId, role: 'listener' }])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function upgradeToArtist({ userId, artistName, artistBio, artistGenre, artistMood }) {
+  await supabase.auth.updateUser({ data: { artist_name: artistName } })
+  const existing = await getUserRole(userId)
+  if (existing) {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .update({ role: 'artist', artist_name: artistName, artist_bio: artistBio, artist_genre: artistGenre, artist_mood: artistMood, accepted_terms_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  } else {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .insert([{ user_id: userId, role: 'artist', artist_name: artistName, artist_bio: artistBio, artist_genre: artistGenre, artist_mood: artistMood, accepted_terms_at: new Date().toISOString() }])
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  }
+}
+
+export async function requestArtistVerification({ userId, artistName, artistBio, artistGenre, artistMood }) {
+  await supabase.auth.updateUser({ data: { artist_name: artistName } })
+  const existing = await getUserRole(userId)
+  if (existing) {
+    const { error } = await supabase
+      .from('user_roles')
+      .update({ status: 'pending', artist_name: artistName, artist_bio: artistBio, artist_genre: artistGenre, artist_mood: artistMood, accepted_terms_at: new Date().toISOString() })
+      .eq('user_id', userId)
+    if (error) throw error
+  } else {
+    const { error } = await supabase
+      .from('user_roles')
+      .insert([{ user_id: userId, role: 'listener', status: 'pending', artist_name: artistName, artist_bio: artistBio, artist_genre: artistGenre, artist_mood: artistMood, accepted_terms_at: new Date().toISOString() }])
+    if (error) throw error
+  }
+
+  // ── NUEVO: notificar a todos los admins ──
+  try {
+    const { data: admins } = await supabase
+      .from('admin_users')
+      .select('user_id')
+
+    if (admins?.length) {
+      await supabase.from('notifications').insert(
+        admins.map(admin => ({
+          user_id: admin.user_id,
+          type: 'artist_request',
+          from_user_id: userId,
+          reference_id: userId,
+        }))
+      )
+    }
+  } catch (err) {
+    console.warn('Notificación admin no enviada:', err)
+  }
+}
+
+export async function getPendingRequests() {
+  const { data, error } = await supabase
+    .from('user_roles')
+    .select('*')
+    .eq('status', 'pending')
+    .order('accepted_terms_at', { ascending: true })
+  if (error) throw error
+  return data
+}
+
+export async function getPendingCount() {
+  const { count } = await supabase
+    .from('user_roles')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pending')
+  return count ?? 0
+}
+
+export async function approveArtist(userId, artistName) {
+  const { error } = await supabase
+    .from('user_roles')
+    .update({ role: 'artist', status: 'artist' })
+    .eq('user_id', userId)
+  if (error) throw error
+
+  await supabase
+    .from('profiles')
+    .upsert({ user_id: userId, artist_name: artistName })
+
+  // ── NUEVO: notificación de aceptación ──
+  await supabase.from('notifications').insert([{
+    user_id: userId,
+    type: 'system',
+    from_user_id: null,
+    reference_id: null,
+    message: `¡Felicidades! Tu solicitud para ser artista fue aprobada. Ya puedes subir tu música.`,
+  }])
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-artist-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ user_id: userId, artist_name: artistName, approved: true })
+    })
+  } catch {
+    console.warn('Correo no enviado')
+  }
+}
+
+export async function rejectArtist(userId, artistName) {
+  const { error } = await supabase
+    .from('user_roles')
+    .update({ status: 'listener', artist_name: null, artist_bio: null, artist_genre: null })
+    .eq('user_id', userId)
+  if (error) throw error
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-artist-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ user_id: userId, artist_name: artistName, approved: false })
+    })
+  } catch {
+    console.warn('Correo no enviado')
+  }
+}
+
+export async function isAdmin(userId) {
+  const { data } = await supabase
+    .from('admin_users')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  return !!data
+}
+
+export async function updateArtistMood(userId, mood) {
+  const { error } = await supabase
+    .from('user_roles')
+    .update({ artist_mood: mood })
+    .eq('user_id', userId)
+  if (error) throw error
+}
+
+export function getArtistLevel(streams, followers) {
+  if (streams >= 500 || followers >= 10) return { level: 'Consolidado', color: 'text-yellow-600 bg-yellow-50 border-yellow-200' }
+  if (streams >= 50 || followers >= 5) return { level: 'En ascenso', color: 'text-blue-600 bg-blue-50 border-blue-200' }
+  if (streams >= 1) return { level: 'Independiente', color: 'text-green-600 bg-green-50 border-green-200' }
+  return { level: 'Emergente', color: 'text-purple-600 bg-purple-50 border-purple-200' }
+}
+
+export function getListenerLevel(streams) {
+  if (streams >= 50) return { level: 'Descubridor', icon: '🔭' }
+  if (streams >= 20) return { level: 'Melómano', icon: '🎧' }
+  if (streams >= 10) return { level: 'Explorador', icon: '🗺️' }
+  return { level: 'Curioso', icon: '👀' }
+}
