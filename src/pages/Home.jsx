@@ -295,15 +295,36 @@ export default function Home() {
           .hero-slider { height: 280px; margin: 0 0 1.5rem; border-radius: 0; }
         }
 
+        /* Capa de fondo: imagen blureada que llena el espacio */
         .slide-bg {
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center 20%;
+          background-position: center center;
+          transition: opacity 0.6s ease;
+          filter: blur(32px) brightness(0.6) saturate(1.4);
+          transform: scale(1.1);
+        }
+
+        /* Capa de imagen centrada encima, sin recorte */
+        .slide-img {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1;
+        }
+        .slide-img img {
+          height: 100%;
+          width: auto;
+          max-width: 100%;
+          object-fit: contain;
+          opacity: 0;
           transition: opacity 0.6s ease;
         }
-        @media (max-width: 600px) {
-          .slide-bg { background-position: center center; }
+        .slide-img img.active {
+          opacity: 1;
         }
 
         .slide-overlay {
@@ -315,7 +336,7 @@ export default function Home() {
             rgba(0,0,0,0.55) 40%,
             rgba(0,0,0,0.08) 100%
           );
-          z-index: 2;
+          z-index: 3;
         }
 
         /* ── FIX: contenido anclado al fondo, columna limpia sin gaps extra ── */
@@ -324,7 +345,7 @@ export default function Home() {
           bottom: 0;
           left: 0;
           right: 0;
-          z-index: 3;
+          z-index: 4;
           padding: 1.25rem 1.25rem 1.5rem;
           display: flex;
           flex-direction: column;
@@ -521,13 +542,20 @@ export default function Home() {
               slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
             }}>
             {slides.map((s, i) => (
-              <div key={i} className="slide-bg" style={{
-                backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
-                opacity: slide === i ? 1 : 0,
-                zIndex: slide === i ? 1 : 0,
-              }}/>
+              <div key={i} style={{ position: 'absolute', inset: 0, opacity: slide === i ? 1 : 0, zIndex: slide === i ? 1 : 0, transition: 'opacity 0.6s ease' }}>
+                {/* Fondo blureado */}
+                <div className="slide-bg" style={{
+                  backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                }}/>
+                {/* Imagen centrada sin recorte */}
+                {s.img && (
+                  <div className="slide-img">
+                    <img src={s.img} alt={s.title} className="active" />
+                  </div>
+                )}
+              </div>
             ))}
-            <div className="slide-overlay"/>
+            <div className="slide-overlay" style={{ zIndex: 2 }}/>
             <div className="slide-content">
               <span className="slide-tag">{slides[slide].tag}</span>
               <h1 className="slide-title">{slides[slide].title}</h1>
