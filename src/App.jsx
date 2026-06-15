@@ -32,6 +32,7 @@ import Terminos from './pages/Terminos'
 import Privacidad from './pages/Privacidad'
 import Cookies from './pages/Cookies'
 import Contacto from './pages/Contacto'
+import FollowersPage from './pages/FollowersPage'
 
 function PlayerAuthBridge() {
   const { user } = useAuth()
@@ -94,6 +95,7 @@ export default function App() {
                     <Route path="/artist/:userId" element={<ArtistProfile />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/requests" element={<Requests />} />
+                    <Route path="/artist/:userId/followers" element={<FollowersPage />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/upload" element={
                       <ArtistRoute>
