@@ -205,36 +205,8 @@ export default function ArtistProfile() {
   }
 
   // Al abrir el modal se consulta is_following para cada usuario
-  const handleOpenFollowModal = async (type) => {
-    setFollowModal(type)
-    setLoadingModal(true)
-    try {
-      const rawUsers = type === 'followers'
-        ? await getFollowers(userId)
-        : await getFollowing(userId)
-
-      // Si el usuario está logueado, enriquecemos cada entrada con is_following
-      if (user) {
-        const enriched = await Promise.all(
-          rawUsers.map(async (u) => {
-            if (u.user_id === user.id) return { ...u, is_following: false }
-            try {
-              const status = await isFollowing(u.user_id)
-              return { ...u, is_following: status }
-            } catch {
-              return { ...u, is_following: false }
-            }
-          })
-        )
-        setFollowModalUsers(enriched)
-      } else {
-        setFollowModalUsers(rawUsers.map(u => ({ ...u, is_following: false })))
-      }
-    } catch {
-      setFollowModalUsers([])
-    } finally {
-      setLoadingModal(false)
-    }
+  const handleOpenFollowModal = (type) => {
+    navigate(`/artist/${userId}/followers`, { state: { tab: type } })
   }
 
   const singles = songs.filter(s => !s.album_id)
