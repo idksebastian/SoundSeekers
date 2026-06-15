@@ -299,7 +299,7 @@ export default function Home() {
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center top;
+          background-position: center center;
           transition: opacity 0.6s ease;
         }
 
@@ -410,7 +410,6 @@ export default function Home() {
         @media (min-width: 600px) { .search-results { left: 2rem; right: 2rem; } }
         .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
         .search-result-item:hover { background: #f5f3ff; }
-        @media (min-width: 600px) { .slider-arrow { display: flex !important; } }
 
         /* ─── GÉNERO ─── */
         .genre-bar { display: flex; gap: 8px; overflow-x: auto; padding: 0 1rem 1.5rem; max-width: 1100px; margin: 0 auto; }
@@ -537,22 +536,8 @@ export default function Home() {
               </button>
             </div>
 
-            <button
-              onClick={e => { e.stopPropagation(); setSlide(s => (s + 2) % 3); clearInterval(slideInterval.current) }}
-              style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-              className="slider-arrow"
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
-              <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-            </button>
-            <button
-              onClick={e => { e.stopPropagation(); setSlide(s => (s + 1) % 3); clearInterval(slideInterval.current) }}
-              style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-              className="slider-arrow"
-              onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
-              onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
-              <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-            </button>
+
+
 
             <div className="slide-dots">
               {slides.map((_, i) => (
