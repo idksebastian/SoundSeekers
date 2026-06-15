@@ -118,6 +118,8 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "https://soundseekers.vercel.app",
+         "https://soundseekers.co",
+        "https://www.soundseekers.co",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
