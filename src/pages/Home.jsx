@@ -288,7 +288,7 @@ export default function Home() {
           margin: 0 1.5rem 2rem;
           border-radius: 24px;
           overflow: hidden;
-          height: 460px;
+          height: 380px;
           cursor: pointer;
         }
         @media (max-width: 600px) {
@@ -299,8 +299,11 @@ export default function Home() {
           position: absolute;
           inset: 0;
           background-size: cover;
-          background-position: center center;
+          background-position: center 20%;
           transition: opacity 0.6s ease;
+        }
+        @media (max-width: 600px) {
+          .slide-bg { background-position: center center; }
         }
 
         .slide-overlay {
