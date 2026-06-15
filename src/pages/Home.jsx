@@ -96,24 +96,13 @@ export default function Home() {
         published.forEach(song => {
           if (!song.user_id) return
           if (!artistMap[song.user_id]) {
-            artistMap[song.user_id] = {
-              name: song.artist_name,
-              cover: song.cover_url,
-              user_id: song.user_id,
-              streams: 0,
-              genreCount: {},
-            }
+            artistMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
           }
           if (song.genre) {
             artistMap[song.user_id].genreCount[song.genre] = (artistMap[song.user_id].genreCount[song.genre] ?? 0) + 1
           }
         })
-
-        Object.values(artistMap).forEach(a => {
-          a.genre = buildTopGenre(a.genreCount)
-          delete a.genreCount
-        })
-
+        Object.values(artistMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
         setArtists(Object.values(artistMap).slice(0, 8))
 
         const userIds = [...new Set(data.map(s => s.user_id).filter(Boolean))]
@@ -133,22 +122,14 @@ export default function Home() {
         }
 
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        const { data: weeklyStreams } = await supabase
-          .from('streams')
-          .select('song_id')
-          .gte('created_at', weekAgo)
+        const { data: weeklyStreams } = await supabase.from('streams').select('song_id').gte('created_at', weekAgo)
 
         if (weeklyStreams?.length) {
           const streamCount = {}
-          weeklyStreams.forEach(s => {
-            streamCount[s.song_id] = (streamCount[s.song_id] ?? 0) + 1
-          })
+          weeklyStreams.forEach(s => { streamCount[s.song_id] = (streamCount[s.song_id] ?? 0) + 1 })
 
           const publishedIds = new Set(published.map(s => s.id))
-          const topSongId = Object.entries(streamCount)
-            .filter(([id]) => publishedIds.has(id))
-            .sort((a, b) => b[1] - a[1])[0]?.[0]
-
+          const topSongId = Object.entries(streamCount).filter(([id]) => publishedIds.has(id)).sort((a, b) => b[1] - a[1])[0]?.[0]
           if (topSongId) {
             const song = published.find(s => s.id === topSongId)
             if (song) setTopSong({ ...song, weeklyStreams: streamCount[topSongId] })
@@ -162,30 +143,19 @@ export default function Home() {
             const song = published.find(s => s.id === songId)
             if (!song) return
             if (!artistWeeklyMap[song.user_id]) {
-              artistWeeklyMap[song.user_id] = {
-                name: song.artist_name, cover: song.cover_url,
-                user_id: song.user_id, streams: 0, genreCount: {}
-              }
+              artistWeeklyMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
             }
             artistWeeklyMap[song.user_id].streams += count
-            if (song.genre) {
-              artistWeeklyMap[song.user_id].genreCount[song.genre] = (artistWeeklyMap[song.user_id].genreCount[song.genre] ?? 0) + 1
-            }
+            if (song.genre) artistWeeklyMap[song.user_id].genreCount[song.genre] = (artistWeeklyMap[song.user_id].genreCount[song.genre] ?? 0) + 1
           })
-
-          Object.values(artistWeeklyMap).forEach(a => {
-            a.genre = buildTopGenre(a.genreCount)
-            delete a.genreCount
-          })
-
+          Object.values(artistWeeklyMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
           const artistWeeklyList = Object.values(artistWeeklyMap)
           if (artistWeeklyList.length) {
             setTopArtist([...artistWeeklyList].sort((a, b) => b.streams - a.streams)[0])
           } else {
             const fallbackMap = {}
             published.forEach(song => {
-              if (!fallbackMap[song.user_id])
-                fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
+              if (!fallbackMap[song.user_id]) fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
               fallbackMap[song.user_id].streams += (song.streams ?? 0)
               if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
             })
@@ -195,8 +165,7 @@ export default function Home() {
         } else {
           const fallbackMap = {}
           published.forEach(song => {
-            if (!fallbackMap[song.user_id])
-              fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
+            if (!fallbackMap[song.user_id]) fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
             fallbackMap[song.user_id].streams += (song.streams ?? 0)
             if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
           })
@@ -205,7 +174,6 @@ export default function Home() {
           if (sorted[0]) setTopSong(sorted[0])
           setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
         }
-
       } catch (err) {
         console.error(err)
       } finally {
@@ -262,9 +230,7 @@ export default function Home() {
       tag: 'Artista de la semana',
       title: topArtist?.name ?? 'Artista destacado',
       subtitle: topArtist?.genre ?? '',
-      desc: topArtist?.streams
-        ? `${topArtist.streams.toLocaleString()} reproducciones esta semana`
-        : 'Artista más escuchado esta semana',
+      desc: topArtist?.streams ? `${topArtist.streams.toLocaleString()} reproducciones esta semana` : 'Artista más escuchado esta semana',
       img: topArtist ? (artistAvatars[topArtist.user_id] || topArtist.cover) : null,
       action: () => topArtist && navigate(`/artist/${topArtist.user_id}`),
       btnLabel: 'Ver perfil',
@@ -316,23 +282,126 @@ export default function Home() {
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { display: none; }
 
-        .hero-slider { position: relative; margin: 0 1.5rem 2rem; border-radius: 24px; overflow: hidden; height: 460px; cursor: pointer; }
-        @media (max-width: 600px) { .hero-slider { height: 280px; margin: 0 0 1.5rem; border-radius: 0; } }
-        .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: center; transition: opacity 0.6s ease; }
-        .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,0.82) 45%, rgba(0,0,0,0.2) 100%); }
-        .slide-content { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; padding: 2rem; max-width: 560px; }
-        @media (max-width: 600px) { .slide-content { padding: 1.25rem; max-width: 100%; } }
-        .slide-tag { display: inline-block; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 100px; font-size: 10px; color: #e5e7eb; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; width: fit-content; }
-        .slide-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(1.8rem, 5vw, 4rem); color: #fff; line-height: 1.05; margin: 0 0 6px; letter-spacing: 0.02em; }
-        .slide-subtitle { font-size: 13px; color: rgba(255,255,255,0.6); margin: 0 0 4px; font-weight: 500; }
-        .slide-desc { font-size: 12px; color: rgba(255,255,255,0.45); margin: 0 0 16px; }
+        /* ─── HERO SLIDER ─── */
+        .hero-slider {
+          position: relative;
+          margin: 0 1.5rem 2rem;
+          border-radius: 24px;
+          overflow: hidden;
+          height: 380px;
+          cursor: pointer;
+        }
+        @media (max-width: 600px) {
+          .hero-slider { height: 280px; margin: 0 0 1.5rem; border-radius: 0; }
+        }
+
+        /* Imagen pegada a la derecha, texto cómodo a la izquierda */
+        .slide-bg {
+          position: absolute;
+          inset: 0;
+          background-size: cover;
+          background-position: right center;
+          transition: opacity 0.6s ease;
+        }
+        @media (max-width: 600px) {
+          .slide-bg { background-position: center center; }
+        }
+
+        .slide-overlay {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.05) 100%),
+            linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 40%);
+          z-index: 3;
+        }
+
+        /* ── FIX: contenido anclado al fondo, columna limpia sin gaps extra ── */
+        .slide-content {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          z-index: 4;
+          padding: 1.25rem 1.25rem 1.5rem;
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        @media (min-width: 600px) {
+          .slide-content { padding: 2rem 2rem 2.5rem; max-width: 560px; }
+        }
+
+        .slide-tag {
+          display: inline-flex;
+          align-items: center;
+          background: rgba(255,255,255,0.15);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          border: 1px solid rgba(255,255,255,0.25);
+          padding: 4px 12px;
+          border-radius: 100px;
+          font-size: 10px;
+          color: #e5e7eb;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          margin: 0 0 8px 0;
+          white-space: nowrap;
+        }
+
+        .slide-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(2rem, 8vw, 4rem);
+          color: #fff;
+          line-height: 0.95;
+          margin: 0 0 5px 0;
+          letter-spacing: 0.02em;
+          text-shadow: 0 2px 16px rgba(0,0,0,0.5);
+        }
+
+        /* subtitle y desc: margin 0 para que no floten */
+        .slide-subtitle {
+          font-size: 13px;
+          color: rgba(255,255,255,0.72);
+          margin: 0;
+          font-weight: 500;
+          line-height: 1.4;
+        }
+
+        .slide-desc {
+          font-size: 12px;
+          color: rgba(255,255,255,0.45);
+          margin: 4px 0 0 0;
+        }
         @media (max-width: 600px) { .slide-desc { display: none; } }
-        .slide-btn { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #111; font-weight: 700; font-size: 12px; padding: 9px 18px; border-radius: 100px; border: none; cursor: pointer; font-family: inherit; transition: transform 0.15s; width: fit-content; text-decoration: none; }
-        .slide-btn:hover { transform: scale(1.03); }
-        .slide-dots { position: absolute; bottom: 16px; right: 16px; display: flex; gap: 6px; z-index: 3; }
+
+        /* btn: margen top fijo para separarse del subtitle/desc */
+        .slide-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          background: #fff;
+          color: #111;
+          font-weight: 700;
+          font-size: 12px;
+          padding: 9px 18px;
+          border-radius: 100px;
+          border: none;
+          cursor: pointer;
+          font-family: inherit;
+          transition: transform 0.15s, box-shadow 0.15s;
+          margin: 14px 0 0 0;
+          text-decoration: none;
+          flex-shrink: 0;
+        }
+        .slide-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+
+        .slide-dots { position: absolute; bottom: 16px; right: 16px; display: flex; gap: 6px; z-index: 4; }
         .slide-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.35); border: none; cursor: pointer; transition: all 0.2s; padding: 0; }
         .slide-dot.active { background: #fff; width: 20px; border-radius: 4px; }
 
+        /* ─── SEARCH ─── */
         .search-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1rem 1.5rem; position: relative; }
         @media (min-width: 600px) { .search-wrap { padding: 0 2rem 1.5rem; } }
         .search-input { width: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 100px; padding: 12px 16px 12px 46px; color: #111; font-size: 14px; font-family: inherit; outline: none; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
@@ -342,14 +411,15 @@ export default function Home() {
         @media (min-width: 600px) { .search-results { left: 2rem; right: 2rem; } }
         .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
         .search-result-item:hover { background: #f5f3ff; }
-        @media (min-width: 600px) { .slider-arrow { display: flex !important; } }
-        
+
+        /* ─── GÉNERO ─── */
         .genre-bar { display: flex; gap: 8px; overflow-x: auto; padding: 0 1rem 1.5rem; max-width: 1100px; margin: 0 auto; }
         @media (min-width: 600px) { .genre-bar { padding: 0 2rem 1.5rem; } }
         .genre-pill { flex-shrink: 0; padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.15s; font-family: inherit; }
         .genre-pill.active { background: #7c3aed; color: #fff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,0.25); }
         .genre-pill:hover:not(.active) { border-color: #7c3aed; color: #7c3aed; }
 
+        /* ─── SECCIONES ─── */
         .section { max-width: 1100px; margin: 0 auto; padding: 0 1rem 2.5rem; overflow: hidden; }
         @media (min-width: 600px) { .section { padding: 0 2rem 3rem; } }
         .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
@@ -357,6 +427,7 @@ export default function Home() {
         .see-all { font-size: 12px; color: #9ca3af; text-decoration: none; font-weight: 600; transition: color 0.15s; white-space: nowrap; }
         .see-all:hover { color: #7c3aed; }
 
+        /* ─── RECIENTES ─── */
         .recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
         @media (max-width: 600px) { .recent-grid { grid-template-columns: 1fr 1fr; gap: 6px; } }
         .recent-item { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 8px; overflow: hidden; cursor: pointer; transition: background 0.15s; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -369,14 +440,12 @@ export default function Home() {
         .recent-play-btn { width: 32px; height: 32px; border-radius: 50%; background: #7c3aed; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; opacity: 0; transition: opacity 0.15s; }
         .recent-item:hover .recent-play-btn { opacity: 1; }
 
+        /* ─── GRID PRINCIPAL ─── */
         .main-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         @media (min-width: 500px) { .main-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
         @media (min-width: 800px) { .main-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; } }
-
-        /* ── FIX: tarjetas uniformes independiente del tipo (álbum vs canción) ── */
         .grid-card { cursor: pointer; min-width: 0; overflow: hidden; }
         .grid-card-img-wrap { position: relative; aspect-ratio: 1 / 1; width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: #f3f4f6; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-
         .grid-card-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
         .grid-card:hover .grid-card-img { transform: scale(1.07); }
         .grid-card-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0); transition: background 0.2s; display: flex; align-items: center; justify-content: center; }
@@ -391,6 +460,7 @@ export default function Home() {
         .presave-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
         .presave-badge { font-size: 9px; font-weight: 700; color: #fff; background: rgba(124,58,237,0.85); padding: 3px 8px; border-radius: 100px; }
 
+        /* ─── ARTISTAS ─── */
         .artists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
         @media (max-width: 400px) { .artists-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
         .artist-card { cursor: pointer; text-align: center; }
@@ -400,11 +470,13 @@ export default function Home() {
         .artist-card:hover .artist-img { transform: scale(1.08); }
         .artist-initial { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 800; color: #7c3aed; background: #f5f3ff; }
 
+        /* ─── STATS ─── */
         .stats-banner { background: linear-gradient(135deg, #7c3aed, #6d28d9); border-radius: 20px; padding: 2rem 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1064px; margin: 0 auto 3rem; }
         @media (max-width: 600px) { .stats-banner { grid-template-columns: 1fr; margin: 0 0 2.5rem; border-radius: 0; } }
         .stat-number { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; color: #fff; line-height: 1; margin-bottom: 4px; text-align: center; }
         .stat-label { font-size: 11px; color: rgba(255,255,255,0.65); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; }
 
+        /* ─── HOW ─── */
         .how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
         @media (max-width: 500px) { .how-grid { grid-template-columns: 1fr; } }
         .how-card { background: #fff; border-radius: 16px; padding: 1.5rem 1.25rem; border: 1px solid #f3f4f6; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
@@ -412,13 +484,13 @@ export default function Home() {
         .how-title { font-size: 14px; font-weight: 800; color: #111; margin: 0 0 6px; }
         .how-desc { font-size: 13px; color: #9ca3af; margin: 0; line-height: 1.6; }
 
+        /* ─── FOOTER ─── */
         .footer { background: #111; color: #fff; padding: 3rem 1rem 2rem; margin-top: 3rem; }
         @media (min-width: 600px) { .footer { padding: 4rem 2rem 2rem; } }
         .footer-inner { max-width: 1100px; margin: 0 auto; }
         .footer-top { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 2rem; margin-bottom: 2.5rem; }
         @media (max-width: 700px) { .footer-top { grid-template-columns: 1fr 1fr; gap: 1.5rem; } }
         @media (max-width: 400px) { .footer-top { grid-template-columns: 1fr; } }
-        .footer-brand-name { font-family: 'Bebas Neue', sans-serif; font-size: 1.6rem; color: #fff; letter-spacing: 0.04em; margin: 0 0 8px; }
         .footer-brand-desc { font-size: 13px; color: #6b7280; line-height: 1.6; max-width: 260px; margin: 0 0 16px; }
         .footer-socials { display: flex; gap: 8px; flex-wrap: wrap; }
         .footer-social-btn { width: 34px; height: 34px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; text-decoration: none; }
@@ -437,62 +509,46 @@ export default function Home() {
       `}</style>
 
       {!loading && (
-  <div style={{ paddingTop: '1rem' }}>
-    <div className="hero-slider"
-      onClick={slides[slide].action}
-      onTouchStart={e => { slideInterval.current && clearInterval(slideInterval.current); const x = e.touches[0].clientX; e.currentTarget._touchX = x }}
-      onTouchEnd={e => {
-        const dx = e.changedTouches[0].clientX - (e.currentTarget._touchX ?? 0)
-        if (Math.abs(dx) > 40) {
-          setSlide(s => dx < 0 ? (s + 1) % 3 : (s + 2) % 3)
-        }
-        slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
-      }}>
-      {slides.map((s, i) => (
-        <div key={i} className="slide-bg" style={{
-          backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
-          opacity: slide === i ? 1 : 0,
-          zIndex: slide === i ? 1 : 0,
-        }}/>
-      ))}
-      <div className="slide-overlay" style={{ zIndex: 2 }}/>
-      <div className="slide-content" style={{ zIndex: 3 }}>
-        <span className="slide-tag">{slides[slide].tag}</span>
-        <h1 className="slide-title">{slides[slide].title}</h1>
-        {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
-        <p className="slide-desc">{slides[slide].desc}</p>
-        <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
-          {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
-          {slides[slide].btnLabel}
-        </button>
-      </div>
+        <div style={{ paddingTop: '1rem' }}>
+          <div className="hero-slider"
+            onClick={slides[slide].action}
+            onTouchStart={e => { slideInterval.current && clearInterval(slideInterval.current); const x = e.touches[0].clientX; e.currentTarget._touchX = x }}
+            onTouchEnd={e => {
+              const dx = e.changedTouches[0].clientX - (e.currentTarget._touchX ?? 0)
+              if (Math.abs(dx) > 40) { setSlide(s => dx < 0 ? (s + 1) % 3 : (s + 2) % 3) }
+              slideInterval.current = setInterval(() => setSlide(s => (s + 1) % 3), 5000)
+            }}>
+            {slides.map((s, i) => (
+              <div key={i} className="slide-bg" style={{
+                backgroundImage: s.img ? `url(${s.img})` : 'linear-gradient(135deg, #7c3aed, #ec4899)',
+                opacity: slide === i ? 1 : 0,
+                zIndex: slide === i ? 1 : 0,
+              }}/>
+            ))}
+            <div className="slide-overlay" style={{ zIndex: 2 }}/>
+            <div className="slide-content">
+              <span className="slide-tag">{slides[slide].tag}</span>
+              <h1 className="slide-title">{slides[slide].title}</h1>
+              {slides[slide].subtitle && <p className="slide-subtitle">{slides[slide].subtitle}</p>}
+              {slides[slide].desc && <p className="slide-desc">{slides[slide].desc}</p>}
+              <button className="slide-btn" onClick={e => { e.stopPropagation(); slides[slide].action() }}>
+                {slides[slide].type === 'song' && <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>}
+                {slides[slide].btnLabel}
+              </button>
+            </div>
 
-      <button
-        onClick={e => { e.stopPropagation(); setSlide(s => (s + 2) % 3); clearInterval(slideInterval.current) }}
-        style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-        className="slider-arrow"
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
-        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-      </button>
-      <button
-        onClick={e => { e.stopPropagation(); setSlide(s => (s + 1) % 3); clearInterval(slideInterval.current) }}
-        style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', zIndex: 4, width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)', cursor: 'pointer', display: 'none', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-        className="slider-arrow"
-        onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.35)'}
-        onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}>
-        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </button>
 
-      <div className="slide-dots" style={{ zIndex: 4 }}>
-        {slides.map((_, i) => (
-          <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
-            onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+
+
+            <div className="slide-dots">
+              {slides.map((_, i) => (
+                <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
+                  onClick={e => { e.stopPropagation(); setSlide(i); clearInterval(slideInterval.current) }}/>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {recentlyPlayed.length > 0 && (
         <div className="section">
@@ -605,10 +661,7 @@ export default function Home() {
                           <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
                         </svg>
                         <span className="presave-badge">
-                          {isPresave
-                            ? (presaving === d.id ? '...' : isSaved ? 'Presave Hecho' : 'Hacer Presave')
-                            : 'Próximamente'
-                          }
+                          {isPresave ? (presaving === d.id ? '...' : isSaved ? 'Presave Hecho' : 'Hacer Presave') : 'Próximamente'}
                         </span>
                       </div>
                     ) : (

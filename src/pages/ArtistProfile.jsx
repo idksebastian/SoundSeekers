@@ -36,40 +36,35 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
       />
 
-      {/* Sheet */}
-      <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-0 sm:flex sm:items-center sm:justify-center sm:px-4">
-        <div className="bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-3xl shadow-2xl flex flex-col max-h-[80vh] sm:max-h-[70vh]">
-
-          {/* Handle bar (mobile) */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 rounded-full bg-gray-200" />
-          </div>
+      {/* Modal centrado — inline styles para garantizar centrado en cualquier contexto */}
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
+        <div style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
 
           {/* Header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <h3 className="text-base font-bold text-black">{title}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f3f4f6' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111', margin: 0 }}>{title}</h3>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition"
+              style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+              <svg width="14" height="14" fill="none" stroke="#6b7280" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/>
               </svg>
             </button>
           </div>
 
           {/* List */}
-          <div className="overflow-y-auto flex-1 py-2">
+          <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
             {users.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-14 gap-2">
-                <svg className="w-10 h-10 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', gap: '8px' }}>
+                <svg width="40" height="40" fill="none" stroke="#e5e7eb" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
                 </svg>
-                <p className="text-gray-400 text-sm">No hay usuarios aún.</p>
+                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>No hay usuarios aún.</p>
               </div>
             ) : (
               users.map(u => {
@@ -79,48 +74,46 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
                 return (
                   <div
                     key={u.user_id}
-                    className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 cursor-pointer transition"
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', cursor: 'pointer', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     onClick={() => { onNavigate(u.user_id); onClose() }}
                   >
                     {/* Avatar */}
-                    <div className="w-11 h-11 rounded-full overflow-hidden bg-gray-100 shrink-0 border border-gray-200">
+                    <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', border: '1px solid #e5e7eb', flexShrink: 0 }}>
                       {u.avatar_url ? (
-                        <img src={u.avatar_url} alt={u.artist_name || u.name} className="w-full h-full object-cover"/>
+                        <img src={u.avatar_url} alt={u.artist_name || u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
                       ) : (
-                        <div className="w-full h-full bg-purple-700 flex items-center justify-center text-sm font-bold text-white uppercase">
+                        <div style={{ width: '100%', height: '100%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: '#fff', textTransform: 'uppercase' }}>
                           {(u.artist_name || u.name)?.[0] ?? '?'}
                         </div>
                       )}
                     </div>
 
                     {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-black truncate leading-tight">
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
                         {u.artist_name || u.name}
                       </p>
                       {u.artist_name && u.name && (
-                        <p className="text-xs text-gray-400 truncate">{u.name}</p>
+                        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</p>
                       )}
                       {u.artist_genre && (
-                        <p className="text-xs text-gray-400 truncate">{u.artist_genre}</p>
+                        <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.artist_genre}</p>
                       )}
                     </div>
 
-                    {/* Follow button — no se muestra en el propio perfil */}
+                    {/* Follow button */}
                     {!isMe && currentUserId && (
                       <button
                         onClick={(e) => handleToggleFollow(e, u.user_id)}
                         disabled={isLoading}
-                        className={`shrink-0 px-3.5 py-1.5 rounded-xl text-xs font-semibold border transition min-w-[80px] text-center ${
-                          isFollowingUser
-                            ? 'border-gray-200 text-gray-600 bg-white hover:bg-gray-50'
-                            : 'bg-purple-700 text-white border-purple-700 hover:bg-purple-800'
-                        }`}
+                        style={{ flexShrink: 0, padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: isFollowingUser ? '1px solid #e5e7eb' : '1px solid #7c3aed', background: isFollowingUser ? '#fff' : '#7c3aed', color: isFollowingUser ? '#374151' : '#fff', cursor: 'pointer', minWidth: '76px', textAlign: 'center', fontFamily: 'inherit' }}
                       >
                         {isLoading ? (
-                          <svg className="w-3.5 h-3.5 animate-spin mx-auto" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                          <svg style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} fill="none" viewBox="0 0 24 24">
+                            <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                            <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
                           </svg>
                         ) : isFollowingUser ? 'Siguiendo' : 'Seguir'}
                       </button>
@@ -212,36 +205,8 @@ export default function ArtistProfile() {
   }
 
   // Al abrir el modal se consulta is_following para cada usuario
-  const handleOpenFollowModal = async (type) => {
-    setFollowModal(type)
-    setLoadingModal(true)
-    try {
-      const rawUsers = type === 'followers'
-        ? await getFollowers(userId)
-        : await getFollowing(userId)
-
-      // Si el usuario está logueado, enriquecemos cada entrada con is_following
-      if (user) {
-        const enriched = await Promise.all(
-          rawUsers.map(async (u) => {
-            if (u.user_id === user.id) return { ...u, is_following: false }
-            try {
-              const status = await isFollowing(u.user_id)
-              return { ...u, is_following: status }
-            } catch {
-              return { ...u, is_following: false }
-            }
-          })
-        )
-        setFollowModalUsers(enriched)
-      } else {
-        setFollowModalUsers(rawUsers.map(u => ({ ...u, is_following: false })))
-      }
-    } catch {
-      setFollowModalUsers([])
-    } finally {
-      setLoadingModal(false)
-    }
+  const handleOpenFollowModal = (type) => {
+    navigate(`/artist/${userId}/followers`, { state: { tab: type } })
   }
 
   const singles = songs.filter(s => !s.album_id)

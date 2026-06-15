@@ -151,18 +151,45 @@ export async function getPublicProfileStreams(userId) {
 
   return count ?? 0
 }
+
+// ── CORREGIDO: query en dos pasos para evitar el JOIN anidado que devuelve null ──
+
 export async function getFollowers(userId) {
-  const { data } = await supabase
+  // Paso 1: obtener los IDs de quienes siguen a userId
+  const { data: follows, error } = await supabase
     .from('follows')
-    .select('follower_id, profiles(user_id, name, artist_name, avatar_url)')
+    .select('follower_id')
     .eq('following_id', userId)
-  return data?.map(f => f.profiles).filter(Boolean) ?? []
+
+  if (error || !follows?.length) return []
+
+  const followerIds = follows.map(f => f.follower_id)
+
+  // Paso 2: obtener los perfiles de esos IDs
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, name, artist_name, avatar_url')
+    .in('user_id', followerIds)
+
+  return profiles ?? []
 }
 
 export async function getFollowing(userId) {
-  const { data } = await supabase
+  // Paso 1: obtener los IDs a quienes sigue userId
+  const { data: follows, error } = await supabase
     .from('follows')
-    .select('following_id, profiles(user_id, name, artist_name, avatar_url)')
+    .select('following_id')
     .eq('follower_id', userId)
-  return data?.map(f => f.profiles).filter(Boolean) ?? []
+
+  if (error || !follows?.length) return []
+
+  const followingIds = follows.map(f => f.following_id)
+
+  // Paso 2: obtener los perfiles de esos IDs
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, name, artist_name, avatar_url')
+    .in('user_id', followingIds)
+
+  return profiles ?? []
 }
