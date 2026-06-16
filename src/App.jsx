@@ -21,6 +21,7 @@ import Community from './pages/Community'
 import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
+import ListenerProfile from './pages/ListenerProfile'
 import Admin from './pages/Admin'
 import Requests from './pages/Requests'
 import AlbumDetail from './pages/AlbumDetail'
@@ -93,9 +94,10 @@ export default function App() {
                     <Route path="/admin" element={<Admin />} />
                     <Route path="/album/:albumId" element={<AlbumDetail />} />
                     <Route path="/artist/:userId" element={<ArtistProfile />} />
+                    <Route path="/artist/:userId/followers" element={<FollowersPage />} />
+                    <Route path="/listener/:userId" element={<ListenerProfile />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/requests" element={<Requests />} />
-                    <Route path="/artist/:userId/followers" element={<FollowersPage />} />
                     <Route path="/settings" element={<Settings />} />
                     <Route path="/upload" element={
                       <ArtistRoute>
