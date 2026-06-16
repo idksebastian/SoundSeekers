@@ -38,6 +38,16 @@ const NOTIFICATION_CONFIG = {
       </div>
     )
   },
+  comment_reply: {
+    label: 'respondió a tu comentario',
+    icon: (
+      <div className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center">
+        <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
+        </svg>
+      </div>
+    )
+  },
   feat_invite: {
     label: 'te invitó a colaborar en una canción',
     icon: (
@@ -118,20 +128,28 @@ export default function Navbar() {
       const newNotif = payload.new
       if (!isNotifEnabled(user.id, newNotif.type)) return
 
-      let from_profile = null
-      if (newNotif.from_user_id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('user_id, name, artist_name, avatar_url')
-          .eq('user_id', newNotif.from_user_id)
-          .single()
-        from_profile = profile ?? null
-      }
-
-      setNotifications(prev => [{ ...newNotif, from_profile }, ...prev])
+      // Mostrar inmediatamente sin perfil
+      setNotifications(prev => [{ ...newNotif, from_profile: null }, ...prev])
       setUnreadCount(prev => prev + 1)
       if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
       if (newNotif.type === 'artist_request') setPendingCount(prev => prev + 1)
+
+      // Buscar perfil con reintentos (puede ser usuario nuevo sin perfil aún)
+      if (newNotif.from_user_id) {
+        let from_profile = null
+        for (let attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt))
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('user_id, name, artist_name, avatar_url')
+            .eq('user_id', newNotif.from_user_id)
+            .single()
+          if (profile) { from_profile = profile; break }
+        }
+        setNotifications(prev => prev.map(n =>
+          n.id === newNotif.id ? { ...n, from_profile } : n
+        ))
+      }
     })
 
     return () => { channel.unsubscribe() }
@@ -163,11 +181,27 @@ export default function Navbar() {
       setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n))
     }
     setNotifOpen(false)
-    if (notif.type === 'feat_invite') navigate('/requests')
-    else if (notif.type === 'follow') navigate(`/artist/${notif.from_user_id}`)
-    else if (notif.type === 'like' || notif.type === 'comment') navigate(`/community?post=${notif.reference_id}`)
-    else if (notif.type === 'presave') navigate(`/artist/${user.id}`)
-    else if (notif.type === 'artist_request') navigate('/admin')
+
+    if (notif.type === 'feat_invite') {
+      navigate('/requests')
+    } else if (notif.type === 'follow') {
+      navigate(`/artist/${notif.from_user_id}`)
+    } else if (notif.type === 'like') {
+      // like: reference_id es el post_id directo (uuid)
+      navigate(`/community/post/${notif.reference_id}`)
+    } else if (notif.type === 'comment' || notif.type === 'comment_reply') {
+      // comment/reply: reference_id puede ser "postId:commentId" o solo "postId"
+      const ref = notif.reference_id ?? ''
+      const [postId, commentId] = ref.includes(':') ? ref.split(':') : [ref, null]
+      const url = commentId
+        ? `/community/post/${postId}?highlight=${commentId}`
+        : `/community/post/${postId}`
+      navigate(url)
+    } else if (notif.type === 'presave') {
+      navigate(`/artist/${user.id}`)
+    } else if (notif.type === 'artist_request') {
+      navigate('/admin')
+    }
   }
 
   const handleLogout = async () => {
