@@ -1,4 +1,4 @@
-    import { useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -6,15 +6,74 @@ import { isFollowing, toggleFollow, getFollowers, getFollowing } from '../api/pr
 import { isAdmin, getListenerAdminDetail } from '../api/adminRequests'
 
 const LISTENER_LEVELS = [
-  { min: 0,    max: 49,   label: 'Novato',      color: '#9ca3af', bg: '#f9fafb',   icon: '🎧' },
-  { min: 50,   max: 199,  label: 'Melómano',    color: '#10b981', bg: '#f0fdf4',   icon: '🎵' },
-  { min: 200,  max: 499,  label: 'Fanático',    color: '#3b82f6', bg: '#eff6ff',   icon: '🎶' },
-  { min: 500,  max: 999,  label: 'Experto',     color: '#f59e0b', bg: '#fffbeb',   icon: '⭐' },
-  { min: 1000, max: Infinity, label: 'Leyenda', color: '#7c3aed', bg: '#f5f3ff',   icon: '👑' },
+  {
+    label: 'Curioso',
+    desc: 'Registrarte en SoundSeekers',
+    min: 0,
+    max: 10,
+    color: '#7c3aed',
+    bg: '#f5f3ff',
+    border: '#e9d5ff',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Explorador',
+    desc: '10 reproducciones',
+    min: 10,
+    max: 20,
+    color: '#2563eb',
+    bg: '#eff6ff',
+    border: '#bfdbfe',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10"/>
+        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Melómano',
+    desc: '20 reproducciones',
+    min: 20,
+    max: 50,
+    color: '#0891b2',
+    bg: '#ecfeff',
+    border: '#a5f3fc',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <path d="M3 18v-6a9 9 0 0118 0v6"/>
+        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/>
+      </svg>
+    ),
+  },
+  {
+    label: 'Descubridor',
+    desc: '50 reproducciones',
+    min: 50,
+    max: Infinity,
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
+    icon: (
+      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="8"/>
+        <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
+      </svg>
+    ),
+  },
 ]
 
 function getLevel(streams) {
-  return LISTENER_LEVELS.find(l => streams >= l.min && streams <= l.max) ?? LISTENER_LEVELS[0]
+  // Buscar el nivel más alto alcanzado
+  for (let i = LISTENER_LEVELS.length - 1; i >= 0; i--) {
+    if (streams >= LISTENER_LEVELS[i].min) return LISTENER_LEVELS[i]
+  }
+  return LISTENER_LEVELS[0]
 }
 
 export default function ListenerProfile() {
@@ -145,9 +204,9 @@ export default function ListenerProfile() {
 
   const level = getLevel(streams)
   const levelIndex = LISTENER_LEVELS.indexOf(level)
-  const nextLevel = LISTENER_LEVELS[levelIndex + 1]
+  const nextLevel = LISTENER_LEVELS[levelIndex + 1] ?? null
   const progressPct = nextLevel
-    ? Math.round(((streams - level.min) / (nextLevel.min - level.min)) * 100)
+    ? Math.min(100, Math.round(((streams - level.min) / (nextLevel.min - level.min)) * 100))
     : 100
 
   return (
@@ -236,34 +295,69 @@ export default function ListenerProfile() {
         </div>
 
         {/* ── Nivel de oyente ── */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center gap-3 mb-3">
-            <div style={{ background: level.bg }} className="w-10 h-10 rounded-xl flex items-center justify-center text-lg">
-              {level.icon}
-            </div>
-            <div>
-              <p className="text-sm font-bold text-black">Nivel: {level.label}</p>
-              <p className="text-xs text-gray-400">
-                {nextLevel ? `${streams.toLocaleString()} / ${nextLevel.min.toLocaleString()} rep. para ${nextLevel.label}` : '¡Nivel máximo alcanzado! 🏆'}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-1">
+            <h2 className="text-base sm:text-lg font-bold text-black">Nivel de oyente</h2>
+            <span className="text-xs text-gray-400 font-medium">{streams.toLocaleString()} rep. totales</span>
+          </div>
+          <p className="text-gray-400 text-sm mb-5">
+            {isOwnProfile ? 'Escucha más música en SoundSeekers para subir de nivel.' : 'Nivel basado en reproducciones totales.'}
+          </p>
+
+          {nextLevel && (
+            <div className="mb-5 p-3.5 rounded-xl border border-gray-100 bg-gray-50">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div style={{ color: level.color }}>{level.icon}</div>
+                  <span className="text-sm font-bold text-gray-800">{level.label}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400">→</span>
+                  <div style={{ color: nextLevel.color }}>{nextLevel.icon}</div>
+                  <span className="text-sm font-semibold" style={{ color: nextLevel.color }}>{nextLevel.label}</span>
+                </div>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${progressPct}%`, background: `linear-gradient(to right, ${level.color}, ${nextLevel.color})` }}/>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5 text-right">
+                {streams.toLocaleString()} / {nextLevel.min.toLocaleString()} reproducciones para {nextLevel.label}
               </p>
             </div>
-            <span style={{ color: level.color }} className="ml-auto text-sm font-bold">{progressPct}%</span>
-          </div>
-          {/* Barra de progreso */}
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div style={{ width: `${progressPct}%`, background: level.color, transition: 'width 0.8s ease' }} className="h-full rounded-full"/>
-          </div>
-          {/* Todos los niveles */}
-          <div className="flex items-center justify-between mt-3">
-            {LISTENER_LEVELS.map((l, i) => (
-              <div key={l.label} className="flex flex-col items-center gap-1">
-                <div style={{ background: i <= levelIndex ? l.bg : '#f9fafb', border: `2px solid ${i <= levelIndex ? l.color : '#e5e7eb'}` }}
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs">
-                  {i <= levelIndex ? l.icon : '·'}
-                </div>
-                <p style={{ color: i <= levelIndex ? l.color : '#d1d5db' }} className="text-[10px] font-semibold hidden sm:block">{l.label}</p>
+          )}
+
+          {!nextLevel && (
+            <div className="mb-5 p-3.5 rounded-xl border border-amber-200 bg-amber-50 flex items-center gap-3">
+              <div style={{ color: level.color }}>{level.icon}</div>
+              <div>
+                <p className="text-sm font-bold text-amber-700">¡Nivel máximo alcanzado!</p>
+                <p className="text-xs text-amber-600">Un verdadero Descubridor de música.</p>
               </div>
-            ))}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+            {LISTENER_LEVELS.map((lvl) => {
+              const done = streams >= lvl.min
+              return (
+                <div key={lvl.label}
+                  className="p-3 rounded-xl border transition-all"
+                  style={{ borderColor: done ? lvl.border : '#f3f4f6', background: done ? lvl.bg : '#f9fafb', opacity: done ? 1 : 0.5 }}>
+                  <div className="mb-1.5" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.icon}</div>
+                  <p className="text-sm font-semibold" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{lvl.desc}</p>
+                  {done && (
+                    <div className="mt-1.5 flex items-center gap-1">
+                      <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ color: lvl.color }}>
+                        <path d="M20 6L9 17l-5-5"/>
+                      </svg>
+                      <span className="text-xs font-semibold" style={{ color: lvl.color }}>Desbloqueado</span>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
         </div>
 
