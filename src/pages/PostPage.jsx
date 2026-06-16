@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { toggleLike, getUserLike, getComments, createComment, replyToComment, deleteComment } from '../api/community'
+import { usePlayer } from '../context/PlayerContext'
 import { supabase } from '../lib/supabase'
 
 function timeAgo(dateStr) {
@@ -74,10 +75,12 @@ export default function PostPage() {
   const highlightCommentId = searchParams.get('highlight')
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { playSong, currentSong, isPlaying } = usePlayer()
   const commentInputRef = useRef(null)
   const replyInputRef = useRef(null)
 
   const [post, setPost] = useState(null)
+  const [linkedSong, setLinkedSong] = useState(null)
   const [loading, setLoading] = useState(true)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
@@ -111,6 +114,15 @@ export default function PostPage() {
         if (error) throw error
         setPost(data)
         setLikeCount(data.post_likes?.[0]?.count ?? 0)
+        // Cargar canción vinculada si existe
+        if (data.song_id) {
+          const { data: songData } = await supabase
+            .from('songs')
+            .select('*')
+            .eq('id', data.song_id)
+            .single()
+          if (songData) setLinkedSong(songData)
+        }
       } catch { navigate('/community', { replace: true }) }
       finally { setLoading(false) }
     }
@@ -248,10 +260,54 @@ export default function PostPage() {
             </div>
             <h1 style={{ fontSize: '22px', fontWeight: '800', color: '#111', margin: '0 0 12px', lineHeight: 1.3 }}>{post.title}</h1>
             <p style={{ fontSize: '15px', color: '#374151', lineHeight: 1.7, margin: '0 0 16px', whiteSpace: 'pre-wrap' }}>{post.content}</p>
-            {post.song_label && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#f5f3ff', border: '1px solid #ede9fe', borderRadius: '14px', padding: '10px 16px', marginBottom: '16px' }}>
-                <svg width="16" height="16" fill="#7c3aed" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-                <span style={{ fontSize: '14px', color: '#6d28d9', fontWeight: '600' }}>{post.song_label}</span>
+            {(linkedSong || post.song_label) && (
+              <div
+                onClick={() => linkedSong && playSong(linkedSong)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '12px',
+                  background: linkedSong && currentSong?.id === linkedSong.id ? '#ede9fe' : '#f5f3ff',
+                  border: `1px solid ${linkedSong && currentSong?.id === linkedSong.id ? '#c4b5fd' : '#ede9fe'}`,
+                  borderRadius: '16px', padding: '12px 16px', marginBottom: '16px',
+                  cursor: linkedSong ? 'pointer' : 'default',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { if (linkedSong) e.currentTarget.style.background = '#ede9fe' }}
+                onMouseLeave={e => { if (!(linkedSong && currentSong?.id === linkedSong.id)) e.currentTarget.style.background = '#f5f3ff' }}
+              >
+                {linkedSong?.cover_url ? (
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <img src={linkedSong.cover_url} alt={linkedSong.title}
+                      style={{ width: '48px', height: '48px', borderRadius: '10px', objectFit: 'cover', display: 'block' }}/>
+                    {linkedSong && currentSong?.id === linkedSong.id && isPlaying && (
+                      <div style={{ position: 'absolute', inset: 0, borderRadius: '10px', background: 'rgba(124,58,237,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ width: '48px', height: '48px', borderRadius: '10px', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <svg width="20" height="20" fill="#7c3aed" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                  </div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13px', color: '#7c3aed', fontWeight: '600', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {linkedSong?.title || post.song_label}
+                  </p>
+                  {linkedSong && (
+                    <p style={{ fontSize: '12px', color: '#a78bfa', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {linkedSong.display_artist || linkedSong.artist_name} · {linkedSong.genre}
+                    </p>
+                  )}
+                </div>
+                {linkedSong && (
+                  <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: currentSong?.id === linkedSong.id && isPlaying ? '#7c3aed' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 8px rgba(124,58,237,0.2)', transition: 'background 0.2s' }}>
+                    {currentSong?.id === linkedSong.id && isPlaying ? (
+                      <svg width="14" height="14" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                    ) : (
+                      <svg width="14" height="14" fill="#7c3aed" viewBox="0 0 24 24" style={{ marginLeft: '2px' }}><path d="M5 3l14 9-14 9V3z"/></svg>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

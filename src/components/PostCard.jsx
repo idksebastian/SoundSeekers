@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toggleLike, getUserLike, deletePost, updatePost } from '../api/community'
+import { usePlayer } from '../context/PlayerContext'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
 function timeAgo(dateStr) {
@@ -33,6 +35,7 @@ function ConfirmModal({ message, onConfirm, onCancel }) {
 
 export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
   const { user } = useAuth()
+  const { playSong, currentSong, isPlaying } = usePlayer()
   const navigate = useNavigate()
   const [likeCount, setLikeCount] = useState(post.post_likes?.[0]?.count ?? 0)
   const [liked, setLiked] = useState(false)
@@ -45,6 +48,13 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const commentCount = post.post_comments?.[0]?.count ?? 0
+  const [linkedSong, setLinkedSong] = useState(null)
+
+  useEffect(() => {
+    if (!post.song_id) return
+    supabase.from('songs').select('*').eq('id', post.song_id).single()
+      .then(({ data }) => { if (data) setLinkedSong(data) })
+  }, [post.song_id])
   const isOwner = user?.id === post.user_id
 
   useEffect(() => {
@@ -164,10 +174,39 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
             <>
               <h2 style={{ fontSize: '16px', fontWeight: '800', color: '#111', margin: '0 0 8px', lineHeight: 1.35 }}>{post.title}</h2>
               <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, margin: '0 0 12px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{post.content}</p>
-              {post.song_label && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', border: '1px solid #ede9fe', borderRadius: '12px', padding: '8px 14px', marginBottom: '12px' }}>
-                  <svg width="14" height="14" fill="#7c3aed" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-                  <span style={{ fontSize: '13px', color: '#6d28d9', fontWeight: '500', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{post.song_label}</span>
+              {(linkedSong || post.song_label) && (
+                <div
+                  onClick={e => { e.stopPropagation(); if (linkedSong) playSong(linkedSong) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    background: linkedSong && currentSong?.id === linkedSong.id ? '#ede9fe' : '#f5f3ff',
+                    border: '1px solid #ede9fe', borderRadius: '12px', padding: '8px 12px', marginBottom: '12px',
+                    cursor: linkedSong ? 'pointer' : 'default', transition: 'background 0.15s',
+                  }}>
+                  {linkedSong?.cover_url ? (
+                    <img src={linkedSong.cover_url} alt={linkedSong.title}
+                      style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
+                  ) : (
+                    <svg width="14" height="14" fill="#7c3aed" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '13px', color: '#6d28d9', fontWeight: '600', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {linkedSong?.title || post.song_label}
+                    </p>
+                    {linkedSong && (
+                      <p style={{ fontSize: '11px', color: '#a78bfa', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {linkedSong.display_artist || linkedSong.artist_name}
+                      </p>
+                    )}
+                  </div>
+                  {linkedSong && (
+                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: currentSong?.id === linkedSong.id && isPlaying ? '#7c3aed' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 2px 6px rgba(124,58,237,0.15)', transition: 'background 0.2s' }}>
+                      {currentSong?.id === linkedSong.id && isPlaying
+                        ? <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                        : <svg width="10" height="10" fill="#7c3aed" viewBox="0 0 24 24" style={{ marginLeft: '1px' }}><path d="M5 3l14 9-14 9V3z"/></svg>
+                      }
+                    </div>
+                  )}
                 </div>
               )}
             </>
