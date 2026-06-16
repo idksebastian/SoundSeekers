@@ -18,6 +18,7 @@ import EditSong from './pages/EditSong'
 import Home from './pages/Home'
 import Profile from './pages/Profile'
 import Community from './pages/Community'
+import PostPage from './pages/PostPage'
 import NotFound from './pages/NotFound'
 import Animo from './pages/Animo'
 import ArtistProfile from './pages/ArtistProfile'
@@ -89,6 +90,7 @@ export default function App() {
                     <Route path="/home" element={<Home />} />
                     <Route path="/dashboard" element={<Dashboard />} />
                     <Route path="/community" element={<Community />} />
+                    <Route path="/community/post/:postId" element={<PostPage />} />
                     <Route path="/animo" element={<Animo />} />
                     <Route path="/ai" element={<AI />} />
                     <Route path="/admin" element={<Admin />} />
