@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { isFollowing, toggleFollow, getFollowers, getFollowing } from '../api/profile'
-import { isAdmin, getListenerAdminDetail } from '../api/adminRequests'
+import { isAdmin, getListenerAdminDetail, approveArtistRequest, rejectArtistRequest } from '../api/adminRequests'
 
 const LISTENER_LEVELS = [
   {
@@ -95,6 +95,8 @@ export default function ListenerProfile() {
   const [artistRequest, setArtistRequest] = useState(null)
 
   const isOwnProfile = user?.id === userId
+  const [adminNote, setAdminNote] = useState('')
+  const [processingReq, setProcessingReq] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -154,15 +156,14 @@ export default function ListenerProfile() {
           if (admin) {
             const detail = await getListenerAdminDetail(userId)
             setAdminDetail(detail)
-            // Buscar solicitud de artista
-            const { data: req } = await supabase
+            // Buscar solicitud de artista — query directo sin FK
+            const { data: reqData } = await supabase
               .from('artist_requests')
               .select('*')
               .eq('user_id', userId)
               .order('created_at', { ascending: false })
               .limit(1)
-              .single()
-            setArtistRequest(req)
+            setArtistRequest(reqData?.[0] ?? null)
           }
         }
       } catch (e) {
@@ -173,6 +174,27 @@ export default function ListenerProfile() {
     }
     load()
   }, [userId, user])
+
+  const handleApprove = async () => {
+    if (!artistRequest) return
+    setProcessingReq(true)
+    try {
+      await approveArtistRequest(artistRequest.id, userId, artistRequest.artist_name, adminNote)
+      setArtistRequest(prev => ({ ...prev, status: 'approved', admin_note: adminNote }))
+    } catch (e) { alert(e.message) }
+    finally { setProcessingReq(false) }
+  }
+
+  const handleReject = async () => {
+    if (!artistRequest) return
+    if (!adminNote.trim()) { alert('Añade una nota explicando el motivo del rechazo.'); return }
+    setProcessingReq(true)
+    try {
+      await rejectArtistRequest(artistRequest.id, userId, adminNote)
+      setArtistRequest(prev => ({ ...prev, status: 'rejected', admin_note: adminNote }))
+    } catch (e) { alert(e.message) }
+    finally { setProcessingReq(false) }
+  }
 
   const handleFollow = async () => {
     if (!user) return navigate('/login')
@@ -391,36 +413,95 @@ export default function ListenerProfile() {
 
             {/* Solicitud de artista */}
             {artistRequest ? (
-              <div className={`rounded-xl p-4 border ${
-                artistRequest.status === 'pending'  ? 'bg-amber-50 border-amber-200' :
-                artistRequest.status === 'approved' ? 'bg-green-50 border-green-200' :
-                'bg-red-50 border-red-200'
+              <div className={`rounded-xl border overflow-hidden ${
+                artistRequest.status === 'pending'  ? 'border-amber-200' :
+                artistRequest.status === 'approved' ? 'border-green-200' :
+                'border-red-200'
               }`}>
-                <div className="flex items-center justify-between mb-2">
+                {/* Header */}
+                <div className={`flex items-center justify-between px-4 py-3 ${
+                  artistRequest.status === 'pending'  ? 'bg-amber-50' :
+                  artistRequest.status === 'approved' ? 'bg-green-50' :
+                  'bg-red-50'
+                }`}>
                   <p className="text-sm font-bold text-gray-800">Solicitud de artista</p>
                   <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
                     artistRequest.status === 'pending'  ? 'bg-amber-100 text-amber-700' :
                     artistRequest.status === 'approved' ? 'bg-green-100 text-green-700' :
                     'bg-red-100 text-red-700'
                   }`}>
-                    {artistRequest.status === 'pending' ? 'Pendiente' : artistRequest.status === 'approved' ? 'Aprobada' : 'Rechazada'}
+                    {artistRequest.status === 'pending' ? '⏳ Pendiente' : artistRequest.status === 'approved' ? '✓ Aprobada' : '✗ Rechazada'}
                   </span>
                 </div>
-                <div className="space-y-1 text-xs text-gray-600">
-                  <p><span className="font-semibold">Nombre artístico:</span> {artistRequest.artist_name}</p>
-                  {artistRequest.genre    && <p><span className="font-semibold">Género:</span> {artistRequest.genre}</p>}
-                  {artistRequest.message  && <p><span className="font-semibold">Mensaje:</span> {artistRequest.message}</p>}
-                  {artistRequest.instagram && <p><span className="font-semibold">Instagram:</span> {artistRequest.instagram}</p>}
-                  {artistRequest.spotify_url && <p><span className="font-semibold">Spotify:</span> <a href={artistRequest.spotify_url} target="_blank" rel="noreferrer" className="text-purple-600 underline">Ver perfil</a></p>}
-                  <p><span className="font-semibold">Enviada:</span> {new Date(artistRequest.created_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  {artistRequest.admin_note && <p><span className="font-semibold">Nota admin:</span> {artistRequest.admin_note}</p>}
+
+                {/* Info */}
+                <div className="bg-white px-4 py-3 space-y-1.5 text-xs text-gray-600">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <p className="text-gray-400 mb-0.5">Nombre artístico</p>
+                      <p className="font-semibold text-black">{artistRequest.artist_name}</p>
+                    </div>
+                    {artistRequest.genre && (
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-gray-400 mb-0.5">Género</p>
+                        <p className="font-semibold text-black">{artistRequest.genre}</p>
+                      </div>
+                    )}
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <p className="text-gray-400 mb-0.5">Enviada</p>
+                      <p className="font-semibold text-black">{new Date(artistRequest.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                    </div>
+                    {artistRequest.instagram && (
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-gray-400 mb-0.5">Instagram</p>
+                        <p className="font-semibold text-black">{artistRequest.instagram}</p>
+                      </div>
+                    )}
+                  </div>
+                  {artistRequest.message && (
+                    <div className="bg-gray-50 rounded-lg p-2">
+                      <p className="text-gray-400 mb-0.5">Mensaje</p>
+                      <p className="text-gray-700">{artistRequest.message}</p>
+                    </div>
+                  )}
+                  {artistRequest.spotify_url && (
+                    <div className="bg-gray-50 rounded-lg p-2 flex items-center justify-between">
+                      <p className="text-gray-400">Spotify</p>
+                      <a href={artistRequest.spotify_url} target="_blank" rel="noreferrer" className="text-purple-600 underline font-medium">Ver perfil →</a>
+                    </div>
+                  )}
+                  {artistRequest.admin_note && (
+                    <div className={`rounded-lg p-2 ${artistRequest.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                      <span className="font-semibold">Nota admin: </span>{artistRequest.admin_note}
+                    </div>
+                  )}
                 </div>
+
+                {/* Acciones — solo si está pendiente */}
                 {artistRequest.status === 'pending' && (
-                  <div className="mt-3 flex gap-2">
-                    <button onClick={() => navigate(`/requests?highlight=${artistRequest.id}`)}
-                      className="flex-1 py-2 rounded-xl bg-purple-700 text-white text-xs font-semibold hover:bg-purple-800 transition">
-                      Revisar en solicitudes →
-                    </button>
+                  <div className="bg-gray-50 px-4 py-3 border-t border-gray-100 space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-gray-500 block mb-1">Nota para el usuario (obligatoria para rechazar)</label>
+                      <textarea
+                        value={adminNote}
+                        onChange={e => setAdminNote(e.target.value)}
+                        placeholder="Ej: Bienvenido a SoundSeekers / Necesitamos más info..."
+                        rows={2}
+                        className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-black resize-none focus:outline-none focus:ring-2 focus:ring-purple-400"/>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={handleReject} disabled={processingReq}
+                        className="flex-1 py-2 rounded-xl border border-red-200 text-red-500 text-xs font-semibold hover:bg-red-50 transition disabled:opacity-50">
+                        Rechazar
+                      </button>
+                      <button onClick={handleApprove} disabled={processingReq}
+                        className="flex-1 py-2 rounded-xl bg-purple-700 text-white text-xs font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center justify-center gap-1.5">
+                        {processingReq
+                          ? <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                          : '✓ Aprobar como artista'
+                        }
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
