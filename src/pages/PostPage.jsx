@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { toggleLike, getUserLike, getComments, addComment, deleteComment } from '../api/community'
+import { toggleLike, getUserLike, getComments, createComment, deleteComment } from '../api/community'
 import { supabase } from '../lib/supabase'
 
 function timeAgo(dateStr) {
@@ -80,7 +80,7 @@ export default function PostPage() {
     if (!newComment.trim() || !user || submitting) return
     setSubmitting(true)
     try {
-      const comment = await addComment({
+      const comment = await createComment({
         post_id: postId,
         user_id: user.id,
         username: user.user_metadata?.artist_name ?? user.user_metadata?.name ?? user.email?.split('@')[0],
