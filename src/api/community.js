@@ -151,3 +151,56 @@ export async function deleteComment(comment_id) {
     .eq('id', comment_id)
   if (error) throw error
 }
+// Añadir al final de api/community.js
+
+export async function replyToComment({ post_id, parent_comment_id, user_id, username, avatar_url, content }) {
+  const { data: profile } = await supabase
+    .from('user_roles')
+    .select('artist_name')
+    .eq('user_id', user_id)
+    .single()
+
+  const resolvedUsername = profile?.artist_name || username
+
+  const { data, error } = await supabase
+    .from('post_comments')
+    .insert([{ post_id, parent_comment_id, user_id, username: resolvedUsername, avatar_url, content }])
+    .select()
+  if (error) throw error
+
+  // Notificar al autor del comentario padre
+  if (parent_comment_id) {
+    const { data: parentComment } = await supabase
+      .from('post_comments')
+      .select('user_id')
+      .eq('id', parent_comment_id)
+      .single()
+
+    if (parentComment && parentComment.user_id !== user_id) {
+      await supabase.from('notifications').insert([{
+        user_id: parentComment.user_id,
+        type: 'comment_reply',
+        from_user_id: user_id,
+        reference_id: post_id   // reference_id = post_id para navegar directo
+      }])
+    }
+  }
+
+  // Notificar también al autor del post (si es diferente)
+  const { data: post } = await supabase
+    .from('posts')
+    .select('user_id')
+    .eq('id', post_id)
+    .single()
+
+  if (post && post.user_id !== user_id) {
+    await supabase.from('notifications').insert([{
+      user_id: post.user_id,
+      type: 'comment',
+      from_user_id: user_id,
+      reference_id: post_id
+    }])
+  }
+
+  return data[0]
+}
