@@ -49,27 +49,20 @@ export async function toggleLike(post_id, user_id) {
     return false
   } else {
     await supabase.from('post_likes').insert([{ post_id, user_id }])
-
     const { data: post } = await supabase
-      .from('posts')
-      .select('user_id')
-      .eq('id', post_id)
-      .single()
-
+      .from('posts').select('user_id').eq('id', post_id).single()
     if (post && post.user_id !== user_id) {
       await supabase.from('notifications').insert([{
         user_id: post.user_id,
         type: 'like',
         from_user_id: user_id,
-        reference_id: post_id
+        reference_id: post_id   // like: reference_id = post_id
       }])
     }
-
     return true
   }
 }
 
-// Verifica si el usuario ya dio like a un post
 export async function getUserLike(post_id, user_id) {
   const { data } = await supabase
     .from('post_likes')
@@ -80,7 +73,6 @@ export async function getUserLike(post_id, user_id) {
   return !!data
 }
 
-// Trae los posts a los que el usuario dio like
 export async function getLikedPosts(user_id) {
   const { data, error } = await supabase
     .from('post_likes')
@@ -116,22 +108,22 @@ export async function createComment({ post_id, user_id, username, avatar_url, co
     .select()
   if (error) throw error
 
+  const comment = data[0]
+
   const { data: post } = await supabase
-    .from('posts')
-    .select('user_id')
-    .eq('id', post_id)
-    .single()
+    .from('posts').select('user_id').eq('id', post_id).single()
 
   if (post && post.user_id !== user_id) {
+    // reference_id = "postId:commentId" para poder navegar y resaltar
     await supabase.from('notifications').insert([{
       user_id: post.user_id,
       type: 'comment',
       from_user_id: user_id,
-      reference_id: post_id
+      reference_id: `${post_id}:${comment.id}`
     }])
   }
 
-  return data[0]
+  return comment
 }
 
 export async function updateComment(comment_id, content) {
@@ -151,7 +143,6 @@ export async function deleteComment(comment_id) {
     .eq('id', comment_id)
   if (error) throw error
 }
-// Añadir al final de api/community.js
 
 export async function replyToComment({ post_id, parent_comment_id, user_id, username, avatar_url, content }) {
   const { data: profile } = await supabase
@@ -168,6 +159,8 @@ export async function replyToComment({ post_id, parent_comment_id, user_id, user
     .select()
   if (error) throw error
 
+  const reply = data[0]
+
   // Notificar al autor del comentario padre
   if (parent_comment_id) {
     const { data: parentComment } = await supabase
@@ -177,30 +170,28 @@ export async function replyToComment({ post_id, parent_comment_id, user_id, user
       .single()
 
     if (parentComment && parentComment.user_id !== user_id) {
+      // reference_id = "postId:replyId" para navegar y resaltar la respuesta
       await supabase.from('notifications').insert([{
         user_id: parentComment.user_id,
         type: 'comment_reply',
         from_user_id: user_id,
-        reference_id: post_id   // reference_id = post_id para navegar directo
+        reference_id: `${post_id}:${reply.id}`
       }])
     }
   }
 
-  // Notificar también al autor del post (si es diferente)
+  // Notificar al autor del post si es diferente
   const { data: post } = await supabase
-    .from('posts')
-    .select('user_id')
-    .eq('id', post_id)
-    .single()
+    .from('posts').select('user_id').eq('id', post_id).single()
 
   if (post && post.user_id !== user_id) {
     await supabase.from('notifications').insert([{
       user_id: post.user_id,
       type: 'comment',
       from_user_id: user_id,
-      reference_id: post_id
+      reference_id: `${post_id}:${reply.id}`
     }])
   }
 
-  return data[0]
+  return reply
 }

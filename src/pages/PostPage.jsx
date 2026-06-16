@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { toggleLike, getUserLike, getComments, createComment, replyToComment, deleteComment } from '../api/community'
 import { supabase } from '../lib/supabase'
@@ -23,15 +23,28 @@ function Avatar({ src, name, size = 36 }) {
   )
 }
 
-function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0 }) {
+function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0, highlighted }) {
+  const ref = useRef(null)
   const isOwn = user?.id === comment.user_id
   const isReply = depth > 0
 
+  // Scroll + resaltar cuando llegue highlighted
+  useEffect(() => {
+    if (!highlighted) return
+    ref.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [highlighted])
+
   return (
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+    <div ref={ref} style={{
+      display: 'flex', gap: '8px', marginBottom: '4px',
+      borderRadius: '14px',
+      transition: 'background 0.5s',
+      background: highlighted ? '#fef9c3' : 'transparent',
+      padding: highlighted ? '6px 8px' : '0',
+    }}>
       <Avatar src={comment.avatar_url} name={comment.username} size={isReply ? 30 : 36}/>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ background: '#f9fafb', borderRadius: '0 16px 16px 16px', padding: '8px 12px', display: 'inline-block', maxWidth: '100%' }}>
+        <div style={{ background: highlighted ? '#fef08a' : '#f9fafb', borderRadius: '0 16px 16px 16px', padding: '8px 12px', display: 'inline-block', maxWidth: '100%', transition: 'background 0.5s' }}>
           <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 2px' }}>{comment.username ?? 'Usuario'}</p>
           <p style={{ fontSize: '14px', color: '#374151', margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>{comment.content}</p>
         </div>
@@ -57,28 +70,35 @@ function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0
 
 export default function PostPage() {
   const { postId } = useParams()
+  const [searchParams] = useSearchParams()
+  const highlightCommentId = searchParams.get('highlight')
   const { user } = useAuth()
   const navigate = useNavigate()
   const commentInputRef = useRef(null)
+  const replyInputRef = useRef(null)
 
   const [post, setPost] = useState(null)
   const [loading, setLoading] = useState(true)
   const [liked, setLiked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [likeLoading, setLikeLoading] = useState(false)
-
-  // Comentarios organizados: toplevel + replies
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [deletingComment, setDeletingComment] = useState(null)
-
-  // Responder
-  const [replyingTo, setReplyingTo] = useState(null) // { id, username }
+  const [replyingTo, setReplyingTo] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [submittingReply, setSubmittingReply] = useState(false)
-  const replyInputRef = useRef(null)
+  // Controlar el highlight: activo 3s y luego off
+  const [activeHighlight, setActiveHighlight] = useState(highlightCommentId)
+
+  useEffect(() => {
+    if (!highlightCommentId) return
+    setActiveHighlight(highlightCommentId)
+    const t = setTimeout(() => setActiveHighlight(null), 3000)
+    return () => clearTimeout(t)
+  }, [highlightCommentId])
 
   useEffect(() => {
     const load = async () => {
@@ -91,11 +111,8 @@ export default function PostPage() {
         if (error) throw error
         setPost(data)
         setLikeCount(data.post_likes?.[0]?.count ?? 0)
-      } catch {
-        navigate('/community', { replace: true })
-      } finally {
-        setLoading(false)
-      }
+      } catch { navigate('/community', { replace: true }) }
+      finally { setLoading(false) }
     }
     load()
   }, [postId])
@@ -109,20 +126,16 @@ export default function PostPage() {
     if (!postId) return
     const fetch = async () => {
       setLoadingComments(true)
-      try {
-        const data = await getComments(postId)
-        setComments(data ?? [])
-      } catch {} finally { setLoadingComments(false) }
+      try { setComments((await getComments(postId)) ?? []) }
+      catch {} finally { setLoadingComments(false) }
     }
     fetch()
   }, [postId])
 
-  // Agrupar comentarios: top-level y replies
   const topLevel = comments.filter(c => !c.parent_comment_id)
   const repliesMap = comments.reduce((acc, c) => {
     if (c.parent_comment_id) {
-      if (!acc[c.parent_comment_id]) acc[c.parent_comment_id] = []
-      acc[c.parent_comment_id].push(c)
+      acc[c.parent_comment_id] = [...(acc[c.parent_comment_id] ?? []), c]
     }
     return acc
   }, {})
@@ -142,8 +155,7 @@ export default function PostPage() {
     setSubmitting(true)
     try {
       const comment = await createComment({
-        post_id: postId,
-        user_id: user.id,
+        post_id: postId, user_id: user.id,
         username: user.user_metadata?.artist_name ?? user.user_metadata?.name ?? user.email?.split('@')[0],
         avatar_url: user.user_metadata?.avatar_url ?? null,
         content: newComment.trim(),
@@ -158,8 +170,7 @@ export default function PostPage() {
     setSubmittingReply(true)
     try {
       const reply = await replyToComment({
-        post_id: postId,
-        parent_comment_id: replyingTo.id,
+        post_id: postId, parent_comment_id: replyingTo.id,
         user_id: user.id,
         username: user.user_metadata?.artist_name ?? user.user_metadata?.name ?? user.email?.split('@')[0],
         avatar_url: user.user_metadata?.avatar_url ?? null,
@@ -185,8 +196,6 @@ export default function PostPage() {
     } catch {} finally { setDeletingComment(null) }
   }
 
-  const totalComments = comments.length
-
   if (loading) return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg style={{ width: '32px', height: '32px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
@@ -198,10 +207,7 @@ export default function PostPage() {
 
   if (!post) return null
 
-  const inputBase = {
-    flex: 1, background: 'none', border: 'none', outline: 'none',
-    fontSize: '14px', color: '#111', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5,
-  }
+  const inputBase = { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: '14px', color: '#111', fontFamily: 'inherit', resize: 'none', lineHeight: 1.5 }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '6rem' }}>
@@ -210,14 +216,14 @@ export default function PostPage() {
         @keyframes spin { to { transform: rotate(360deg) } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
         .c-row { animation: fadeIn 0.18s ease forwards; }
-        .action-btn { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1; padding: 8px; border-radius: 10px; border: none; background: none; cursor: pointer; font-size: 14px; font-weight: 600; color: #6b7280; font-family: inherit; transition: background 0.15s; }
-        .action-btn:hover { background: #f9fafb; }
-        .action-btn.liked { color: #ef4444; }
+        .action-btn { display:flex; align-items:center; justify-content:center; gap:6px; flex:1; padding:8px; border-radius:10px; border:none; background:none; cursor:pointer; font-size:14px; font-weight:600; color:#6b7280; font-family:inherit; transition:background 0.15s; }
+        .action-btn:hover { background:#f9fafb; }
+        .action-btn.liked { color:#ef4444; }
       `}</style>
 
       {/* Navbar */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(248,247,255,0.96)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #f0f0f0', padding: '0 16px' }}>
-        <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '52px', gap: '8px' }}>
+        <div style={{ maxWidth: '680px', margin: '0 auto', display: 'flex', alignItems: 'center', height: '52px' }}>
           <button onClick={() => navigate('/community')}
             style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '14px', fontWeight: '600', padding: '6px 0', fontFamily: 'inherit' }}>
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -228,7 +234,7 @@ export default function PostPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px 16px' }}>
+      <div style={{ maxWidth: '680px', margin: '0 auto', padding: '16px' }}>
 
         {/* Post */}
         <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', marginBottom: '12px', overflow: 'hidden' }}>
@@ -249,16 +255,12 @@ export default function PostPage() {
               </div>
             )}
           </div>
-
-          {/* Stats */}
-          {(likeCount > 0 || totalComments > 0) && (
+          {(likeCount > 0 || comments.length > 0) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', fontSize: '13px', color: '#9ca3af', borderTop: '1px solid #f9fafb' }}>
               {likeCount > 0 && <span>❤️ {likeCount}</span>}
-              {totalComments > 0 && <span style={{ marginLeft: 'auto' }}>{totalComments} comentario{totalComments !== 1 ? 's' : ''}</span>}
+              {comments.length > 0 && <span style={{ marginLeft: 'auto' }}>{comments.length} comentario{comments.length !== 1 ? 's' : ''}</span>}
             </div>
           )}
-
-          {/* Acciones */}
           <div style={{ display: 'flex', gap: '4px', padding: '4px 12px 12px', borderTop: '1px solid #f9fafb' }}>
             <button className={`action-btn ${liked ? 'liked' : ''}`} onClick={handleLike} disabled={!user || likeLoading}>
               <svg width="18" height="18" fill={liked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -319,13 +321,13 @@ export default function PostPage() {
             <div style={{ padding: '8px 0 4px' }}>
               {topLevel.map((comment, i) => (
                 <div key={comment.id} className="c-row" style={{ padding: '8px 16px', animationDelay: `${i * 0.04}s` }}>
-                  {/* Comentario principal */}
                   <CommentBubble
                     comment={comment} user={user}
                     onReply={handleStartReply}
                     onDelete={handleDeleteComment}
                     deletingId={deletingComment}
                     depth={0}
+                    highlighted={activeHighlight === comment.id}
                   />
 
                   {/* Respuestas */}
@@ -334,12 +336,14 @@ export default function PostPage() {
                       {repliesMap[comment.id].map(reply => (
                         <CommentBubble key={reply.id} comment={reply} user={user}
                           onReply={() => {}} onDelete={handleDeleteComment}
-                          deletingId={deletingComment} depth={1}/>
+                          deletingId={deletingComment} depth={1}
+                          highlighted={activeHighlight === reply.id}
+                        />
                       ))}
                     </div>
                   )}
 
-                  {/* Input inline de respuesta */}
+                  {/* Input inline respuesta */}
                   {replyingTo?.id === comment.id && user && (
                     <div style={{ marginLeft: '44px', marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
                       <Avatar src={user.user_metadata?.avatar_url} name={user.user_metadata?.artist_name || user.email} size={30}/>
