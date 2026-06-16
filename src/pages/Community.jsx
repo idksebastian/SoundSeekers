@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { getPosts } from '../api/community'
 import { useAuth } from '../context/AuthContext'
 import PostCard from '../components/PostCard'
-import PostModal from '../components/PostModal'
 
 export default function Community() {
   const { user } = useAuth()
@@ -12,7 +11,6 @@ export default function Community() {
   const [likedPosts, setLikedPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadingLiked, setLoadingLiked] = useState(false)
-  const [showModal, setShowModal] = useState(false)
   const [tab, setTab] = useState('feed')
 
   const fetchPosts = async () => {
@@ -51,7 +49,7 @@ export default function Community() {
   useEffect(() => { fetchPosts() }, [])
   useEffect(() => { if (tab === 'liked') fetchLikedPosts() }, [tab])
 
-  const handlePostCreated = (newPost) => { setPosts(prev => [newPost, ...prev]); setShowModal(false) }
+  const handlePostCreated = (newPost) => { setPosts(prev => [newPost, ...prev]) }
   const handlePostDeleted = (postId) => {
     setPosts(prev => prev.filter(p => p.id !== postId))
     setLikedPosts(prev => prev.filter(p => p.id !== postId))
@@ -109,7 +107,7 @@ export default function Community() {
       {/* Write button como search bar */}
       {user && (
         <div className="comm-search-wrap">
-          <button className="comm-write-btn" onClick={() => setShowModal(true)}>
+          <button className="comm-write-btn" onClick={() => navigate('/community/create')}>
             <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#f5f3ff', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {user?.user_metadata?.avatar_url
                 ? <img src={user.user_metadata.avatar_url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt=""/>
@@ -184,9 +182,6 @@ export default function Community() {
         )}
       </div>
 
-      {showModal && (
-        <PostModal onClose={() => setShowModal(false)} onPostCreated={handlePostCreated} />
-      )}
     </div>
   )
 }
