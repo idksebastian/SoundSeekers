@@ -178,7 +178,8 @@ export default function ArtistProfile() {
       if (userId === user?.id) {
         navigate('/profile')
       } else {
-        setError('Este usuario no tiene perfil de artista.')
+        // Si no tiene perfil de artista, redirigir al perfil de oyente
+        navigate(`/listener/${userId}`, { replace: true })
       }
     } finally {
       setLoading(false)
