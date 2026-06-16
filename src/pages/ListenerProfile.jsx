@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { isFollowing, toggleFollow, getFollowers, getFollowing } from '../api/profile'
-import { isAdmin, getListenerAdminDetail, approveArtistRequest, rejectArtistRequest } from '../api/adminRequests'
+import { isAdmin, getListenerAdminDetail } from '../api/adminRequests'
+import { approveArtist, rejectArtist } from '../api/roles'
 
 const LISTENER_LEVELS = [
   {
@@ -156,14 +157,18 @@ export default function ListenerProfile() {
           if (admin) {
             const detail = await getListenerAdminDetail(userId)
             setAdminDetail(detail)
-            // Buscar solicitud de artista — query directo sin FK
-            const { data: reqData } = await supabase
-              .from('artist_requests')
+            // Leer solicitud desde user_roles (status = 'pending' o 'rejected')
+            const { data: roleData } = await supabase
+              .from('user_roles')
               .select('*')
               .eq('user_id', userId)
-              .order('created_at', { ascending: false })
-              .limit(1)
-            setArtistRequest(reqData?.[0] ?? null)
+              .single()
+            // Mostrar en el panel si tiene status pending o fue rechazado antes
+            if (roleData?.status === 'pending' || roleData?.status === 'rejected') {
+              setArtistRequest(roleData)
+            } else {
+              setArtistRequest(null)
+            }
           }
         }
       } catch (e) {
@@ -179,8 +184,8 @@ export default function ListenerProfile() {
     if (!artistRequest) return
     setProcessingReq(true)
     try {
-      await approveArtistRequest(artistRequest.id, userId, artistRequest.artist_name, adminNote)
-      setArtistRequest(prev => ({ ...prev, status: 'approved', admin_note: adminNote }))
+      await approveArtist(userId, artistRequest.artist_name)
+      setArtistRequest(prev => ({ ...prev, status: 'approved' }))
     } catch (e) { alert(e.message) }
     finally { setProcessingReq(false) }
   }
@@ -190,8 +195,16 @@ export default function ListenerProfile() {
     if (!adminNote.trim()) { alert('Añade una nota explicando el motivo del rechazo.'); return }
     setProcessingReq(true)
     try {
-      await rejectArtistRequest(artistRequest.id, userId, adminNote)
-      setArtistRequest(prev => ({ ...prev, status: 'rejected', admin_note: adminNote }))
+      await rejectArtist(userId, artistRequest.artist_name)
+      // Enviar notificación con el motivo
+      await supabase.from('notifications').insert([{
+        user_id: userId,
+        type: 'system',
+        from_user_id: null,
+        reference_id: null,
+        message: adminNote.trim(),
+      }])
+      setArtistRequest(prev => ({ ...prev, status: 'rejected' }))
     } catch (e) { alert(e.message) }
     finally { setProcessingReq(false) }
   }
@@ -439,40 +452,31 @@ export default function ListenerProfile() {
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-gray-50 rounded-lg p-2">
                       <p className="text-gray-400 mb-0.5">Nombre artístico</p>
-                      <p className="font-semibold text-black">{artistRequest.artist_name}</p>
+                      <p className="font-semibold text-black">{artistRequest.artist_name ?? '—'}</p>
                     </div>
-                    {artistRequest.genre && (
+                    {artistRequest.artist_genre && (
                       <div className="bg-gray-50 rounded-lg p-2">
                         <p className="text-gray-400 mb-0.5">Género</p>
-                        <p className="font-semibold text-black">{artistRequest.genre}</p>
+                        <p className="font-semibold text-black">{artistRequest.artist_genre}</p>
                       </div>
                     )}
-                    <div className="bg-gray-50 rounded-lg p-2">
-                      <p className="text-gray-400 mb-0.5">Enviada</p>
-                      <p className="font-semibold text-black">{new Date(artistRequest.created_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-                    </div>
-                    {artistRequest.instagram && (
+                    {artistRequest.accepted_terms_at && (
                       <div className="bg-gray-50 rounded-lg p-2">
-                        <p className="text-gray-400 mb-0.5">Instagram</p>
-                        <p className="font-semibold text-black">{artistRequest.instagram}</p>
+                        <p className="text-gray-400 mb-0.5">Fecha solicitud</p>
+                        <p className="font-semibold text-black">{new Date(artistRequest.accepted_terms_at).toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                    )}
+                    {artistRequest.artist_mood && (
+                      <div className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-gray-400 mb-0.5">Estado</p>
+                        <p className="font-semibold text-black">{artistRequest.artist_mood}</p>
                       </div>
                     )}
                   </div>
-                  {artistRequest.message && (
+                  {artistRequest.artist_bio && (
                     <div className="bg-gray-50 rounded-lg p-2">
-                      <p className="text-gray-400 mb-0.5">Mensaje</p>
-                      <p className="text-gray-700">{artistRequest.message}</p>
-                    </div>
-                  )}
-                  {artistRequest.spotify_url && (
-                    <div className="bg-gray-50 rounded-lg p-2 flex items-center justify-between">
-                      <p className="text-gray-400">Spotify</p>
-                      <a href={artistRequest.spotify_url} target="_blank" rel="noreferrer" className="text-purple-600 underline font-medium">Ver perfil →</a>
-                    </div>
-                  )}
-                  {artistRequest.admin_note && (
-                    <div className={`rounded-lg p-2 ${artistRequest.status === 'approved' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                      <span className="font-semibold">Nota admin: </span>{artistRequest.admin_note}
+                      <p className="text-gray-400 mb-0.5">Bio</p>
+                      <p className="text-gray-700 italic">"{artistRequest.artist_bio}"</p>
                     </div>
                   )}
                 </div>
