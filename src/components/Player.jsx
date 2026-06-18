@@ -5,7 +5,7 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
   Volume2, VolumeX, ListMusic, Mic2, Disc, Share2,
   MoreHorizontal, ChevronsDown, Shuffle, Repeat, Repeat1,
-  Heart, Plus, Star, TrendingUp, Music2, ChevronUp, Check, X
+  Heart, Plus, Star, TrendingUp, Music2, Check, X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -78,7 +78,6 @@ export default function Player() {
   const [showQueue, setShowQueue]         = useState(false);
   const [isMuted, setIsMuted]             = useState(false);
   const [prevVolume, setPrevVolume]       = useState(1);
-  const [showOpenHint, setShowOpenHint]   = useState(false);
   const [shared, setShared]               = useState(false);
   const [addedToQueue, setAddedToQueue]   = useState({});
 
@@ -86,30 +85,23 @@ export default function Player() {
   const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
   const progressPct = duration ? (progress / duration) * 100 : 0;
 
+  // CAMBIO 1 y 2: eliminado showOpenHint state y su useEffect
+  // CAMBIO: fullscreen solo si está reproduciendo
   useEffect(() => {
     if (currentSong && isPlaying) setIsFullscreen(true);
   }, [currentSong?.id]);
-
-  useEffect(() => {
-    if (isFullscreen) return;
-    const id = setInterval(() => {
-      setShowOpenHint(true);
-      setTimeout(() => setShowOpenHint(false), 1800);
-    }, 8000);
-    setShowOpenHint(true);
-    setTimeout(() => setShowOpenHint(false), 1800);
-    return () => clearInterval(id);
-  }, [isFullscreen]);
 
   useEffect(() => {
     if (!coverUrl) return;
     return extractColor(coverUrl, setDominantColor);
   }, [coverUrl]);
 
+  // CAMBIO 3: limpiar siempre al cambiar canción, incluso Spotify/Ánimo
   useEffect(() => {
+    // Limpiar siempre al cambiar canción (incluso Spotify/Ánimo)
+    setArtistInfo(null); setRelatedSongs([]); setAlbumTracks([]); setNextSong(null);
     if (!currentSong || currentSong.isSpotify) return;
     let cancelled = false;
-    setArtistInfo(null); setRelatedSongs([]); setAlbumTracks([]); setNextSong(null);
 
     const fetchData = async () => {
       try {
@@ -132,7 +124,6 @@ export default function Player() {
         if (cancelled) return;
 
         if (profileRes?.data) {
-          // Calcular reproducciones totales desde songs
           const { data: songsData } = await supabase
             .from('songs')
             .select('streams')
@@ -425,6 +416,37 @@ export default function Player() {
                 </section>
               )}
 
+              {/* CAMBIO 5: CTA iTunes para canciones de Ánimo */}
+              {currentSong?.isSpotify && currentSong?.previewUrl && (
+                <section className="bg-white/5 border border-white/10 rounded-3xl p-8">
+                  <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
+                    <Music2 className="w-4 h-4" />
+                    <span>Preview de Ánimo</span>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
+                    <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0">
+                      <img src={coverUrl} alt={currentSong.title} className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white/40 text-xs uppercase tracking-widest mb-2">Estás escuchando un preview de 30s</p>
+                      <h3 className="text-xl font-black mb-1">{currentSong.title}</h3>
+                      <p className="text-white/60 text-sm mb-4">{artistName}</p>
+                      <a
+                        href={currentSong.externalUrl || `https://music.apple.com/search?term=${encodeURIComponent(currentSong.title + ' ' + artistName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-white text-black font-bold text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-lg"
+                      >
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
+                        </svg>
+                        Escuchar completa en iTunes
+                      </a>
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {artistInfo && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-10">
                   <div className="flex items-center gap-2 mb-8 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -524,15 +546,7 @@ export default function Player() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" style={{ height: '12px', top: '-4px' }} />
           </div>
 
-          <AnimatePresence>
-            {showOpenHint && (
-              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }}
-                className="absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-gray-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg pointer-events-none whitespace-nowrap">
-                <ChevronUp className="w-3 h-3 animate-bounce" />
-                Toca para abrir
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* CAMBIO 4: eliminado tooltip "Toca para abrir" */}
 
           <div className="bg-white border-t border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-2xl">
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group"
