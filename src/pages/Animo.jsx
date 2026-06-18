@@ -23,17 +23,7 @@ const MOOD_LABELS = { happy: 'Feliz', sad: 'Triste', energetic: 'Energético', c
 const WEATHER_LABELS = { sunny: 'Soleado', rainy: 'Lluvioso', cloudy: 'Nublado', night: 'Noche', cold: 'Frío', warm: 'Cálido' }
 
 function toPlayerSong(song) {
-  return {
-    id: song.externalUrl || song.previewUrl,
-    title: song.title,
-    artist_name: song.artist,
-    display_artist: song.artist,
-    cover_url: song.coverUrl,
-    audio_url: null,
-    previewUrl: song.previewUrl,
-    genre: song.genre || null,
-    isSpotify: true, // reutilizamos el flag para que el reproductor maneje el preview
-  }
+  return { id: song.externalUrl || song.previewUrl, title: song.title, artist_name: song.artist, display_artist: song.artist, cover_url: song.coverUrl, audio_url: null, previewUrl: song.previewUrl, genre: song.genre || null, isSpotify: true }
 }
 
 function formatDuration(seconds) {
@@ -53,223 +43,130 @@ export default function Animo() {
 
   const handleGetRecommendations = async () => {
     if (!selectedMood || !selectedWeather) return
-    setLoading(true)
-    setError('')
-    setSearched(true)
-    setSongs([])
+    setLoading(true); setError(''); setSearched(true); setSongs([])
     try {
       const res = await fetch(`https://soundseekers.onrender.com/recommendations?mood=${selectedMood}&weather=${selectedWeather}`)
-      if (!res.ok) throw new Error('Error en el servidor')
+      if (!res.ok) throw new Error()
       const data = await res.json()
       setSongs(data.songs ?? [])
-    } catch (err) {
-      console.error(err)
-      setError('No se pudieron cargar las recomendaciones. ¿Está corriendo el backend?')
-    } finally {
-      setLoading(false)
-    }
+    } catch { setError('No se pudieron cargar las recomendaciones. ¿Está corriendo el backend?') }
+    finally { setLoading(false) }
   }
 
-  const handlePlay = (song) => {
-    const queue = songs.map(toPlayerSong)
-    playSong(toPlayerSong(song), queue)
-  }
-
-  const isCurrentSong = (song) => {
-    const id = song.externalUrl || song.previewUrl
-    return currentSong?.id === id
-  }
+  const handlePlay = (song) => playSong(toPlayerSong(song), songs.map(toPlayerSong))
+  const isCurrentSong = (song) => currentSong?.id === (song.externalUrl || song.previewUrl)
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '8rem' }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
+        @keyframes spin { to { transform: rotate(360deg) } }
+        .mood-btn:hover { transform: translateY(-2px); }
+      `}</style>
 
-      {/* Header */}
-      <section className="max-w-3xl mx-auto px-6 pt-16 pb-10 text-center">
-        <p className="text-xs font-semibold tracking-widest text-purple-600 uppercase mb-3">Descubrimiento Personalizado</p>
-        <h1 className="text-4xl font-black text-gray-900 mb-4">
-          Ánimo y Clima <span className="text-purple-600">Mixtape</span>
-        </h1>
-        <p className="text-gray-400 text-base max-w-md mx-auto">
-          Cuéntanos cómo te sientes y cómo está el cielo. Te crearemos la banda sonora perfecta.
-        </p>
-      </section>
-
-      {/* Selector de ánimo */}
-      <section className="max-w-3xl mx-auto px-6 pb-8">
-        <h2 className="text-base font-bold text-gray-900 mb-4 text-center">¿Cómo te sientes?</h2>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {moods.map(mood => (
-            <button key={mood.id} onClick={() => setSelectedMood(mood.id)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
-                selectedMood === mood.id
-                  ? 'bg-purple-50 border-purple-400 text-purple-700'
-                  : 'bg-white border-gray-200 text-gray-400 hover:border-purple-300 hover:text-purple-600'
-              }`}>
-              {mood.icon}
-              <span className="text-xs font-medium">{mood.label}</span>
-            </button>
-          ))}
+      {/* Header — igual que Explorar y Comunidad */}
+      <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '2rem 1rem 4.5rem' }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+          <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', margin: '0 0 8px' }}>Descubrimiento Personalizado</p>
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: '#fff', margin: '0 0 6px', letterSpacing: '0.02em' }}>Ánimo y Clima</h1>
+          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0, maxWidth: '400px' }}>
+            Cuéntanos cómo te sientes y cómo está el cielo. Te crearemos la banda sonora perfecta.
+          </p>
         </div>
-      </section>
-
-      {/* Selector de clima */}
-      <section className="max-w-3xl mx-auto px-6 pb-10">
-        <h2 className="text-base font-bold text-gray-900 mb-4 text-center">¿Cómo está el clima?</h2>
-        <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
-          {weathers.map(w => (
-            <button key={w.id} onClick={() => setSelectedWeather(w.id)}
-              className={`flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all duration-200 ${
-                selectedWeather === w.id
-                  ? 'bg-orange-50 border-orange-400 text-orange-600'
-                  : 'bg-white border-gray-200 text-gray-400 hover:border-orange-300 hover:text-orange-500'
-              }`}>
-              {w.icon}
-              <span className="text-xs font-medium">{w.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Botón generar */}
-      <div className="max-w-3xl mx-auto px-6 pb-10 flex justify-center">
-        <button
-          onClick={handleGetRecommendations}
-          disabled={!selectedMood || !selectedWeather || loading}
-          className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 disabled:opacity-50 text-white font-semibold px-8 py-3 rounded-full transition shadow-md"
-        >
-          {loading ? (
-            <>
-              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-              </svg>
-              Buscando canciones...
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-              Crear mi Mixtape
-            </>
-          )}
-        </button>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="max-w-3xl mx-auto px-6 pb-6">
-          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl px-4 py-3 text-center">{error}</div>
-        </div>
-      )}
+      <div style={{ maxWidth: '760px', margin: '-28px auto 0', padding: '0 1rem' }}>
 
-      {/* Resultados */}
-      {searched && !loading && songs.length > 0 && (
-        <section className="max-w-3xl mx-auto px-6">
-          {/* Banner */}
-          <div className="bg-purple-50 border border-purple-100 rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-700 flex items-center justify-center shrink-0">
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900">
-                Tu Mixtape — {MOOD_LABELS[selectedMood]} + {WEATHER_LABELS[selectedWeather]}
-              </p>
-              <p className="text-xs text-gray-400">Previews de 30 segundos vía iTunes · Toca para escuchar</p>
-            </div>
-            <button
-              onClick={() => handlePlay(songs[0])}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold rounded-lg transition shrink-0"
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-              Reproducir todo
-            </button>
+        {/* Card selectores */}
+        <div style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', padding: '20px', marginBottom: '16px' }}>
+
+          <p style={{ fontSize: '12px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>¿Cómo te sientes?</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
+            {moods.map(mood => (
+              <button key={mood.id} className="mood-btn" onClick={() => setSelectedMood(mood.id)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', borderRadius: '14px', border: `1.5px solid ${selectedMood === mood.id ? '#7c3aed' : '#e5e7eb'}`, background: selectedMood === mood.id ? '#f5f3ff' : '#fff', color: selectedMood === mood.id ? '#7c3aed' : '#9ca3af', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+                {mood.icon}
+                <span style={{ fontSize: '11px', fontWeight: '600' }}>{mood.label}</span>
+              </button>
+            ))}
           </div>
 
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Canciones Recomendadas</h2>
-          <div className="flex flex-col gap-3">
-            {songs.map((song, i) => {
-              const active = isCurrentSong(song)
-              return (
-                <div
-                  key={i}
-                  onClick={() => handlePlay(song)}
-                  className={`flex items-center gap-4 p-3 rounded-xl bg-white border shadow-sm hover:shadow-md transition cursor-pointer group ${
-                    active ? 'border-purple-300 bg-purple-50' : 'border-gray-100 hover:border-purple-200'
-                  }`}
-                >
-                  {/* Número / animación */}
-                  <div className="w-8 text-center shrink-0">
-                    {active && isPlaying ? (
-                      <div className="flex gap-0.5 items-end justify-center h-4">
-                        {[60, 100, 40].map((h, k) => (
-                          <span key={k} style={{ height: `${h}%`, animationDelay: `${k * 0.2}s` }}
-                            className="w-0.5 bg-purple-600 rounded-full animate-pulse"/>
-                        ))}
-                      </div>
-                    ) : (
-                      <>
-                        <span className="text-xs text-gray-400 group-hover:hidden">{i + 1}</span>
-                        <svg className="w-4 h-4 text-purple-600 hidden group-hover:block mx-auto" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M5 3l14 9-14 9V3z"/>
-                        </svg>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Portada */}
-                  <div className="w-12 h-12 rounded-lg overflow-hidden shrink-0 bg-gray-100">
-                    {song.coverUrl
-                      ? <img src={song.coverUrl} alt={song.title} className="w-full h-full object-cover"/>
-                      : <div className="w-full h-full flex items-center justify-center">
-                          <svg className="w-6 h-6 text-gray-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-                        </div>
-                    }
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-semibold truncate ${active ? 'text-purple-700' : 'text-gray-900'}`}>
-                      {song.title}
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">{song.artist}</p>
-                    {song.genre && <p className="text-xs text-gray-300 truncate">{song.genre}</p>}
-                  </div>
-
-                  {/* Duración + link iTunes */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    {song.duration > 0 && (
-                      <span className="text-xs text-gray-400">{formatDuration(song.duration)}</span>
-                    )}
-                    {song.externalUrl && (
-                      <a
-                        href={song.externalUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-500 text-xs font-semibold transition"
-                      >
-                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                        </svg>
-                        iTunes
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+          <p style={{ fontSize: '12px', fontWeight: '700', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 10px' }}>¿Cómo está el clima?</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '20px' }}>
+            {weathers.map(w => (
+              <button key={w.id} className="mood-btn" onClick={() => setSelectedWeather(w.id)}
+                style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', padding: '12px 8px', borderRadius: '14px', border: `1.5px solid ${selectedWeather === w.id ? '#f59e0b' : '#e5e7eb'}`, background: selectedWeather === w.id ? '#fffbeb' : '#fff', color: selectedWeather === w.id ? '#d97706' : '#9ca3af', cursor: 'pointer', transition: 'all 0.15s', fontFamily: 'inherit' }}>
+                {w.icon}
+                <span style={{ fontSize: '11px', fontWeight: '600' }}>{w.label}</span>
+              </button>
+            ))}
           </div>
-        </section>
-      )}
 
-      {/* Sin resultados */}
-      {searched && !loading && songs.length === 0 && !error && (
-        <div className="max-w-3xl mx-auto px-6 text-center py-10 text-gray-400">
-          <svg className="w-10 h-10 mx-auto mb-3 text-gray-300" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/>
-          </svg>
-          <p>No se encontraron canciones para esta combinación. Intenta de nuevo.</p>
+          <button onClick={handleGetRecommendations} disabled={!selectedMood || !selectedWeather || loading}
+            style={{ width: '100%', padding: '14px', borderRadius: '14px', background: selectedMood && selectedWeather && !loading ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : '#e5e7eb', color: selectedMood && selectedWeather && !loading ? '#fff' : '#9ca3af', border: 'none', cursor: selectedMood && selectedWeather && !loading ? 'pointer' : 'default', fontSize: '15px', fontWeight: '700', fontFamily: 'inherit', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            {loading ? (
+              <><svg style={{ width: '16px', height: '16px', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24"><circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>Buscando canciones...</>
+            ) : (
+              <><svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>Crear mi Mixtape</>
+            )}
+          </button>
         </div>
-      )}
+
+        {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '13px', borderRadius: '14px', padding: '12px 16px', marginBottom: '16px', textAlign: 'center' }}>{error}</div>}
+
+        {searched && !loading && songs.length > 0 && (
+          <div>
+            <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #f0f0f0', padding: '14px 16px', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="20" height="20" fill="white" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: '14px', fontWeight: '800', color: '#111', margin: '0 0 2px' }}>Tu Mixtape — {MOOD_LABELS[selectedMood]} + {WEATHER_LABELS[selectedWeather]}</p>
+                <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Previews de 30s vía iTunes · Toca para escuchar</p>
+              </div>
+              <button onClick={() => handlePlay(songs[0])}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '20px', padding: '8px 14px', fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>Play todo
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {songs.map((song, i) => {
+                const active = isCurrentSong(song)
+                return (
+                  <div key={i} onClick={() => handlePlay(song)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', borderRadius: '14px', cursor: 'pointer', transition: 'all 0.15s', background: active ? '#f5f3ff' : '#fff', border: `1px solid ${active ? '#c4b5fd' : '#f0f0f0'}`, boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <span style={{ width: '20px', fontSize: '12px', color: active ? '#7c3aed' : '#9ca3af', textAlign: 'center', flexShrink: 0, fontWeight: '700' }}>
+                      {active && isPlaying ? <svg width="12" height="12" fill="#7c3aed" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg> : i + 1}
+                    </span>
+                    <div style={{ width: '44px', height: '44px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, background: '#f3f4f6' }}>
+                      {song.coverUrl ? <img src={song.coverUrl} alt={song.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="18" height="18" fill="#9ca3af" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg></div>}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: '14px', fontWeight: '700', color: active ? '#7c3aed' : '#111', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                      <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.artist}</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                      {song.duration > 0 && <span style={{ fontSize: '12px', color: '#9ca3af' }}>{formatDuration(song.duration)}</span>}
+                      {song.externalUrl && (
+                        <a href={song.externalUrl} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                          style={{ fontSize: '11px', color: '#6b7280', background: '#f3f4f6', padding: '4px 8px', borderRadius: '6px', textDecoration: 'none', fontWeight: '600' }}>iTunes</a>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {searched && !loading && songs.length === 0 && !error && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: '#9ca3af' }}>
+            <svg width="40" height="40" fill="currentColor" viewBox="0 0 24 24" style={{ margin: '0 auto 12px', display: 'block', opacity: 0.3 }}><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
+            <p style={{ margin: 0 }}>No se encontraron canciones para esta combinación.</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

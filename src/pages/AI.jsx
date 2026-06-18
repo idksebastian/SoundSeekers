@@ -23,27 +23,16 @@ Tu especialidad es TODO lo relacionado con música. Responde con confianza sobre
 - Consejos para artistas emergentes
 
 IMPORTANTE: Tienes conocimiento de TODOS los artistas mundialmente famosos. Si el usuario pregunta sobre cualquier artista conocido, responde con confianza. Solo si genuinamente no reconoces el artista, sugiere que podría ser emergente en SoundSeekers.
-Si el usuario pide información de algún artista mundialmente famoso, siempre sugiere buscar si tienen música publicada en SoundSeekers y promueve la plataforma como un espacio para descubrir música nueva y apoyar a artistas emergentes.
+Responde SIEMPRE preguntas musicales. Solo rechaza preguntas completamente ajenas a la música. En ese caso di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵"
 
-Responde SIEMPRE preguntas musicales, sin importar si el artista es famoso o emergente. Ejemplos de lo que SÍ debes responder: "¿Quién es el vocalista de Maroon 5?" → Adam Levine. "¿Qué géneros hace Bad Bunny?" → Trap latino, reggaeton. "¿Cuándo murió Kurt Cobain?" → 1994. NUNCA digas que no puedes responder preguntas musicales sobre artistas famosos. Solo rechaza preguntas completamente ajenas a la música como matemáticas, cocina, política, etc. En ese caso di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵"
-
-Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir en SoundSeekers. Solo sugiere reproducir o recomienda canciones que estén en esa lista. Nunca sugieras reproducir canciones que no estén en el contexto aunque el usuario las pida.
-
-Cuando el usuario mencione un estado de ánimo y pida música, recomiéndale canciones de SoundSeekers si hay disponibles, o sugiere ir a la sección Ánimo para recomendaciones personalizadas con preview de iTunes.
-
-Cuando el usuario pregunte cómo subir canciones o quiera subir música:
-- Si es artista verificado: explica brevemente el proceso e incluye [NAV:upload]
-- Si NO es artista verificado: dile que primero debe solicitar verificación de artista en su perfil e incluye [NAV:profile]
+Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir en SoundSeekers.
 
 Cuando el usuario quiera reproducir una canción de SoundSeekers incluye al final: [PLAY:titulo_exacto]
 Cuando pida recomendaciones de SoundSeekers incluye al final: [CANCIONES:titulo1|titulo2|titulo3]
 Cuando pida navegar incluye: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings] o [NAV:requests]
-Cuando recomiende ir a Ánimo por estado de ánimo incluye: [NAV:animo]
 
 Formato: sin asteriscos, sin markdown, sin #. Usa • para listas. Texto conversacional. Máximo 3-4 oraciones.
 Responde en español, amigable y conciso. Emojis ocasionales.`
-
-const INITIAL_MESSAGE = { role: 'assistant', content: '¡Hola! Soy SeekeAI 🎵 Tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o ayudarte con cualquier duda sobre la plataforma. ¿En qué te ayudo hoy?' }
 
 const NAV_CONFIG = {
   upload: { label: 'Ir a Subir música', path: '/upload', icon: '🎵' },
@@ -54,6 +43,15 @@ const NAV_CONFIG = {
   settings: { label: 'Ir a Ajustes', path: '/settings', icon: '⚙️' },
   requests: { label: 'Ir a Solicitudes', path: '/requests', icon: '🤝' },
 }
+
+const SUGGESTIONS = [
+  { icon: '🎵', text: '¿Qué canción me recomiendas?' },
+  { icon: '🎤', text: '¿Cómo subo mis canciones?' },
+  { icon: '🔍', text: 'Analiza lo que estoy escuchando' },
+  { icon: '🎸', text: 'Recomiéndame música para estudiar' },
+  { icon: '🌟', text: 'Quiero ser artista en SoundSeekers' },
+  { icon: '🎹', text: 'Reproduce algo de reggaeton' },
+]
 
 function getHistoryKey(userId) { return `seekai_history_${userId ?? 'guest'}` }
 
@@ -75,64 +73,40 @@ function parseMessage(text, publishedSongs) {
     const titles = songsMatch[1].split('|').map(t => t.trim().toLowerCase())
     cleanText = cleanText.replace(/\[CANCIONES:[^\]]+\]/, '').trim()
     recommendedSongs = titles.map(title =>
-      publishedSongs.find(s =>
-        s.title?.toLowerCase().includes(title) ||
-        title.includes(s.title?.toLowerCase())
-      )
+      publishedSongs.find(s => s.title?.toLowerCase().includes(title) || title.includes(s.title?.toLowerCase()))
     ).filter(Boolean)
   }
   const playMatch = cleanText.match(/\[PLAY:([^\]]+)\]/)
   let playSongTitle = null
-  if (playMatch) {
-    playSongTitle = playMatch[1].trim().toLowerCase()
-    cleanText = cleanText.replace(/\[PLAY:[^\]]+\]/, '').trim()
-  }
+  if (playMatch) { playSongTitle = playMatch[1].trim().toLowerCase(); cleanText = cleanText.replace(/\[PLAY:[^\]]+\]/, '').trim() }
   const navMatch = cleanText.match(/\[NAV:([^\]]+)\]/)
   let navKey = null
-  if (navMatch) {
-    navKey = navMatch[1].trim()
-    cleanText = cleanText.replace(/\[NAV:[^\]]+\]/, '').trim()
-  }
+  if (navMatch) { navKey = navMatch[1].trim(); cleanText = cleanText.replace(/\[NAV:[^\]]+\]/, '').trim() }
   return { cleanText, recommendedSongs, playSongTitle, navKey }
 }
 
 async function askSeekeAI(messages, publishedSongs, currentSong, isArtist = false) {
   const songsContext = publishedSongs.length > 0
-    ? `Canciones publicadas en SoundSeekers (SOLO estas están disponibles para reproducir): ${publishedSongs.slice(0, 20).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
+    ? `Canciones publicadas en SoundSeekers: ${publishedSongs.slice(0, 20).map(s => `"${s.title}" de ${s.display_artist || s.artist_name} (${s.genre})`).join(', ')}.`
     : 'No hay canciones publicadas en SoundSeekers aún.'
   const currentSongContext = currentSong
-    ? `El usuario está escuchando ahora: "${currentSong.title}" de ${currentSong.display_artist || currentSong.artist_name} (${currentSong.genre || 'Sin género'}).`
-    : 'El usuario no está escuchando ninguna canción ahora mismo.'
+    ? `El usuario está escuchando: "${currentSong.title}" de ${currentSong.display_artist || currentSong.artist_name}.`
+    : 'El usuario no está escuchando ninguna canción.'
   const artistContext = isArtist
-    ? 'El usuario ES artista verificado en SoundSeekers, puede subir canciones directamente en /upload.'
-    : 'El usuario NO es artista verificado. Si pregunta cómo subir canciones, dile que primero debe solicitar verificación de artista en su perfil.'
-
-  const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto de la plataforma:\n${songsContext}\n${currentSongContext}\n${artistContext}`
-  const contents = []
-  contents.push({ role: 'user', parts: [{ text: systemWithContext }] })
-  contents.push({ role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, el asistente musical de SoundSeekers. Estoy listo para ayudarte.' }] })
-  for (const msg of messages) {
-    contents.push({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.content }] })
-  }
-  const res = await fetch(`${BACKEND_URL}/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ messages: contents })
-  })
+    ? 'El usuario ES artista verificado en SoundSeekers.'
+    : 'El usuario NO es artista verificado.'
+  const systemWithContext = `${SYSTEM_PROMPT}\n\nContexto:\n${songsContext}\n${currentSongContext}\n${artistContext}`
+  const contents = [
+    { role: 'user', parts: [{ text: systemWithContext }] },
+    { role: 'model', parts: [{ text: 'Entendido. Soy SeekeAI, listo para ayudarte.' }] },
+    ...messages.map(msg => ({ role: msg.role === 'user' ? 'user' : 'model', parts: [{ text: msg.content }] }))
+  ]
+  const res = await fetch(`${BACKEND_URL}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: contents }) })
   if (!res.ok) throw new Error('BACKEND_ERROR')
   const data = await res.json()
   if (data.error || !data.reply) throw new Error('AI_ERROR')
   return data.reply
 }
-
-const SUGGESTIONS = [
-  '¿Qué canción me recomiendas ahora mismo?',
-  '¿Cómo subo mis canciones a SoundSeekers?',
-  'Analiza la canción que estoy escuchando',
-  'Quiero convertirme en artista',
-  'Recomiéndame música para estudiar',
-  'Reproduce algo de reggaeton',
-]
 
 export default function AI() {
   const { currentSong, playSong, isVisible, isFullscreen } = usePlayer()
@@ -143,80 +117,51 @@ export default function AI() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [input, setInput] = useState('')
-  const [playingPreview, setPlayingPreview] = useState(null)
-  const audioRef = useRef(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
-
   const historyKey = getHistoryKey(user?.id)
   const publishedSongs = allSongs.filter(s => s.status === 'published')
 
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem(getHistoryKey(user?.id))
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.length > 0) return parsed
-      }
+      if (saved) { const p = JSON.parse(saved); if (p.length > 0) return p }
     } catch {}
-    return [INITIAL_MESSAGE]
+    return []
   })
+
+  // true = pantalla bienvenida, false = chat activo
+  const showWelcome = messages.length === 0
 
   useEffect(() => {
     if (!user) return
     supabase.from('user_roles').select('role').eq('user_id', user.id).single()
-      .then(({ data }) => setIsArtist(data?.role === 'artist'))
-      .catch(() => {})
+      .then(({ data }) => setIsArtist(data?.role === 'artist')).catch(() => {})
   }, [user?.id])
 
   useEffect(() => {
     const key = getHistoryKey(user?.id)
     try {
       const saved = localStorage.getItem(key)
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (parsed.length > 0) { setMessages(parsed); return }
-      }
+      if (saved) { const p = JSON.parse(saved); if (p.length > 0) { setMessages(p); return } }
     } catch {}
-    setMessages([INITIAL_MESSAGE])
+    setMessages([])
   }, [user?.id])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(historyKey, JSON.stringify(messages.slice(-MAX_HISTORY)))
-    } catch {}
+    try { localStorage.setItem(historyKey, JSON.stringify(messages.slice(-MAX_HISTORY))) } catch {}
   }, [messages, historyKey])
 
   useEffect(() => { getSongs().then(setAllSongs).catch(() => {}) }, [])
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, loading])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
-  const clearHistory = () => {
-    setMessages([INITIAL_MESSAGE])
-    localStorage.removeItem(historyKey)
-  }
-
-  const handlePlayPreview = (previewUrl, id) => {
-    if (playingPreview === id) {
-      audioRef.current?.pause()
-      setPlayingPreview(null)
-      return
-    }
-    if (audioRef.current) audioRef.current.pause()
-    const audio = new Audio(previewUrl)
-    audioRef.current = audio
-    audio.play()
-    audio.onended = () => setPlayingPreview(null)
-    setPlayingPreview(id)
-  }
+  const clearHistory = () => { setMessages([]); localStorage.removeItem(historyKey) }
 
   const sendMessage = async (text) => {
-    const content = text || input.trim()
+    const content = (text || input).trim()
     if (!content || loading) return
-    setInput('')
-    setError('')
+    setInput(''); setError('')
     const newMessages = [...messages, { role: 'user', content }]
     setMessages(newMessages)
     setLoading(true)
@@ -226,251 +171,240 @@ export default function AI() {
       const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
       if (playMatch) {
         const title = playMatch[1].trim().toLowerCase()
-        const song = publishedSongs.find(s =>
-          s.title?.toLowerCase().includes(title) ||
-          title.includes(s.title?.toLowerCase())
-        )
+        const song = publishedSongs.find(s => s.title?.toLowerCase().includes(title) || title.includes(s.title?.toLowerCase()))
         if (song) playSong(song, publishedSongs)
       }
       setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
     } catch {
-      setError('Hubo un error al conectar con SeekeAI. Intenta de nuevo.')
+      setError('Error al conectar con SeekeAI. Intenta de nuevo.')
       setMessages(prev => prev.slice(0, -1))
-    } finally {
-      setLoading(false)
-      inputRef.current?.focus()
-    }
+    } finally { setLoading(false); inputRef.current?.focus() }
   }
 
   const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? 'músico'
+  const playerOffset = isVisible && !isFullscreen ? 72 : 0
 
-  const renderMessage = (msg) => {
-    if (msg.role !== 'assistant') return <span style={{ whiteSpace: 'pre-wrap' }}>{msg.content}</span>
-
-    if (msg.itunesSongs) {
-      return (
-        <div>
-          <p style={{ margin: '0 0 10px', whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{msg.content}</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {msg.itunesSongs.map(s => (
-              <div key={s.trackId} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(124,58,237,0.06)', borderRadius: 10, padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)' }}>
-                <img src={s.artworkUrl60} alt={s.trackName} style={{ width: 36, height: 36, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.trackName}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>{s.artistName}</p>
-                </div>
-                {s.previewUrl && (
-                  <button onClick={() => handlePlayPreview(s.previewUrl, s.trackId)}
-                    style={{ width: 30, height: 30, borderRadius: '50%', background: playingPreview === s.trackId ? '#6d28d9' : '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    {playingPreview === s.trackId
-                      ? <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
-                      : <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                    }
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )
-    }
-
+  const renderAssistantContent = (msg) => {
     const { cleanText, recommendedSongs, playSongTitle, navKey } = parseMessage(msg.content, publishedSongs)
     const songToPlay = playSongTitle
-      ? publishedSongs.find(s =>
-          s.title?.toLowerCase().includes(playSongTitle) ||
-          playSongTitle.includes(s.title?.toLowerCase())
-        )
+      ? publishedSongs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
       : null
 
     return (
       <div>
-        <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.65 }}>{cleanText}</p>
-
+        <p style={{ margin: 0, whiteSpace: 'pre-wrap', lineHeight: 1.7, fontSize: '14px', color: '#374151' }}>{cleanText}</p>
         {songToPlay && (
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10, background: 'rgba(124,58,237,0.06)', borderRadius: 12, padding: '10px 12px', border: '1px solid rgba(124,58,237,0.15)' }}>
-            <img src={songToPlay.cover_url} alt={songToPlay.title} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }}/>
+          <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px', background: '#f5f3ff', borderRadius: '12px', padding: '10px 12px', border: '1px solid #ede9fe' }}>
+            <img src={songToPlay.cover_url} alt={songToPlay.title} style={{ width: '40px', height: '40px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{songToPlay.title}</p>
-              <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>{songToPlay.display_artist || songToPlay.artist_name}</p>
+              <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{songToPlay.title}</p>
+              <p style={{ margin: 0, fontSize: '11px', color: '#7c3aed' }}>{songToPlay.display_artist || songToPlay.artist_name}</p>
             </div>
             <button onClick={() => playSong(songToPlay, publishedSongs)}
-              style={{ width: 36, height: 36, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
+              style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(124,58,237,0.3)', flexShrink: 0 }}>
               <svg width="13" height="13" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
             </button>
           </div>
         )}
-
         {recommendedSongs.length > 0 && (
-          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {recommendedSongs.map(song => (
-              <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(124,58,237,0.06)', borderRadius: 10, padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)' }}>
-                <img src={song.cover_url} alt={song.title} style={{ width: 34, height: 34, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
+              <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', borderRadius: '10px', padding: '8px 10px', border: '1px solid #ede9fe' }}>
+                <img src={song.cover_url} alt={song.title} style={{ width: '34px', height: '34px', borderRadius: '7px', objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
-                  <p style={{ margin: 0, fontSize: 11, color: '#7c3aed' }}>{song.display_artist || song.artist_name}</p>
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: '700', color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                  <p style={{ margin: 0, fontSize: '11px', color: '#7c3aed' }}>{song.display_artist || song.artist_name}</p>
                 </div>
                 <button onClick={() => playSong(song, publishedSongs)}
-                  style={{ width: 30, height: 30, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  style={{ width: '30px', height: '30px', borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <svg width="11" height="11" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
                 </button>
               </div>
             ))}
           </div>
         )}
-
         {navKey && NAV_CONFIG[navKey] && (
           <button onClick={() => navigate(NAV_CONFIG[navKey].path)}
-            style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', gap: 8, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', borderRadius: 100, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
-            <span>{NAV_CONFIG[navKey].icon}</span>
-            {NAV_CONFIG[navKey].label}
-            <svg width="14" height="14" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
-            </svg>
+            style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', borderRadius: '100px', padding: '9px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
+            <span>{NAV_CONFIG[navKey].icon}</span>{NAV_CONFIG[navKey].label}
+            <svg width="14" height="14" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
           </button>
         )}
       </div>
     )
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: '#f8f7ff', display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+  const inputBar = (
+    <div style={{ position: 'fixed', bottom: playerOffset, left: 0, right: 0, background: 'rgba(248,247,255,0.96)', backdropFilter: 'blur(12px)', borderTop: '1px solid #e5e7eb', padding: '12px 16px', zIndex: 150, transition: 'bottom 0.3s ease' }}>
+      <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+        {currentSong && showWelcome && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f3ff', border: '1px solid #ede9fe', borderRadius: '12px', padding: '8px 12px', marginBottom: '8px' }}>
+            <img src={currentSong.cover_url || currentSong.coverUrl} alt="" style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}/>
+            <p style={{ margin: 0, fontSize: '12px', color: '#6d28d9', fontWeight: '500', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              🎵 Escuchando: {currentSong.title} — {currentSong.display_artist || currentSong.artist_name}
+            </p>
+            <button onClick={() => sendMessage('Analiza la canción que estoy escuchando ahora')}
+              style={{ flexShrink: 0, background: '#7c3aed', border: 'none', borderRadius: '8px', color: '#fff', fontSize: '11px', fontWeight: '700', padding: '4px 10px', cursor: 'pointer', fontFamily: 'inherit' }}>
+              Analizar
+            </button>
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+            placeholder="Pregúntame sobre música, artistas o la plataforma..."
+            style={{ flex: 1, border: '1.5px solid #e5e7eb', borderRadius: '100px', padding: '12px 20px', fontSize: '14px', outline: 'none', fontFamily: 'inherit', background: '#fff', transition: 'border-color 0.2s' }}
+            onFocus={e => e.target.style.borderColor = '#7c3aed'}
+            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+          />
+          <button onClick={() => sendMessage()} disabled={!input.trim() || loading}
+            style={{ width: '44px', height: '44px', borderRadius: '50%', background: input.trim() && !loading ? '#7c3aed' : '#e5e7eb', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'background 0.2s' }}>
+            <svg width="16" height="16" fill={input.trim() && !loading ? '#fff' : '#9ca3af'} viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 
-      <div style={{ background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', padding: '24px 16px 20px', color: '#fff' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 14, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="22" height="22" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
+  // ── PANTALLA DE BIENVENIDA (estilo Claude) ──
+  if (showWelcome) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'flex', flexDirection: 'column' }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap'); @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } } .sugg-btn:hover { background: #f5f3ff !important; border-color: #7c3aed !important; transform: translateY(-1px); }`}</style>
+
+        {/* Header igual a las otras páginas */}
+        <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '2rem 1rem 4.5rem' }}>
+          <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+            <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', margin: '0 0 8px' }}>Asistente Inteligente</p>
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: '#fff', margin: '0 0 6px', letterSpacing: '0.02em' }}>SeekeAI</h1>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>Tu asistente musical para SoundSeekers</p>
+          </div>
+        </div>
+
+        {/* Bienvenida centrada */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 16px', paddingBottom: `${playerOffset + 100}px`, marginTop: '-24px' }}>
+          <div style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', padding: '32px 24px', maxWidth: '480px', width: '100%', textAlign: 'center', animation: 'fadeUp 0.4s ease forwards' }}>
+            {/* Avatar IA */}
+            <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(124,58,237,0.3)' }}>
+              <svg width="32" height="32" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
             </div>
-            <div style={{ flex: 1 }}>
-              <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>SeekeAI</h1>
-              <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>Tu asistente musical inteligente</p>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5, background: 'rgba(255,255,255,0.15)', padding: '5px 10px', borderRadius: 100 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', animation: 'pulse 2s infinite' }}/>
-                <span style={{ fontSize: 11, fontWeight: 600 }}>En línea</span>
-              </div>
-              {messages.length > 1 && (
-                <button onClick={clearHistory}
-                  style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: 100, padding: '5px 10px', color: '#fff', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-                  🗑️ Limpiar
+            <h2 style={{ fontSize: '22px', fontWeight: '800', color: '#111', margin: '0 0 8px' }}>
+              Hola, {userName} 👋
+            </h2>
+            <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, margin: '0 0 24px' }}>
+              Soy SeekeAI, tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o resolver cualquier duda musical.
+            </p>
+
+            {/* Sugerencias */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', textAlign: 'left' }}>
+              {SUGGESTIONS.map(s => (
+                <button key={s.text} className="sugg-btn" onClick={() => sendMessage(s.text)}
+                  style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', background: '#f9fafb', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '10px 12px', cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s', textAlign: 'left' }}>
+                  <span style={{ fontSize: '16px', flexShrink: 0, marginTop: '1px' }}>{s.icon}</span>
+                  <span style={{ fontSize: '12px', color: '#374151', fontWeight: '500', lineHeight: 1.4 }}>{s.text}</span>
                 </button>
-              )}
+              ))}
             </div>
           </div>
+        </div>
 
+        {inputBar}
+      </div>
+    )
+  }
+
+  // ── PANTALLA DE CHAT ──
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'flex', flexDirection: 'column' }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes dotBounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} } @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }`}</style>
+
+      {/* Header compacto en modo chat */}
+      <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 30 }}>
+        <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+            </svg>
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#fff' }}>SeekeAI</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#4ade80' }}/>
+              <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.7)' }}>En línea</p>
+            </div>
+          </div>
           {currentSong && (
-            <div style={{ background: 'rgba(255,255,255,0.12)', borderRadius: 10, padding: '8px 12px', display: 'flex', alignItems: 'center', gap: 8, marginTop: 10 }}>
-              <img src={currentSong.cover_url || currentSong.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <p style={{ margin: 0, fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Escuchando ahora</p>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {currentSong.title} — {currentSong.display_artist || currentSong.artist_name}
-                </p>
-              </div>
-              <button onClick={() => sendMessage('Analiza la canción que estoy escuchando ahora')}
-                style={{ flexShrink: 0, background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 7, color: '#fff', fontSize: 10, fontWeight: 700, padding: '5px 9px', cursor: 'pointer' }}>
-                Analizar
-              </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '5px 8px', cursor: 'pointer' }}
+              onClick={() => sendMessage('Analiza la canción que estoy escuchando ahora')}>
+              <img src={currentSong.cover_url || currentSong.coverUrl} alt="" style={{ width: '20px', height: '20px', borderRadius: '4px', objectFit: 'cover' }}/>
+              <p style={{ margin: 0, fontSize: '11px', color: 'rgba(255,255,255,0.9)', fontWeight: '600', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentSong.title}
+              </p>
             </div>
           )}
+          <button onClick={clearHistory}
+            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', borderRadius: '8px', padding: '5px 10px', color: '#fff', fontSize: '11px', fontWeight: '600', cursor: 'pointer', flexShrink: 0 }}>
+            🗑️
+          </button>
         </div>
       </div>
 
-      <div style={{ flex: 1, maxWidth: 760, width: '100%', margin: '0 auto', padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: 14, paddingBottom: isVisible && !isFullscreen ? 160 : 100 }}>
-        {messages.length === 1 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
-            {SUGGESTIONS.map(s => (
-              <button key={s} onClick={() => sendMessage(s)}
-                style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 100, padding: '7px 12px', fontSize: 11, color: '#7c3aed', fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
-                onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; e.currentTarget.style.borderColor = '#7c3aed' }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#e5e7eb' }}>
-                {s}
-              </button>
-            ))}
-          </div>
-        )}
-
+      {/* Mensajes */}
+      <div style={{ flex: 1, maxWidth: '760px', width: '100%', margin: '0 auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: `${playerOffset + 90}px` }}>
         {messages.map((msg, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+          <div key={i} style={{ display: 'flex', gap: '10px', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', animation: 'fadeUp 0.2s ease forwards' }}>
             {msg.role === 'assistant' && (
-              <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
                 <svg width="15" height="15" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
                 </svg>
               </div>
             )}
             <div style={{
-              maxWidth: '80%',
+              maxWidth: '78%',
               background: msg.role === 'user' ? 'linear-gradient(135deg, #7c3aed, #6d28d9)' : '#fff',
               color: msg.role === 'user' ? '#fff' : '#111',
-              borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-              padding: '10px 14px',
-              fontSize: 13,
-              lineHeight: 1.6,
-              boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
+              borderRadius: msg.role === 'user' ? '18px 18px 4px 18px' : '4px 18px 18px 18px',
+              padding: '12px 16px',
+              boxShadow: msg.role === 'user' ? '0 4px 12px rgba(124,58,237,0.25)' : '0 2px 8px rgba(0,0,0,0.06)',
             }}>
-              {msg.role === 'assistant' ? renderMessage(msg) : msg.content}
+              {msg.role === 'assistant' ? renderAssistantContent(msg) : (
+                <span style={{ fontSize: '14px', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{msg.content}</span>
+              )}
             </div>
             {msg.role === 'user' && (
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 800, color: '#7c3aed', flexShrink: 0, marginTop: 2 }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#7c3aed', flexShrink: 0, marginTop: '2px' }}>
                 {userName?.[0]?.toUpperCase() ?? '?'}
               </div>
             )}
           </div>
         ))}
 
-        {error && (
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '9px 12px', fontSize: 12, color: '#dc2626', textAlign: 'center' }}>
-            {error}
-          </div>
-        )}
-
         {loading && (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg width="15" height="15" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
               </svg>
             </div>
-            <div style={{ background: '#fff', borderRadius: '16px 16px 16px 4px', padding: '12px 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', display: 'flex', gap: 4, alignItems: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: '4px 18px 18px 18px', padding: '14px 18px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', gap: '5px', alignItems: 'center' }}>
               {[0, 1, 2].map(k => (
-                <div key={k} style={{ width: 6, height: 6, borderRadius: '50%', background: '#7c3aed', animation: `dotBounce 1.2s ${k * 0.2}s infinite` }}/>
+                <div key={k} style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#7c3aed', animation: `dotBounce 1.2s ${k * 0.2}s infinite` }}/>
               ))}
             </div>
           </div>
         )}
+
+        {error && (
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', padding: '10px 14px', fontSize: '13px', color: '#dc2626', textAlign: 'center' }}>{error}</div>
+        )}
+
         <div ref={bottomRef}/>
       </div>
 
-      <div style={{ position: 'fixed', bottom: isVisible && !isFullscreen ? 72 : 0, left: 0, right: 0, background: '#fff', borderTop: '1px solid #e5e7eb', padding: '10px 12px', zIndex: 150, transition: 'bottom 0.3s ease' }}>
-        <div style={{ maxWidth: 760, margin: '0 auto', display: 'flex', gap: 8 }}>
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-            placeholder="Pregúntame sobre música, artistas o la plataforma..."
-            style={{ flex: 1, border: '1px solid #e5e7eb', borderRadius: 100, padding: '11px 18px', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
-            onFocus={e => e.target.style.borderColor = '#7c3aed'}
-            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-          />
-          <button onClick={() => sendMessage()} disabled={!input.trim() || loading}
-            style={{ width: 42, height: 42, borderRadius: '50%', background: input.trim() && !loading ? '#7c3aed' : '#e5e7eb', border: 'none', cursor: input.trim() && !loading ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="16" height="16" fill={input.trim() && !loading ? '#fff' : '#9ca3af'} viewBox="0 0 24 24">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <style>{`
-        @keyframes dotBounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-6px); opacity: 1; } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-      `}</style>
+      {inputBar}
     </div>
   )
 }
