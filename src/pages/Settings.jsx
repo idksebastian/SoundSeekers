@@ -9,90 +9,134 @@ import { getArtistAlbums } from '../api/albums'
 import { usePlayer } from '../context/PlayerContext'
 
 const SECTIONS = [
-  { id: 'stats', label: 'Estadísticas', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', artist: true },
-  { id: 'songs', label: 'Mis canciones', icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z', artist: true },
-  { id: 'edit', label: 'Editar perfil', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-  { id: 'account', label: 'Cuenta', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
-  { id: 'notifications', label: 'Notificaciones', icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9' },
-  { id: 'danger', label: 'Zona de peligro', icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z', danger: true },
+  { id: 'stats',         label: 'Estadísticas',     icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: '#7c3aed', bg: '#f5f3ff', artist: true },
+  { id: 'songs',         label: 'Mis canciones',    icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z',                                                                                                                                                                                                                                                                                                                                                                                          color: '#10b981', bg: '#f0fdf4', artist: true },
+  { id: 'edit',          label: 'Editar perfil',    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',                                                                                                                                                                                                                                                                                                                                                          color: '#3b82f6', bg: '#eff6ff' },
+  { id: 'account',       label: 'Cuenta',           icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', color: '#f59e0b', bg: '#fffbeb' },
+  { id: 'notifications', label: 'Notificaciones',   icon: 'M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9',                                                                                                                                                                                                                             color: '#ec4899', bg: '#fdf2f8' },
+  { id: 'danger',        label: 'Zona de peligro',  icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',                                                                                                                                                                                                                                                                                        color: '#ef4444', bg: '#fef2f2', danger: true },
 ]
 
 const GENRES = ['Reggaeton', 'Hip-Hop', 'Champeta', 'Electrónica', 'Pop', 'Indie', 'Jazz', 'Folk', 'Vallenato', 'Salsa', 'Rap', 'Otro']
 const NAME_CHANGE_LIMIT = 2
-const NAME_CHANGE_DAYS = 30
+const NAME_CHANGE_DAYS  = 30
 
-function inputClass(extra = '') {
-  return `w-full bg-white border-2 border-gray-200 text-black rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-100 transition-all placeholder-gray-400 ${extra}`
+/* ─── Toggle reutilizable estilo iOS ─── */
+function IOSToggle({ on, onChange, color = '#7c3aed' }) {
+  return (
+    <div onClick={onChange}
+      style={{ width: '44px', height: '26px', borderRadius: '13px', background: on ? color : '#d1d5db', position: 'relative', cursor: 'pointer', transition: 'background 0.25s', flexShrink: 0 }}>
+      <div style={{ position: 'absolute', top: '3px', left: on ? '21px' : '3px', width: '20px', height: '20px', borderRadius: '50%', background: '#fff', transition: 'left 0.25s', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }}/>
+    </div>
+  )
 }
 
-function NotificationSettings({ userId, isArtist }) {
-  const STORAGE_KEY = `ss_notif_prefs_${userId}`
-  const defaultPrefs = { follow: true, like: true, comment: true, feat_invite: true, presave: true }
-  const [prefs, setPrefs] = useState(() => {
-    try { return { ...defaultPrefs, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } }
-    catch { return defaultPrefs }
-  })
-  const [saved, setSaved] = useState(false)
-  const toggle = (key) => setPrefs(prev => ({ ...prev, [key]: !prev[key] }))
-  const handleSave = () => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs))
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-  const items = [
-    { key: 'follow', label: 'Nuevos seguidores', desc: 'Cuando alguien empiece a seguirte', color: '#7c3aed', bg: '#f5f3ff', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
-    { key: 'like', label: 'Likes en posts', desc: 'Cuando alguien le dé like a tu publicación', color: '#ec4899', bg: '#fdf2f8', icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' },
-    { key: 'comment', label: 'Comentarios', desc: 'Cuando alguien comente en tu post', color: '#3b82f6', bg: '#eff6ff', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-    ...(isArtist ? [
-      { key: 'feat_invite', label: 'Invitaciones a colaborar', desc: 'Cuando otro artista te invite a un feat', color: '#f59e0b', bg: '#fffbeb', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
-      { key: 'presave', label: 'Presaves', desc: 'Cuando alguien guarde tu próximo lanzamiento', color: '#10b981', bg: '#f0fdf4', icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z' },
-    ] : []),
-  ]
+/* ─── Fila iOS tipo Settings de iPhone ─── */
+function IOSRow({ icon, iconColor = '#7c3aed', iconBg = '#f5f3ff', label, sublabel, right, onClick, border = true }) {
   return (
-    <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '1.5rem' }}>
-        {items.map(item => (
-          <div key={item.key}
-            style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 14px', background: prefs[item.key] ? item.bg : '#f9fafb', borderRadius: '14px', border: `1px solid ${prefs[item.key] ? item.bg : '#f3f4f6'}`, transition: 'all 0.2s', cursor: 'pointer' }}
-            onClick={() => toggle(item.key)}>
-            <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: prefs[item.key] ? '#fff' : '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="16" height="16" fill="none" stroke={prefs[item.key] ? item.color : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={item.icon}/></svg>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: '13px', fontWeight: '700', color: prefs[item.key] ? '#111' : '#9ca3af', margin: '0 0 2px' }}>{item.label}</p>
-              <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>{item.desc}</p>
-            </div>
-            <div style={{ width: '40px', height: '22px', borderRadius: '100px', background: prefs[item.key] ? item.color : '#e5e7eb', position: 'relative', flexShrink: 0, transition: 'background 0.2s' }}>
-              <div style={{ position: 'absolute', top: '3px', left: prefs[item.key] ? '21px' : '3px', width: '16px', height: '16px', borderRadius: '50%', background: '#fff', transition: 'left 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.15)' }}/>
-            </div>
-          </div>
-        ))}
+    <div onClick={onClick}
+      style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#fff', cursor: onClick ? 'pointer' : 'default', transition: 'background 0.15s', borderBottom: border ? '1px solid #f3f4f6' : 'none' }}
+      onMouseEnter={e => { if (onClick) e.currentTarget.style.background = '#f9fafb' }}
+      onMouseLeave={e => { if (onClick) e.currentTarget.style.background = '#fff' }}>
+      <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <svg width="15" height="15" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={icon}/></svg>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <button onClick={handleSave} style={{ padding: '10px 24px', borderRadius: '12px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', fontWeight: '700', fontSize: '13px', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
-          Guardar preferencias
-        </button>
-        {saved && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#10b981', fontWeight: '600' }}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
-            Guardado
-          </div>
-        )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: '14px', fontWeight: '500', color: '#111', margin: 0, lineHeight: 1.3 }}>{label}</p>
+        {sublabel && <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0', lineHeight: 1.3 }}>{sublabel}</p>}
+      </div>
+      {right ?? (onClick && (
+        <svg width="14" height="14" fill="none" stroke="#c7c7cc" strokeWidth="2.5" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/>
+        </svg>
+      ))}
+    </div>
+  )
+}
+
+/* ─── Grupo de filas con título opcional estilo iOS ─── */
+function IOSGroup({ title, children }) {
+  return (
+    <div style={{ marginBottom: '24px' }}>
+      {title && <p style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px 4px' }}>{title}</p>}
+      <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+        {children}
       </div>
     </div>
   )
 }
 
+/* ─── Input estilo iOS ─── */
+function IOSInput({ label, ...props }) {
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      {label && <p style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', margin: '0 0 6px 2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>}
+      <input style={{ width: '100%', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '11px 14px', fontSize: '14px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+        onFocus={e => e.target.style.borderColor = '#7c3aed'}
+        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+        {...props} />
+    </div>
+  )
+}
+
+/* ─── Notificaciones ─── */
+function NotificationSettings({ userId, isArtist }) {
+  const STORAGE_KEY = `ss_notif_prefs_${userId}`
+  const defaultPrefs = { follow: true, like: true, comment: true, feat_invite: true, presave: true }
+  const [prefs, setPrefs] = useState(() => {
+    try { return { ...defaultPrefs, ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') } } catch { return defaultPrefs }
+  })
+  const [saved, setSaved] = useState(false)
+  const toggle = (key) => setPrefs(prev => {
+    const next = { ...prev, [key]: !prev[key] }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+    setSaved(true); setTimeout(() => setSaved(false), 2000)
+    return next
+  })
+
+  const items = [
+    { key: 'follow',      label: 'Nuevos seguidores',         icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z',          color: '#7c3aed', bg: '#f5f3ff' },
+    { key: 'like',        label: 'Likes en posts',             icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z', color: '#ec4899', bg: '#fdf2f8' },
+    { key: 'comment',     label: 'Comentarios',                icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z', color: '#3b82f6', bg: '#eff6ff' },
+    ...(isArtist ? [
+      { key: 'feat_invite', label: 'Invitaciones a colaborar', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', color: '#f59e0b', bg: '#fffbeb' },
+      { key: 'presave',     label: 'Presaves',                  icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z',                            color: '#10b981', bg: '#f0fdf4' },
+    ] : []),
+  ]
+
+  return (
+    <div>
+      <IOSGroup title="Quiero recibir notificaciones de">
+        {items.map((item, i) => (
+          <IOSRow key={item.key} icon={item.icon} iconColor={item.color} iconBg={item.bg}
+            label={item.label} border={i < items.length - 1}
+            right={<IOSToggle on={prefs[item.key]} onChange={() => toggle(item.key)} color={item.color} />} />
+        ))}
+      </IOSGroup>
+      {saved && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#10b981', fontWeight: '600', marginTop: '-12px', paddingLeft: '4px' }}>
+          <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+          Guardado automáticamente
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ════════════════════════════════════════════════════════ */
 export default function Settings() {
   const { user } = useAuth()
   const { playSong } = usePlayer()
   const navigate = useNavigate()
   const avatarInputRef = useRef(null)
-  const coverInputRef = useRef(null)
-  const [activeSection, setActiveSection] = useState('edit')
+  const coverInputRef   = useRef(null)
+
+  /* mobile: null = menú principal, string = sección activa */
+  const [activeSection, setActiveSection] = useState(null)
   const [role, setRole] = useState(null)
   const [loadingRole, setLoadingRole] = useState(true)
 
+  /* Edit profile */
   const [name, setName] = useState('')
   const [artistName, setArtistName] = useState('')
   const [description, setDescription] = useState('')
@@ -100,6 +144,7 @@ export default function Settings() {
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', tiktok: '', youtube: '', website: '' })
 
+  /* Account */
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -110,10 +155,12 @@ export default function Settings() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  /* Stats */
   const [stats, setStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [songStats, setSongStats] = useState([])
 
+  /* Songs */
   const [songs, setSongs] = useState([])
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
@@ -142,30 +189,26 @@ export default function Settings() {
 
   useEffect(() => {
     if (activeSection !== 'songs' || !user) return
-    const fetchSongs = async () => {
+    const fetch = async () => {
       setLoadingSongs(true)
-      try { const data = await getMySongs(user.id); setSongs(data) }
-      catch (err) { console.error(err) }
-      finally { setLoadingSongs(false) }
+      try { setSongs(await getMySongs(user.id)) } catch {} finally { setLoadingSongs(false) }
     }
-    fetchSongs()
+    fetch()
   }, [activeSection, user])
 
   useEffect(() => {
     if (activeSection !== 'stats' || !user) return
-    const fetchStats = async () => {
+    const fetch = async () => {
       setLoadingStats(true)
       try {
         const [songsData, followData, albums] = await Promise.all([getMySongs(user.id), getFollowStats(user.id), getArtistAlbums(user.id)])
         const totalStreams = songsData.reduce((a, s) => a + (s.streams ?? 0), 0)
-        const topSongs = [...songsData].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5)
         const { data: presavesData } = await supabase.from('presaves').select('id', { count: 'exact' }).in('album_id', albums.map(a => a.id))
         setStats({ totalStreams, totalSongs: songsData.length, totalAlbums: albums.length, followers: followData.followers, following: followData.following, presaves: presavesData?.length ?? 0 })
-        setSongStats(topSongs)
-      } catch (err) { console.error(err) }
-      finally { setLoadingStats(false) }
+        setSongStats([...songsData].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5))
+      } catch {} finally { setLoadingStats(false) }
     }
-    fetchStats()
+    fetch()
   }, [activeSection, user])
 
   const isArtist = role?.role === 'artist'
@@ -180,51 +223,37 @@ export default function Settings() {
 
   const hasChanges = useMemo(() => {
     if (avatarFile) return true
-    if (name !== initialName) return true
-    if (description !== initialDescription) return true
+    if (name !== initialName || description !== initialDescription) return true
     if (isArtist && artistName !== initialArtistName) return true
-    const initSocials = { instagram: role?.instagram ?? '', twitter: role?.twitter ?? '', tiktok: role?.tiktok ?? '', youtube: role?.youtube ?? '', website: role?.website ?? '' }
-    return Object.keys(initSocials).some(k => socialLinks[k] !== initSocials[k])
+    const init = { instagram: role?.instagram ?? '', twitter: role?.twitter ?? '', tiktok: role?.tiktok ?? '', youtube: role?.youtube ?? '', website: role?.website ?? '' }
+    return Object.keys(init).some(k => socialLinks[k] !== init[k])
   }, [name, artistName, description, avatarFile, socialLinks, role])
 
-  const handleAvatarChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setAvatarFile(file)
-    setAvatarPreview(URL.createObjectURL(file))
-  }
+  const handleAvatarChange = (e) => { const f = e.target.files[0]; if (!f) return; setAvatarFile(f); setAvatarPreview(URL.createObjectURL(f)) }
 
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     if (!name.trim()) return setError('El nombre es obligatorio.')
-    if (isArtist && artistName !== initialArtistName && !canChangeName)
-      return setError(`Podrás cambiar tu nombre artístico en ${NAME_CHANGE_DAYS - daysSinceLastChange} días.`)
+    if (isArtist && artistName !== initialArtistName && !canChangeName) return setError(`Podrás cambiar tu nombre artístico en ${NAME_CHANGE_DAYS - daysSinceLastChange} días.`)
     setLoading(true); setError(''); setMsg('')
-    try {
-      await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks })
-      setMsg('Perfil actualizado correctamente.')
-      setAvatarFile(null)
-    } catch (err) { setError(err.message) }
-    finally { setLoading(false) }
+    try { await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks }); setMsg('Perfil actualizado.'); setAvatarFile(null) }
+    catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
   const handleChangePassword = async (e) => {
-    e.preventDefault()
-    setError(''); setMsg('')
+    e.preventDefault(); setError(''); setMsg('')
     if (!currentPassword) return setError('Ingresa tu contraseña actual.')
-    if (newPassword.length < 6) return setError('La nueva contraseña debe tener mínimo 6 caracteres.')
-    if (newPassword !== confirmPassword) return setError('Las contraseñas nuevas no coinciden.')
-    if (currentPassword === newPassword) return setError('La nueva contraseña debe ser diferente a la actual.')
+    if (newPassword.length < 6) return setError('Mínimo 6 caracteres.')
+    if (newPassword !== confirmPassword) return setError('Las contraseñas no coinciden.')
+    if (currentPassword === newPassword) return setError('La nueva debe ser diferente.')
     setLoading(true)
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
-      if (signInError) return setError('La contraseña actual es incorrecta.')
-      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword })
-      if (updateError) return setError(updateError.message)
-      setMsg('Contraseña actualizada correctamente.')
-      setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
-    } catch { setError('Ocurrió un error. Intenta de nuevo.') }
-    finally { setLoading(false) }
+      const { error: e1 } = await supabase.auth.signInWithPassword({ email: user.email, password: currentPassword })
+      if (e1) return setError('Contraseña actual incorrecta.')
+      const { error: e2 } = await supabase.auth.updateUser({ password: newPassword })
+      if (e2) return setError(e2.message)
+      setMsg('Contraseña actualizada.'); setCurrentPassword(''); setNewPassword(''); setConfirmPassword('')
+    } catch { setError('Error. Intenta de nuevo.') } finally { setLoading(false) }
   }
 
   const handleForgotPassword = async () => {
@@ -235,38 +264,16 @@ export default function Settings() {
     setResetSent(true)
   }
 
-  const handleDeleteAccount = async () => {
-    if (!confirm('¿Estás seguro? Esta acción no se puede deshacer.')) return
-    await logoutUser()
-    navigate('/register')
-  }
-
   const handleDeleteSong = async (songId) => {
     if (confirmDeleteId !== songId) { setConfirmDeleteId(songId); return }
     setDeletingId(songId)
-    try {
-      await deleteSong(songId)
-      setSongs(prev => prev.filter(s => s.id !== songId))
-      setConfirmDeleteId(null)
-      setSongMsg('Canción eliminada correctamente.')
-      setTimeout(() => setSongMsg(''), 3000)
-    } catch (err) { console.error(err) }
-    finally { setDeletingId(null) }
+    try { await deleteSong(songId); setSongs(p => p.filter(s => s.id !== songId)); setConfirmDeleteId(null); setSongMsg('Canción eliminada.'); setTimeout(() => setSongMsg(''), 3000) }
+    catch {} finally { setDeletingId(null) }
   }
 
-  const openEditSong = (song) => {
-    setEditingSong(song)
-    setEditForm({ title: song.title, genre: song.genre ?? '', description: song.description ?? '' })
-    setEditCoverFile(null)
-    setEditCoverPreview(song.cover_url)
-  }
+  const openEditSong = (song) => { setEditingSong(song); setEditForm({ title: song.title, genre: song.genre ?? '', description: song.description ?? '' }); setEditCoverFile(null); setEditCoverPreview(song.cover_url) }
 
-  const handleEditCoverChange = (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setEditCoverFile(file)
-    setEditCoverPreview(URL.createObjectURL(file))
-  }
+  const handleEditCoverChange = (e) => { const f = e.target.files[0]; if (!f) return; setEditCoverFile(f); setEditCoverPreview(URL.createObjectURL(f)) }
 
   const handleSaveEdit = async () => {
     if (!editForm.title.trim()) return
@@ -276,521 +283,449 @@ export default function Settings() {
       if (editCoverFile) {
         const ext = editCoverFile.name.split('.').pop()
         const path = `${user.id}/${Date.now()}_cover.${ext}`
-        const { error: uploadError } = await supabase.storage.from('covers').upload(path, editCoverFile, { upsert: true })
-        if (!uploadError) {
-          const { data } = supabase.storage.from('covers').getPublicUrl(path)
-          coverUrl = data.publicUrl
-        }
+        const { error: uploadErr } = await supabase.storage.from('covers').upload(path, editCoverFile, { upsert: true })
+        if (!uploadErr) { const { data } = supabase.storage.from('covers').getPublicUrl(path); coverUrl = data.publicUrl }
       }
       const updated = await updateSong(editingSong.id, { title: editForm.title.trim(), genre: editForm.genre, description: editForm.description.trim(), cover_url: coverUrl })
-      setSongs(prev => prev.map(s => s.id === updated.id ? updated : s))
-      setEditingSong(null)
-      setSongMsg('Canción actualizada correctamente.')
-      setTimeout(() => setSongMsg(''), 3000)
-    } catch (err) { console.error(err) }
-    finally { setSavingEdit(false) }
+      setSongs(p => p.map(s => s.id === updated.id ? updated : s))
+      setEditingSong(null); setSongMsg('Canción actualizada.'); setTimeout(() => setSongMsg(''), 3000)
+    } catch {} finally { setSavingEdit(false) }
   }
 
   const visibleSections = SECTIONS.filter(s => !s.artist || isArtist)
 
+  const goBack = () => { setActiveSection(null); setMsg(''); setError('') }
+
   if (loadingRole) return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <svg className="w-8 h-8 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f2f2f7' }}>
+      <svg style={{ width: '32px', height: '32px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
+        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
       </svg>
     </div>
   )
 
-  return (
-    <div className="min-h-screen bg-gray-50 pb-32" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
-        .settings-header { background: linear-gradient(135deg, #7c3aed, #6d28d9); padding: 1.5rem 1rem 3.5rem; }
-        @media (min-width: 600px) { .settings-header { padding: 2rem 2rem 4rem; } }
-        .settings-layout { max-width: 1100px; margin: -1.5rem auto 0; padding: 0 1rem; }
-        @media (min-width: 600px) { .settings-layout { margin: -2rem auto 0; padding: 0 2rem; } }
-        @media (min-width: 768px) { .settings-layout { display: grid; grid-template-columns: 220px 1fr; gap: 24px; align-items: start; } .settings-sidebar-desktop { display: block; } .settings-tabs-mobile { display: none; } }
-        @media (max-width: 767px) { .settings-sidebar-desktop { display: none; } .settings-tabs-mobile { display: flex; } }
-        .settings-sidebar-desktop { background: #fff; border-radius: 20px; padding: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); position: sticky; top: 84px; }
-        .settings-tabs-mobile { overflow-x: auto; gap: 6px; padding: 0 0 8px; margin-bottom: 12px; }
-        .settings-tab-mobile { flex-shrink: 0; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 100px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; color: #6b7280; }
-        .settings-tab-mobile.active { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-        .settings-tab-mobile.danger { color: #ef4444; border-color: #fecaca; }
-        .settings-tab-mobile.danger.active { background: #ef4444; color: #fff; border-color: #ef4444; }
-        .settings-content { background: #fff; border-radius: 20px; padding: 1.25rem; box-shadow: 0 4px 20px rgba(0,0,0,0.06); min-height: 400px; }
-        @media (min-width: 600px) { .settings-content { padding: 2rem; } }
-        .sidebar-btn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; border: none; cursor: pointer; text-align: left; font-size: 13px; font-weight: 600; font-family: inherit; margin-bottom: 2px; transition: all 0.15s; }
-        .song-card { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; border: 1px solid #f3f4f6; background: #fafafa; transition: all 0.15s; }
-        .song-card:hover { background: #f5f3ff; border-color: #ede9fe; }
+  const displayName = isArtist ? artistName || name : name
 
-        /* Stats dashboard */
-        .stat-card { border-radius: 16px; padding: 1.25rem; position: relative; overflow: hidden; }
-        .stat-card-inner { position: relative; z-index: 1; }
-        .stat-icon-wrap { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
-        .stat-value { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; line-height: 1; margin: 0 0 2px; }
-        .stat-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
-        .stat-trend { font-size: 10px; font-weight: 700; margin-top: 6px; display: flex; align-items: center; gap: 3px; }
+  /* ─── Sección activa: vista de detalle (mobile-first) ─── */
+  const renderSection = () => {
+    const section = SECTIONS.find(s => s.id === activeSection)
 
-        /* Chart bars */
-        .chart-bar-wrap { display: flex; flex-direction: column; gap: 10px; }
-        .chart-bar-row { display: flex; align-items: center; gap: 10px; }
-        .chart-bar-label { font-size: 12px; color: #374151; font-weight: 600; min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .chart-bar-track { flex: 2; height: 8px; background: #f3f4f6; border-radius: 100px; overflow: hidden; }
-        .chart-bar-fill { height: 100%; border-radius: 100px; transition: width 0.6s ease; }
-        .chart-bar-val { font-size: 11px; color: #7c3aed; font-weight: 700; min-width: 32px; text-align: right; }
+    return (
+      <div style={{ minHeight: '100vh', background: '#f2f2f7', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-        /* Input styles */
-        .field-label { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; display: block; }
-        .field-input { width: 100%; background: #fff; border: 2px solid #e5e7eb; color: #111; border-radius: 12px; padding: 10px 14px; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s, box-shadow 0.15s; }
-        .field-input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
-        .field-input::placeholder { color: #9ca3af; }
-        .field-input:disabled { background: #f9fafb; color: #9ca3af; cursor: not-allowed; border-color: #e5e7eb; }
-        .field-textarea { width: 100%; background: #fff; border: 2px solid #e5e7eb; color: #111; border-radius: 12px; padding: 10px 14px; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s, box-shadow 0.15s; resize: none; }
-        .field-textarea:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1); }
-      `}</style>
-
-      {/* Header */}
-      <div className="settings-header">
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button onClick={() => navigate(-1)} style={{ width: '34px', height: '34px', borderRadius: '10px', background: 'rgba(255,255,255,0.15)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="15" height="15" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.3)', flexShrink: 0 }}>
-              {avatarPreview
-                ? <img src={avatarPreview} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
-                : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', fontWeight: '800', color: '#fff' }}>{name?.[0]?.toUpperCase() ?? '?'}</div>
-              }
-            </div>
-            <div>
-              <p style={{ fontSize: '16px', fontWeight: '800', color: '#fff', margin: 0, lineHeight: 1.2 }}>{isArtist ? artistName || name : name}</p>
-              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{isArtist ? 'Artista' : 'Oyente'}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="settings-layout">
-        {/* Sidebar desktop */}
-        <div className="settings-sidebar-desktop">
-          {visibleSections.map(s => (
-            <button key={s.id} className="sidebar-btn"
-              onClick={() => { setActiveSection(s.id); setMsg(''); setError('') }}
-              style={{ background: activeSection === s.id ? (s.danger ? '#fef2f2' : '#f5f3ff') : 'transparent', color: activeSection === s.id ? (s.danger ? '#ef4444' : '#7c3aed') : s.danger ? '#ef4444' : '#374151', borderTop: s.danger ? '1px solid #f3f4f6' : 'none', marginTop: s.danger ? '8px' : '0' }}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon}/></svg>
-              {s.label}
+        {/* Nav bar estilo iOS */}
+        <div style={{ background: 'rgba(242,242,247,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '0 16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', height: '52px', gap: '8px' }}>
+            <button onClick={goBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '16px', fontWeight: '500', padding: '4px 0', fontFamily: 'inherit' }}>
+              <svg width="10" height="17" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 10 17">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 1L1 8.5 9 16"/>
+              </svg>
+              Ajustes
             </button>
-          ))}
+            <p style={{ flex: 1, textAlign: 'center', fontWeight: '700', fontSize: '16px', color: '#111', margin: 0 }}>{section?.label}</p>
+            <div style={{ width: '70px' }}/>
+          </div>
         </div>
 
-        <div>
-          {/* Tabs mobile */}
-          <div className="settings-tabs-mobile">
-            {visibleSections.map(s => (
-              <button key={s.id} className={`settings-tab-mobile ${s.danger ? 'danger' : ''} ${activeSection === s.id ? 'active' : ''}`}
-                onClick={() => { setActiveSection(s.id); setMsg(''); setError('') }}>
-                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={s.icon}/></svg>
-                {s.label}
-              </button>
-            ))}
-          </div>
+        <div style={{ padding: '20px 16px 100px' }}>
 
-          <div className="settings-content">
-
-            {/* ── ESTADÍSTICAS REDISEÑADAS ── */}
-            {activeSection === 'stats' && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: 0 }}>Estadísticas</h3>
-                  <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: '600' }}>Resumen general</span>
-                </div>
-                <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.5rem' }}>Tu actividad en SoundSeekers.</p>
-
-                {loadingStats ? (
-                  <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-                    <svg className="w-8 h-8 animate-spin" style={{ color: '#7c3aed' }} fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                  </div>
-                ) : stats ? (
-                  <>
-                    {/* Stat cards grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', marginBottom: '1.5rem' }}>
-                      {[
-                        { label: 'Reproducciones', value: stats.totalStreams.toLocaleString(), icon: 'M5 3l14 9-14 9V3z', color: '#7c3aed', bg: 'linear-gradient(135deg, #f5f3ff, #ede9fe)', iconBg: '#ede9fe', textColor: '#5b21b6', trend: '+12%' },
-                        { label: 'Seguidores', value: stats.followers.toLocaleString(), icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: '#ec4899', bg: 'linear-gradient(135deg, #fdf2f8, #fce7f3)', iconBg: '#fce7f3', textColor: '#9d174d', trend: '+5%' },
-                        { label: 'Siguiendo', value: stats.following.toLocaleString(), icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: '#3b82f6', bg: 'linear-gradient(135deg, #eff6ff, #dbeafe)', iconBg: '#dbeafe', textColor: '#1e40af', trend: null },
-                        { label: 'Canciones', value: stats.totalSongs.toLocaleString(), icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z', color: '#10b981', bg: 'linear-gradient(135deg, #f0fdf4, #d1fae5)', iconBg: '#d1fae5', textColor: '#065f46', trend: null },
-                        { label: 'Álbumes / EPs', value: stats.totalAlbums.toLocaleString(), icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', color: '#f59e0b', bg: 'linear-gradient(135deg, #fffbeb, #fef3c7)', iconBg: '#fef3c7', textColor: '#92400e', trend: null },
-                        { label: 'Presaves', value: stats.presaves.toLocaleString(), icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z', color: '#6366f1', bg: 'linear-gradient(135deg, #eef2ff, #e0e7ff)', iconBg: '#e0e7ff', textColor: '#3730a3', trend: null },
-                      ].map(card => (
-                        <div key={card.label} className="stat-card" style={{ background: card.bg, border: '1px solid rgba(0,0,0,0.04)' }}>
-                          <div className="stat-card-inner">
-                            <div className="stat-icon-wrap" style={{ background: card.iconBg }}>
-                              <svg width="18" height="18" fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={card.icon}/></svg>
-                            </div>
-                            <p className="stat-value" style={{ color: card.textColor }}>{card.value}</p>
-                            <p className="stat-label" style={{ color: card.textColor, opacity: 0.7 }}>{card.label}</p>
-                            {card.trend && (
-                              <p className="stat-trend" style={{ color: '#10b981' }}>
-                                <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
-                                {card.trend} este mes
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Chart de top canciones */}
-                    {songStats.length > 0 && (
-                      <div style={{ background: '#f9fafb', borderRadius: '16px', padding: '1.25rem', border: '1px solid #f3f4f6' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                          <p style={{ fontSize: '13px', fontWeight: '800', color: '#111', margin: 0 }}>Top canciones</p>
-                          <span style={{ fontSize: '10px', color: '#9ca3af', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.06em' }}>por reproducciones</span>
-                        </div>
-                        <div className="chart-bar-wrap">
-                          {songStats.map((song, idx) => {
-                            const maxStreams = songStats[0]?.streams ?? 1
-                            const pct = Math.max(6, Math.round(((song.streams ?? 0) / maxStreams) * 100))
-                            const colors = ['#7c3aed', '#6366f1', '#3b82f6', '#10b981', '#f59e0b']
-                            return (
-                              <div key={song.id} className="chart-bar-row">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
-                                  <img src={song.cover_url} alt={song.title} style={{ width: '28px', height: '28px', borderRadius: '6px', objectFit: 'cover', flexShrink: 0 }}/>
-                                  <span className="chart-bar-label">{song.title}</span>
-                                </div>
-                                <div className="chart-bar-track" style={{ flex: 2 }}>
-                                  <div className="chart-bar-fill" style={{ width: `${pct}%`, background: colors[idx] ?? '#7c3aed' }}/>
-                                </div>
-                                <span className="chart-bar-val">{(song.streams ?? 0).toLocaleString()}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : null}
+          {/* ── ESTADÍSTICAS ── */}
+          {activeSection === 'stats' && (
+            loadingStats ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                <svg style={{ width: '28px', height: '28px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24"><circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
               </div>
-            )}
-
-            {/* ── MIS CANCIONES ── */}
-            {activeSection === 'songs' && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: 0 }}>Mis canciones</h3>
-                  <button onClick={() => navigate('/upload')} className="flex items-center gap-1.5 bg-purple-700 hover:bg-purple-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-                    Subir canción
-                  </button>
-                </div>
-                <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Gestiona las canciones que has publicado.</p>
-
-                {songMsg && (
-                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-600 text-sm px-4 py-3 rounded-xl mb-4">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg>
-                    {songMsg}
-                  </div>
-                )}
-
-                {editingSong && (
-                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => setEditingSong(null)}>
-                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-between mb-5">
-                        <h4 className="text-base font-bold text-black">Editar canción</h4>
-                        <button onClick={() => setEditingSong(null)} className="w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
-                          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-4 mb-5">
-                        <div className="relative group cursor-pointer shrink-0" onClick={() => coverInputRef.current?.click()}>
-                          <img src={editCoverPreview} alt={editingSong.title} className="w-16 h-16 rounded-xl object-cover"/>
-                          <div className="absolute inset-0 rounded-xl bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
-                          </div>
-                          <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleEditCoverChange}/>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-black truncate">{editingSong.title}</p>
-                          <p className="text-xs text-gray-400">Clic en la imagen para cambiar la portada</p>
-                        </div>
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="field-label">Título</label>
-                          <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} maxLength={80} className="field-input"/>
-                        </div>
-                        <div>
-                          <label className="field-label">Género</label>
-                          <select value={editForm.genre} onChange={e => setEditForm(p => ({ ...p, genre: e.target.value }))} className="field-input">
-                            {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="field-label">Descripción</label>
-                          <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} maxLength={300} className="field-textarea"/>
-                          <p className="text-xs text-gray-400 text-right mt-1">{editForm.description.length}/300</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-3 mt-5">
-                        <button onClick={() => setEditingSong(null)} className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50 transition">Cancelar</button>
-                        <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.title.trim()} className="flex-1 py-2.5 rounded-xl bg-purple-700 text-white text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-50 flex items-center justify-center gap-2">
-                          {savingEdit ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Guardando...</> : 'Guardar cambios'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {loadingSongs ? (
-                  <div className="flex justify-center py-12">
-                    <svg className="w-7 h-7 animate-spin text-purple-500" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                    </svg>
-                  </div>
-                ) : songs.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-7 h-7 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-                    </div>
-                    <p className="text-gray-500 font-medium text-sm">No has subido canciones aún</p>
-                    <button onClick={() => navigate('/upload')} className="mt-3 text-sm text-purple-600 font-semibold hover:underline">+ Subir primera canción</button>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {songs.map(song => {
-                      const isConfirming = confirmDeleteId === song.id
-                      return (
-                        <div key={song.id} className={`song-card ${isConfirming ? '!border-red-200 !bg-red-50' : ''}`}>
-                          <img src={song.cover_url} alt={song.title} className="w-12 h-12 rounded-xl object-cover shrink-0"/>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-black truncate">{song.title}</p>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              <span className="text-xs text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full font-medium">{song.genre}</span>
-                              <span className="text-xs text-gray-400 flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z"/></svg>
-                                {(song.streams ?? 0).toLocaleString()} rep.
-                              </span>
-                            </div>
-                            {isConfirming && <p className="text-xs text-red-500 font-medium mt-1">¿Confirmar eliminación?</p>}
-                          </div>
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            <button onClick={() => playSong(song)} className="w-8 h-8 rounded-full bg-purple-100 hover:bg-purple-200 text-purple-700 flex items-center justify-center transition" title="Reproducir">
-                              <svg className="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-                            </button>
-                            <button onClick={() => openEditSong(song)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition" title="Editar">
-                              <svg className="w-3.5 h-3.5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                            </button>
-                            <button onClick={() => handleDeleteSong(song.id)} disabled={deletingId === song.id}
-                              className={`w-8 h-8 rounded-full flex items-center justify-center transition disabled:opacity-50 ${isConfirming ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-100 hover:bg-red-50'}`} title={isConfirming ? 'Confirmar' : 'Eliminar'}>
-                              {deletingId === song.id
-                                ? <svg className="w-3.5 h-3.5 animate-spin text-red-500" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                                : <svg className={`w-3.5 h-3.5 ${isConfirming ? 'text-white' : 'text-gray-500'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                              }
-                            </button>
-                            {isConfirming && (
-                              <button onClick={() => setConfirmDeleteId(null)} className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center transition">
-                                <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── EDITAR PERFIL ── */}
-            {activeSection === 'edit' && (
-              <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Editar perfil</h3>
-                <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Actualiza tu información pública.</p>
-
-                {error && <div className="flex items-center gap-2 bg-red-50 border-2 border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-4">{error}</div>}
-                {msg && <div className="flex items-center gap-2 bg-green-50 border-2 border-green-200 text-green-600 text-sm px-4 py-3 rounded-xl mb-4">{msg}</div>}
-
-                <form onSubmit={handleSaveProfile} className="space-y-4">
-                  {/* Avatar */}
-                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border-2 border-gray-100">
-                    <div onClick={() => avatarInputRef.current?.click()} className="relative group cursor-pointer w-16 h-16 rounded-full overflow-hidden border-2 border-dashed border-gray-300 hover:border-purple-400 transition bg-gray-100 shrink-0">
-                      {avatarPreview ? (
-                        <>
-                          <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover"/>
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="flex items-center justify-center h-full text-gray-400">
-                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
-                        </div>
-                      )}
-                      <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange}/>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-black">Foto de perfil</p>
-                      <p className="text-xs text-gray-400 mt-0.5">Clic para cambiar · Recomendado: 400x400px</p>
-                    </div>
-                  </div>
-
-                  {/* Nombre */}
-                  <div>
-                    <label className="field-label">Nombre <span className="text-red-400">*</span></label>
-                    <input required value={name} onChange={e => setName(e.target.value)} maxLength={50} placeholder="Tu nombre" className="field-input"/>
-                  </div>
-
-                  {/* Nombre artístico */}
-                  {isArtist && (
-                    <div>
-                      <div className="flex items-center justify-between flex-wrap gap-1 mb-1.5">
-                        <label className="field-label" style={{ margin: 0 }}>Nombre artístico</label>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${canChangeName ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-red-50 text-red-500 border border-red-200'}`}>
-                          {canChangeName ? `${remainingChanges} cambio${remainingChanges !== 1 ? 's' : ''} disponible${remainingChanges !== 1 ? 's' : ''}` : `En ${NAME_CHANGE_DAYS - daysSinceLastChange} días`}
-                        </span>
-                      </div>
-                      <input value={artistName} onChange={e => setArtistName(e.target.value)} disabled={!canChangeName} maxLength={50} placeholder="Tu nombre artístico" className="field-input"/>
-                    </div>
-                  )}
-
-                  {/* Descripción */}
-                  <div>
-                    <label className="field-label">Descripción</label>
-                    <textarea placeholder="Cuéntale al mundo quién eres..." value={description} onChange={e => setDescription(e.target.value)} maxLength={150} rows={3} className="field-textarea"/>
-                    <p className="text-xs text-gray-400 text-right mt-1">{description?.length ?? 0}/150</p>
-                  </div>
-
-                  {/* Redes sociales */}
-                  <div>
-                    <label className="field-label">Redes sociales</label>
-                    <div className="space-y-2">
-                      {[
-                        { key: 'instagram', placeholder: 'Instagram (@usuario)', icon: 'M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069z' },
-                        { key: 'twitter', placeholder: 'Twitter/X (@usuario)', icon: 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.737-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z' },
-                        { key: 'tiktok', placeholder: 'TikTok (@usuario)', icon: 'M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.28 8.28 0 004.84 1.56V6.79a4.85 4.85 0 01-1.07-.1z' },
-                        { key: 'youtube', placeholder: 'YouTube (URL del canal)', icon: 'M21.593 7.203a2.506 2.506 0 00-1.762-1.766C18.265 5.007 12 5 12 5s-6.264-.007-7.831.44a2.56 2.56 0 00-1.766 1.778c-.44 1.61-.44 4.821-.44 4.821s0 3.21.44 4.821c.268.973 1.017 1.671 1.766 1.773C5.736 19 12 19 12 19s6.264 0 7.831-.367a2.51 2.51 0 001.762-1.773c.44-1.61.44-4.821.44-4.821s0-3.21-.44-4.836zM9.996 15.005l.005-6 5.207 3.005-5.212 2.995z' },
-                        { key: 'website', placeholder: 'Sitio web (https://...)', icon: 'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9' },
-                      ].map(({ key, placeholder, icon }) => (
-                        <div key={key} className="flex items-center gap-2">
-                          <div className="w-9 h-9 rounded-lg bg-gray-100 border-2 border-gray-200 flex items-center justify-center shrink-0">
-                            <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 24 24"><path d={icon}/></svg>
-                          </div>
-                          <input type="text" placeholder={placeholder} value={socialLinks[key] ?? ''}
-                            onChange={e => setSocialLinks(prev => ({ ...prev, [key]: e.target.value }))}
-                            className="field-input"/>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <button type="submit" disabled={loading || !hasChanges}
-                    className="w-full h-11 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40 flex items-center justify-center gap-2">
-                    {loading ? <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>Guardando...</> : 'Guardar cambios'}
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* ── CUENTA ── */}
-            {activeSection === 'account' && (
-              <div className="space-y-5">
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Cuenta</h3>
-                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Administra tu información de cuenta.</p>
-                </div>
-                <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5 border-2 border-gray-100">
+            ) : stats ? (
+              <>
+                {/* Stat cards 2x3 */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
                   {[
-                    { label: 'Correo', value: user?.email },
-                    { label: 'Nombre', value: user?.user_metadata?.name },
-                    { label: 'Rol', value: isArtist ? 'Artista' : 'Oyente' },
-                    { label: 'Miembro desde', value: new Date(user?.created_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long' }) },
-                  ].map(item => (
-                    <div key={item.label} className="flex justify-between items-center gap-4">
-                      <p className="text-sm text-gray-500 shrink-0">{item.label}</p>
-                      <p className="text-sm font-medium text-black text-right truncate">{item.value}</p>
+                    { label: 'Reproducciones', value: stats.totalStreams.toLocaleString(), icon: 'M5 3l14 9-14 9V3z',           color: '#7c3aed', bg: '#f5f3ff' },
+                    { label: 'Seguidores',      value: stats.followers.toLocaleString(),    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: '#ec4899', bg: '#fdf2f8' },
+                    { label: 'Siguiendo',       value: stats.following.toLocaleString(),    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: '#3b82f6', bg: '#eff6ff' },
+                    { label: 'Canciones',        value: stats.totalSongs.toLocaleString(),  icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z', color: '#10b981', bg: '#f0fdf4' },
+                    { label: 'Álbumes / EPs',    value: stats.totalAlbums.toLocaleString(), icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', color: '#f59e0b', bg: '#fffbeb' },
+                    { label: 'Presaves',         value: stats.presaves.toLocaleString(),    icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z', color: '#6366f1', bg: '#eef2ff' },
+                  ].map(card => (
+                    <div key={card.label} style={{ background: '#fff', borderRadius: '16px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                      <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
+                        <svg width="15" height="15" fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={card.icon}/></svg>
+                      </div>
+                      <p style={{ fontSize: '22px', fontWeight: '800', color: '#111', margin: '0 0 2px', lineHeight: 1 }}>{card.value}</p>
+                      <p style={{ fontSize: '11px', color: '#6b7280', margin: 0, fontWeight: '500' }}>{card.label}</p>
                     </div>
                   ))}
                 </div>
-                <div className="border-2 border-gray-100 rounded-2xl p-5 space-y-4">
-                  <div>
-                    <h4 className="text-sm font-bold text-black mb-0.5">Cambiar contraseña</h4>
-                    <p className="text-xs text-gray-400">Ingresa tu contraseña actual para poder cambiarla.</p>
-                  </div>
-                  {error && <div className="bg-red-50 border-2 border-red-200 text-red-600 text-xs px-3 py-2.5 rounded-xl">{error}</div>}
-                  {msg && <div className="bg-green-50 border-2 border-green-200 text-green-600 text-xs px-3 py-2.5 rounded-xl">{msg}</div>}
-                  <form onSubmit={handleChangePassword} className="space-y-3">
-                    <div>
-                      <label className="field-label">Contraseña actual</label>
-                      <input type="password" placeholder="••••••••" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="field-input"/>
-                    </div>
-                    <div>
-                      <label className="field-label">Nueva contraseña</label>
-                      <input type="password" placeholder="Mínimo 6 caracteres" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="field-input"/>
-                    </div>
-                    <div>
-                      <label className="field-label">Confirmar nueva contraseña</label>
-                      <input type="password" placeholder="Repite la nueva contraseña" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="field-input"/>
-                      {confirmPassword && (
-                        <p className={`text-xs font-medium mt-1 ${newPassword === confirmPassword ? 'text-emerald-500' : 'text-red-400'}`}>
-                          {newPassword === confirmPassword ? '✓ Las contraseñas coinciden' : '✗ Las contraseñas no coinciden'}
-                        </p>
-                      )}
-                    </div>
-                    <button type="submit" disabled={loading || !currentPassword || !newPassword || !confirmPassword}
-                      className="w-full h-11 bg-purple-700 text-white rounded-xl text-sm font-semibold hover:bg-purple-800 transition disabled:opacity-40">
-                      {loading ? 'Verificando...' : 'Actualizar contraseña'}
-                    </button>
-                  </form>
-                  <div className="pt-1">
-                    {resetSent ? (
-                      <div className="flex items-center gap-2 bg-blue-50 border-2 border-blue-200 text-blue-600 text-xs px-3 py-2.5 rounded-xl">
-                        Te enviamos un correo a <span className="font-semibold">{user?.email}</span>
-                      </div>
-                    ) : (
-                      <button onClick={handleForgotPassword} disabled={resetLoading} className="text-xs text-purple-600 hover:text-purple-800 font-semibold hover:underline transition disabled:opacity-50">
-                        {resetLoading ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
+
+                {songStats.length > 0 && (
+                  <IOSGroup title="Top canciones">
+                    {songStats.map((song, idx) => {
+                      const max = songStats[0]?.streams ?? 1
+                      const pct = Math.max(5, Math.round(((song.streams ?? 0) / max) * 100))
+                      return (
+                        <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#fff', borderBottom: idx < songStats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                          <span style={{ fontSize: '12px', color: '#9ca3af', width: '14px', flexShrink: 0, textAlign: 'center' }}>{idx + 1}</span>
+                          <img src={song.cover_url} alt={song.title} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}/>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: '13px', fontWeight: '600', color: '#111', margin: '0 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                            <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: idx === 0 ? '#7c3aed' : '#d1d5db', borderRadius: '2px', transition: 'width 0.6s' }}/>
+                            </div>
+                          </div>
+                          <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: '700', flexShrink: 0 }}>{(song.streams ?? 0).toLocaleString()}</span>
+                        </div>
+                      )
+                    })}
+                  </IOSGroup>
+                )}
+              </>
+            ) : null
+          )}
+
+          {/* ── MIS CANCIONES ── */}
+          {activeSection === 'songs' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
+                <button onClick={() => navigate('/upload')} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '20px', padding: '8px 16px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+                  Subir canción
+                </button>
+              </div>
+
+              {songMsg && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+                  {songMsg}
+                </div>
+              )}
+
+              {/* Modal editar canción */}
+              {editingSong && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={() => setEditingSong(null)}>
+                  <div style={{ background: '#f2f2f7', width: '100%', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d5db', margin: '0 auto 20px' }}/>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '17px', fontWeight: '700', color: '#111', margin: 0 }}>Editar canción</h4>
+                      <button onClick={() => setEditingSong(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e5e7eb', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                       </button>
-                    )}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+                      <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => coverInputRef.current?.click()}>
+                        <img src={editCoverPreview} alt="" style={{ width: '64px', height: '64px', borderRadius: '14px', objectFit: 'cover' }}/>
+                        <div style={{ position: 'absolute', inset: 0, borderRadius: '14px', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="16" height="16" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+                        </div>
+                        <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditCoverChange}/>
+                      </div>
+                      <div>
+                        <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: '0 0 2px' }}>{editingSong.title}</p>
+                        <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Toca la imagen para cambiar portada</p>
+                      </div>
+                    </div>
+
+                    <IOSGroup>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Título</p>
+                        <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} maxLength={80}
+                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                      </div>
+                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Género</p>
+                        <select value={editForm.genre} onChange={e => setEditForm(p => ({ ...p, genre: e.target.value }))}
+                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit' }}>
+                          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ padding: '12px 16px' }}>
+                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descripción</p>
+                        <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} maxLength={300}
+                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }}/>
+                      </div>
+                    </IOSGroup>
+
+                    <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.title.trim()}
+                      style={{ width: '100%', padding: '14px', borderRadius: '14px', background: savingEdit ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: '700', fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: '8px', opacity: !editForm.title.trim() ? 0.5 : 1 }}>
+                      {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ── NOTIFICACIONES ── */}
-            {activeSection === 'notifications' && (
-              <div>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Notificaciones</h3>
-                <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Elige qué notificaciones quieres recibir.</p>
-                <NotificationSettings userId={user?.id} isArtist={isArtist} />
-              </div>
-            )}
-
-            {/* ── ZONA DE PELIGRO ── */}
-            {activeSection === 'danger' && (
-              <div className="space-y-5">
-                <div>
-                  <h3 style={{ fontSize: '1.1rem', fontWeight: '800', color: '#111', margin: '0 0 4px' }}>Zona de peligro</h3>
-                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 1.25rem' }}>Acciones irreversibles sobre tu cuenta.</p>
+              {loadingSongs ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
+                  <svg style={{ width: '28px', height: '28px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24"><circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
                 </div>
-                <div className="border-2 border-red-200 rounded-2xl p-4 space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold text-red-600">Eliminar cuenta</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Se eliminarán todos tus datos, canciones y perfil permanentemente.</p>
+              ) : songs.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                  <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                    <svg width="24" height="24" fill="none" stroke="#a78bfa" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
                   </div>
-                  <button onClick={handleDeleteAccount} className="px-4 py-2 rounded-xl bg-red-50 border-2 border-red-200 text-red-600 text-sm font-semibold hover:bg-red-100 transition">
+                  <p style={{ fontSize: '15px', fontWeight: '600', color: '#374151', margin: '0 0 4px' }}>Sin canciones aún</p>
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 16px' }}>Sube tu primera canción</p>
+                  <button onClick={() => navigate('/upload')} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '20px', padding: '10px 20px', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>+ Subir</button>
+                </div>
+              ) : (
+                <IOSGroup>
+                  {songs.map((song, i) => {
+                    const isConfirming = confirmDeleteId === song.id
+                    return (
+                      <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: isConfirming ? '#fff5f5' : '#fff', borderBottom: i < songs.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                        <img src={song.cover_url} alt={song.title} style={{ width: '48px', height: '48px', borderRadius: '12px', objectFit: 'cover', flexShrink: 0 }}/>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '11px', color: '#7c3aed', background: '#f5f3ff', padding: '1px 8px', borderRadius: '20px', fontWeight: '600' }}>{song.genre}</span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{(song.streams ?? 0).toLocaleString()} rep.</span>
+                          </div>
+                          {isConfirming && <p style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600', margin: '4px 0 0' }}>¿Confirmar eliminación?</p>}
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                          <button onClick={() => playSong(song)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f5f3ff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="12" height="12" fill="#7c3aed" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                          </button>
+                          <button onClick={() => openEditSong(song)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                          </button>
+                          <button onClick={() => handleDeleteSong(song.id)} disabled={deletingId === song.id}
+                            style={{ width: '32px', height: '32px', borderRadius: '50%', background: isConfirming ? '#ef4444' : '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <svg width="12" height="12" fill="none" stroke={isConfirming ? '#fff' : '#6b7280'} strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                          {isConfirming && (
+                            <button onClick={() => setConfirmDeleteId(null)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </IOSGroup>
+              )}
+            </div>
+          )}
+
+          {/* ── EDITAR PERFIL ── */}
+          {activeSection === 'edit' && (
+            <div>
+              {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
+              {msg   && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{msg}</div>}
+
+              {/* Avatar */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+                <div onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }}>
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', border: '3px solid #fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
+                    {avatarPreview ? <img src={avatarPreview} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <div style={{ width: '100%', height: '100%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', fontWeight: '800', color: '#fff' }}>{name?.[0]?.toUpperCase() ?? '?'}</div>}
+                  </div>
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '24px', height: '24px', borderRadius: '50%', background: '#7c3aed', border: '2px solid #f2f2f7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="11" height="11" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
+                  </div>
+                  <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange}/>
+                </div>
+                <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>Toca para cambiar foto</p>
+              </div>
+
+              <IOSGroup title="Información">
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nombre</p>
+                  <input required value={name} onChange={e => setName(e.target.value)} maxLength={50}
+                    style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                </div>
+                {isArtist && (
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nombre artístico</p>
+                      <span style={{ fontSize: '10px', padding: '1px 8px', borderRadius: '20px', fontWeight: '600', background: canChangeName ? '#f0fdf4' : '#fef2f2', color: canChangeName ? '#15803d' : '#dc2626' }}>
+                        {canChangeName ? `${remainingChanges} cambio${remainingChanges !== 1 ? 's' : ''}` : `En ${NAME_CHANGE_DAYS - daysSinceLastChange}d`}
+                      </span>
+                    </div>
+                    <input value={artistName} onChange={e => setArtistName(e.target.value)} disabled={!canChangeName} maxLength={50}
+                      style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: canChangeName ? '#111' : '#9ca3af', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                  </div>
+                )}
+                <div style={{ padding: '12px 16px' }}>
+                  <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descripción</p>
+                  <textarea placeholder="Cuéntale al mundo quién eres..." value={description} onChange={e => setDescription(e.target.value)} maxLength={150} rows={3}
+                    style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }}/>
+                  <p style={{ fontSize: '11px', color: '#d1d5db', margin: '4px 0 0', textAlign: 'right' }}>{description?.length ?? 0}/150</p>
+                </div>
+              </IOSGroup>
+
+              <IOSGroup title="Redes sociales">
+                {[
+                  { key: 'instagram', label: 'Instagram', placeholder: '@usuario' },
+                  { key: 'twitter',   label: 'Twitter/X',  placeholder: '@usuario' },
+                  { key: 'tiktok',    label: 'TikTok',     placeholder: '@usuario' },
+                  { key: 'youtube',   label: 'YouTube',    placeholder: 'URL del canal' },
+                  { key: 'website',   label: 'Sitio web',  placeholder: 'https://...' },
+                ].map(({ key, label, placeholder }, i, arr) => (
+                  <div key={key} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+                    <input type="text" placeholder={placeholder} value={socialLinks[key] ?? ''} onChange={e => setSocialLinks(p => ({ ...p, [key]: e.target.value }))}
+                      style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                  </div>
+                ))}
+              </IOSGroup>
+
+              <button onClick={handleSaveProfile} disabled={loading || !hasChanges}
+                style={{ width: '100%', padding: '15px', borderRadius: '14px', background: '#7c3aed', color: '#fff', fontWeight: '700', fontSize: '16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', opacity: (!hasChanges || loading) ? 0.45 : 1, transition: 'opacity 0.2s' }}>
+                {loading ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+            </div>
+          )}
+
+          {/* ── CUENTA ── */}
+          {activeSection === 'account' && (
+            <div>
+              <IOSGroup title="Información de cuenta">
+                {[
+                  { label: 'Correo',         value: user?.email },
+                  { label: 'Rol',            value: isArtist ? 'Artista' : 'Oyente' },
+                  { label: 'Miembro desde',  value: new Date(user?.created_at).toLocaleDateString('es-CO', { year: 'numeric', month: 'long' }) },
+                ].map(({ label, value }, i, arr) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#fff', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                    <p style={{ fontSize: '14px', color: '#6b7280', margin: 0 }}>{label}</p>
+                    <p style={{ fontSize: '14px', fontWeight: '500', color: '#111', margin: 0, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>{value}</p>
+                  </div>
+                ))}
+              </IOSGroup>
+
+              <IOSGroup title="Cambiar contraseña">
+                {error && <div style={{ background: '#fef2f2', color: '#dc2626', fontSize: '13px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>{error}</div>}
+                {msg   && <div style={{ background: '#f0fdf4', color: '#15803d',  fontSize: '13px', padding: '10px 16px', borderBottom: '1px solid #f3f4f6' }}>{msg}</div>}
+                {[
+                  { label: 'Contraseña actual',          val: currentPassword, set: setCurrentPassword, ph: '••••••••' },
+                  { label: 'Nueva contraseña',           val: newPassword,     set: setNewPassword,     ph: 'Mínimo 6 caracteres' },
+                  { label: 'Confirmar nueva contraseña', val: confirmPassword, set: setConfirmPassword, ph: 'Repite la nueva' },
+                ].map(({ label, val, set, ph }, i, arr) => (
+                  <div key={label} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none', background: '#fff' }}>
+                    <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+                    <input type="password" placeholder={ph} value={val} onChange={e => set(e.target.value)}
+                      style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                  </div>
+                ))}
+              </IOSGroup>
+
+              <button onClick={handleChangePassword} disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+                style={{ width: '100%', padding: '15px', borderRadius: '14px', background: '#7c3aed', color: '#fff', fontWeight: '700', fontSize: '16px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginBottom: '12px', opacity: (!currentPassword || !newPassword || !confirmPassword || loading) ? 0.45 : 1 }}>
+                {loading ? 'Verificando...' : 'Actualizar contraseña'}
+              </button>
+
+              {resetSent ? (
+                <p style={{ textAlign: 'center', fontSize: '13px', color: '#3b82f6' }}>Correo enviado a {user?.email}</p>
+              ) : (
+                <button onClick={handleForgotPassword} disabled={resetLoading}
+                  style={{ display: 'block', width: '100%', textAlign: 'center', background: 'none', border: 'none', fontSize: '14px', color: '#7c3aed', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit', padding: '8px' }}>
+                  {resetLoading ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── NOTIFICACIONES ── */}
+          {activeSection === 'notifications' && (
+            <NotificationSettings userId={user?.id} isArtist={isArtist} />
+          )}
+
+          {/* ── ZONA DE PELIGRO ── */}
+          {activeSection === 'danger' && (
+            <div>
+              <IOSGroup>
+                <div style={{ padding: '16px', background: '#fff' }}>
+                  <p style={{ fontSize: '15px', fontWeight: '600', color: '#ef4444', margin: '0 0 4px' }}>Eliminar cuenta</p>
+                  <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 14px' }}>Se eliminarán todos tus datos, canciones y perfil permanentemente. Esta acción no se puede deshacer.</p>
+                  <button onClick={() => { if (confirm('¿Estás seguro? Esta acción no se puede deshacer.')) { logoutUser(); navigate('/register') } }}
+                    style={{ padding: '10px 20px', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
                     Eliminar mi cuenta
                   </button>
                 </div>
-              </div>
-            )}
+              </IOSGroup>
+            </div>
+          )}
 
-          </div>
         </div>
+      </div>
+    )
+  }
+
+  /* ─── Si hay sección activa: mostrar detalle ─── */
+  if (activeSection) return renderSection()
+
+  /* ─── Menú principal estilo iOS Settings ─── */
+  return (
+    <div style={{ minHeight: '100vh', background: '#f2f2f7', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+
+      {/* Header con avatar grande */}
+      <div style={{ background: 'linear-gradient(160deg, #7c3aed 0%, #6d28d9 60%, #5b21b6 100%)', padding: '60px 20px 32px', textAlign: 'center', position: 'relative' }}>
+        <button onClick={() => navigate(-1)} style={{ position: 'absolute', top: '16px', left: '16px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+
+        {/* Avatar */}
+        <div style={{ width: '88px', height: '88px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.2)', border: '3px solid rgba(255,255,255,0.4)', margin: '0 auto 12px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+          {avatarPreview
+            ? <img src={avatarPreview} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
+            : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', fontWeight: '800', color: '#fff' }}>{displayName?.[0]?.toUpperCase() ?? '?'}</div>
+          }
+        </div>
+        <p style={{ fontSize: '20px', fontWeight: '800', color: '#fff', margin: '0 0 4px' }}>{displayName}</p>
+        <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0 }}>{user?.email}</p>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '20px', padding: '4px 12px', marginTop: '10px' }}>
+          <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#4ade80' }}/>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.9)', fontWeight: '600' }}>{isArtist ? 'Artista' : 'Oyente'}</span>
+        </div>
+      </div>
+
+      {/* Lista de secciones */}
+      <div style={{ padding: '20px 16px 100px' }}>
+
+        {/* Grupo artista */}
+        {isArtist && (
+          <IOSGroup title="Artista">
+            {visibleSections.filter(s => s.artist).map((s, i, arr) => (
+              <IOSRow key={s.id} icon={s.icon} iconColor={s.color} iconBg={s.bg}
+                label={s.label} border={i < arr.length - 1}
+                onClick={() => { setActiveSection(s.id); setMsg(''); setError('') }} />
+            ))}
+          </IOSGroup>
+        )}
+
+        {/* Grupo perfil y cuenta */}
+        <IOSGroup title="Perfil y cuenta">
+          {visibleSections.filter(s => !s.artist && !s.danger).map((s, i, arr) => (
+            <IOSRow key={s.id} icon={s.icon} iconColor={s.color} iconBg={s.bg}
+              label={s.label} border={i < arr.length - 1}
+              onClick={() => { setActiveSection(s.id); setMsg(''); setError('') }} />
+          ))}
+        </IOSGroup>
+
+        {/* Cerrar sesión */}
+        <IOSGroup>
+          <IOSRow
+            icon="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            iconColor="#ef4444" iconBg="#fef2f2"
+            label="Cerrar sesión" border={false}
+            onClick={async () => { await logoutUser(); navigate('/login') }}
+          />
+        </IOSGroup>
+
+        {/* Zona de peligro */}
+        <IOSGroup>
+          <IOSRow
+            icon={SECTIONS.find(s => s.id === 'danger').icon}
+            iconColor="#ef4444" iconBg="#fef2f2"
+            label="Zona de peligro"
+            sublabel="Eliminar cuenta permanentemente"
+            border={false}
+            onClick={() => { setActiveSection('danger'); setMsg(''); setError('') }}
+          />
+        </IOSGroup>
+
+        <p style={{ textAlign: 'center', fontSize: '12px', color: '#c7c7cc', marginTop: '8px' }}>SoundSeekers · v1.0</p>
       </div>
     </div>
   )
