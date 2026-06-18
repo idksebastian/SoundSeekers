@@ -1,23 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 
 export default function PageTransition({ children }) {
   const location = useLocation()
-  const [visible, setVisible] = useState(false)
+  const ref = useRef(null)
 
   useEffect(() => {
-    setVisible(false)
-    const timer = setTimeout(() => setVisible(true), 50)
+    const el = ref.current
+    if (!el) return
+    el.style.opacity = '0'
+    const timer = setTimeout(() => {
+      el.style.opacity = '1'
+    }, 20)
     return () => clearTimeout(timer)
   }, [location.pathname])
 
   return (
     <div
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(8px)',
-        transition: 'opacity 0.25s ease, transform 0.25s ease'
-      }}
+      ref={ref}
+      style={{ opacity: 0, transition: 'opacity 0.2s ease' }}
     >
       {children}
     </div>
