@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePlayer } from '../context/PlayerContext';
-import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
@@ -68,40 +67,38 @@ export default function Player() {
     queue, setQueue, audioRef,
   } = usePlayer();
 
-  const { user } = useAuth();
-
   const [dominantColor, setDominantColor] = useState('30, 10, 60');
   const [artistInfo, setArtistInfo]       = useState(null);
   const [relatedSongs, setRelatedSongs]   = useState([]);
   const [albumTracks, setAlbumTracks]     = useState([]);
   const [nextSong, setNextSong]           = useState(null);
   const [isLiked, setIsLiked]             = useState(false);
-  const [likeLoading, setLikeLoading]     = useState(false);
   const [shuffle, setShuffle]             = useState(false);
-  const [repeatMode, setRepeatMode]       = useState('none'); // 'none' | 'all' | 'one'
+  const [repeatMode, setRepeatMode]       = useState('none');
   const [showQueue, setShowQueue]         = useState(false);
   const [isMuted, setIsMuted]             = useState(false);
   const [prevVolume, setPrevVolume]       = useState(1);
   const [shared, setShared]               = useState(false);
   const [addedToQueue, setAddedToQueue]   = useState({});
 
-  const coverUrl   = currentSong?.cover_url || currentSong?.coverUrl || '';
-  const artistName = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
+  const coverUrl    = currentSong?.cover_url || currentSong?.coverUrl || '';
+  const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
   const progressPct = duration ? (progress / duration) * 100 : 0;
 
-  // Fullscreen solo si está reproduciendo
+  // CAMBIO 1 y 2: eliminado showOpenHint state y su useEffect
+  // CAMBIO: fullscreen solo si está reproduciendo
   useEffect(() => {
     if (currentSong && isPlaying) setIsFullscreen(true);
   }, [currentSong?.id]);
 
-  // Color dominante
   useEffect(() => {
     if (!coverUrl) return;
     return extractColor(coverUrl, setDominantColor);
   }, [coverUrl]);
 
-  // Limpiar info artista al cambiar canción
+  // CAMBIO 3: limpiar siempre al cambiar canción, incluso Spotify/Ánimo
   useEffect(() => {
+    // Limpiar siempre al cambiar canción (incluso Spotify/Ánimo)
     setArtistInfo(null); setRelatedSongs([]); setAlbumTracks([]); setNextSong(null);
     if (!currentSong || currentSong.isSpotify) return;
     let cancelled = false;
@@ -127,10 +124,14 @@ export default function Player() {
         if (cancelled) return;
 
         if (profileRes?.data) {
-          const { data: songsData } = await supabase.from('songs').select('streams').eq('user_id', currentSong.user_id);
-          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
-          setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
+          const { data: songsData } = await supabase
+            .from('songs')
+            .select('streams')
+            .eq('user_id', currentSong.user_id)
+          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0
+          setArtistInfo({ ...profileRes.data, total_streams: totalStreams })
         }
+
         if (albumRes?.data?.length) setAlbumTracks(albumRes.data);
         if (relatedRes?.data?.length) setRelatedSongs(relatedRes.data);
         const queueList = queue || [];
@@ -142,67 +143,22 @@ export default function Player() {
     return () => { cancelled = true; };
   }, [currentSong?.id]);
 
-  // Cargar estado like al cambiar canción
-  useEffect(() => {
-    if (!user || !currentSong?.id || currentSong.isSpotify) { setIsLiked(false); return; }
-    supabase.from('song_likes').select('id').eq('user_id', user.id).eq('song_id', currentSong.id).single()
-      .then(({ data }) => setIsLiked(!!data));
-  }, [currentSong?.id, user]);
-
-  // Repetición: manejar fin de canción
-  useEffect(() => {
-    if (!audioRef?.current) return;
-    const audio = audioRef.current;
-    const handleEnded = () => {
-      if (repeatMode === 'one') {
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-      } else if (repeatMode === 'all' || queue.length > 0) {
-        playNext();
-      }
-    };
-    audio.addEventListener('ended', handleEnded);
-    return () => audio.removeEventListener('ended', handleEnded);
-  }, [repeatMode, queue, playNext]);
-
-  // Shuffle: override playNext
-  const handleNext = useCallback(() => {
-    if (shuffle && queue.length > 1) {
-      const currentIdx = queue.findIndex(s => s.id === currentSong?.id);
-      let idx;
-      do { idx = Math.floor(Math.random() * queue.length); } while (idx === currentIdx);
-      playSong(queue[idx], queue);
-    } else {
-      playNext();
-    }
-  }, [shuffle, queue, currentSong, playSong, playNext]);
-
-  const handlePrev = useCallback(() => {
-    if (shuffle && queue.length > 1) {
-      const idx = Math.floor(Math.random() * queue.length);
-      playSong(queue[idx], queue);
-    } else {
-      playPrev();
-    }
-  }, [shuffle, queue, playSong, playPrev]);
-
-  // Teclado
   useEffect(() => {
     const onKey = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
       switch (e.code) {
-        case 'Space':      e.preventDefault(); isPlaying ? pauseSong() : playSong(currentSong); break;
-        case 'ArrowRight': if (e.shiftKey) handleNext(); break;
-        case 'ArrowLeft':  if (e.shiftKey) handlePrev(); break;
-        case 'ArrowUp':    e.preventDefault(); handleVolume({ target: { value: Math.min(1, volume + 0.05) } }); break;
-        case 'ArrowDown':  e.preventDefault(); handleVolume({ target: { value: Math.max(0, volume - 0.05) } }); break;
-        case 'KeyM':       handleMuteToggle(); break;
-        case 'Escape':     if (isFullscreen) setIsFullscreen(false); if (showQueue) setShowQueue(false); break;
+        case 'Space':       e.preventDefault(); isPlaying ? pauseSong() : playSong(currentSong); break;
+        case 'ArrowRight':  if (e.shiftKey) playNext(); break;
+        case 'ArrowLeft':   if (e.shiftKey) playPrev(); break;
+        case 'ArrowUp':     e.preventDefault(); handleVolume({ target: { value: Math.min(1, volume + 0.05) } }); break;
+        case 'ArrowDown':   e.preventDefault(); handleVolume({ target: { value: Math.max(0, volume - 0.05) } }); break;
+        case 'KeyM':        handleMuteToggle(); break;
+        case 'Escape':      if (isFullscreen) setIsFullscreen(false); if (showQueue) setShowQueue(false); break;
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [isPlaying, volume, isFullscreen, showQueue, currentSong, handleNext, handlePrev]);
+  }, [isPlaying, volume, isFullscreen, showQueue, currentSong]);
 
   const handleMuteToggle = useCallback(() => {
     if (isMuted) { handleVolume({ target: { value: prevVolume } }); setIsMuted(false); }
@@ -212,69 +168,70 @@ export default function Player() {
   const cycleRepeat = () => setRepeatMode(p => p === 'none' ? 'all' : p === 'all' ? 'one' : 'none');
   const RepeatIcon  = repeatMode === 'one' ? Repeat1 : Repeat;
 
-  // Like con Supabase
-  const handleLike = async () => {
-    if (!user || !currentSong?.id || currentSong.isSpotify || likeLoading) return;
-    setLikeLoading(true);
-    try {
-      if (isLiked) {
-        await supabase.from('song_likes').delete().eq('user_id', user.id).eq('song_id', currentSong.id);
-        setIsLiked(false);
-      } else {
-        await supabase.from('song_likes').insert({ user_id: user.id, song_id: currentSong.id });
-        setIsLiked(true);
-      }
-    } catch (e) { console.error(e); }
-    finally { setLikeLoading(false); }
-  };
-
   const handleShare = async () => {
-    const text = `🎵 Escuchando "${currentSong.title}" de ${artistName} en SoundSeekers`;
-    const url = window.location.href;
+    const text = `🎵 Escuchando "${currentSong.title}" de ${artistName} en SoundSeekers`
+    const url  = window.location.href
     try {
-      if (navigator.share) await navigator.share({ title: currentSong.title, text, url });
-      else { await navigator.clipboard.writeText(`${text}\n${url}`); setShared(true); setTimeout(() => setShared(false), 2000); }
+      if (navigator.share) {
+        await navigator.share({ title: currentSong.title, text, url })
+      } else {
+        await navigator.clipboard.writeText(`${text}\n${url}`)
+        setShared(true)
+        setTimeout(() => setShared(false), 2000)
+      }
     } catch {}
-  };
+  }
 
   const handleAddToQueue = (song, e) => {
-    e.stopPropagation();
+    e.stopPropagation()
     setQueue(prev => {
-      if (prev.some(s => s.id === song.id)) return prev;
-      return [...prev, song];
-    });
-    setAddedToQueue(prev => ({ ...prev, [song.id]: true }));
-    setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000);
-  };
+      const already = prev.some(s => s.id === song.id)
+      if (already) return prev
+      return [...prev, song]
+    })
+    setAddedToQueue(prev => ({ ...prev, [song.id]: true }))
+    setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000)
+  }
 
   const handleClose = (e) => {
-    e.stopPropagation();
-    pauseSong();
-    setIsVisible(false);
-  };
+    e.stopPropagation()
+    pauseSong()
+    setIsVisible(false)
+  }
 
   if (!currentSong || !isVisible) return null;
-  const isCurrentTrack = (song) => song.id === currentSong?.id;
 
-  // Colores para controles activos
-  const PURPLE = '#a855f7';
-  const activeCtrl = (active) => active ? PURPLE : 'rgba(255,255,255,0.5)';
+  const isCurrentTrack = (song) => song.id === currentSong?.id;
 
   return (
     <AnimatePresence>
-      {/* FULLSCREEN */}
+
+      {/* FULLSCREEN PLAYER */}
       {isFullscreen && (
-        <motion.div key="fullscreen" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        <motion.div
+          key="fullscreen"
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 28, stiffness: 220 }}
           className="fixed inset-0 z-[9999] overflow-y-auto overflow-x-hidden text-white"
-          style={{ backgroundColor: `rgb(${dominantColor})`, transition: 'background-color 1.2s ease' }}>
-
+          style={{ backgroundColor: `rgb(${dominantColor})`, transition: 'background-color 1.2s ease' }}
+        >
           <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
             <div className="absolute inset-0 opacity-50 blur-[120px] scale-150"
-              style={{ background: `radial-gradient(ellipse at 30% 20%, rgb(${dominantColor}), transparent 60%), radial-gradient(ellipse at 70% 80%, rgb(${dominantColor}), transparent 60%)`, transition: 'background 1.2s ease' }} />
+              style={{
+                background: `radial-gradient(ellipse at 30% 20%, rgb(${dominantColor}), transparent 60%),
+                             radial-gradient(ellipse at 70% 80%, rgb(${dominantColor}), transparent 60%)`,
+                transition: 'background 1.2s ease',
+              }}
+            />
             <div className="absolute inset-0 bg-black/50" />
             <div className="absolute inset-0 opacity-[0.03]"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`, backgroundSize: '200px 200px' }} />
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+                backgroundSize: '200px 200px',
+              }}
+            />
           </div>
 
           <div className="min-h-screen flex flex-col">
@@ -292,8 +249,11 @@ export default function Player() {
             </header>
 
             <main className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 md:gap-14 px-6 md:px-16 max-w-6xl mx-auto w-full py-4 md:py-8">
-              <motion.div animate={{ scale: isPlaying ? 1 : 0.93, opacity: isPlaying ? 1 : 0.85 }} transition={{ duration: 0.4, ease: 'easeInOut' }}
-                className="flex-shrink-0 w-64 h-64 md:w-[380px] md:h-[380px] rounded-2xl shadow-2xl shadow-black/70 overflow-hidden ring-1 ring-white/10">
+              <motion.div
+                animate={{ scale: isPlaying ? 1 : 0.93, opacity: isPlaying ? 1 : 0.85 }}
+                transition={{ duration: 0.4, ease: 'easeInOut' }}
+                className="flex-shrink-0 w-64 h-64 md:w-[380px] md:h-[380px] rounded-2xl shadow-2xl shadow-black/70 overflow-hidden ring-1 ring-white/10"
+              >
                 <img src={coverUrl} alt={currentSong.title} className="w-full h-full object-cover" />
               </motion.div>
 
@@ -309,9 +269,8 @@ export default function Player() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-                    <button onClick={handleLike} disabled={likeLoading || currentSong.isSpotify}
-                      className="p-2 hover:scale-110 transition-transform disabled:opacity-40">
-                      <Heart className={`w-6 h-6 transition-all ${isLiked ? 'fill-purple-400 text-purple-400 scale-110' : 'text-white/50 hover:text-white'}`} />
+                    <button onClick={() => setIsLiked(p => !p)} className="p-2 hover:scale-110 transition-transform">
+                      <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-green-400 text-green-400' : 'text-white/50 hover:text-white'}`} />
                     </button>
                     <button onClick={handleShare} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white">
                       {shared ? <Check className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
@@ -319,10 +278,9 @@ export default function Player() {
                   </div>
                 </div>
 
-                {/* Barra de progreso */}
                 <div className="mb-5">
                   <div className="relative h-1 w-full bg-white/20 rounded-full cursor-pointer group">
-                    <div className="absolute h-full bg-white rounded-full transition-all group-hover:bg-purple-400" style={{ width: `${progressPct}%` }} />
+                    <div className="absolute h-full bg-white rounded-full transition-all group-hover:bg-green-400" style={{ width: `${progressPct}%` }} />
                     <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
                     <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={handleSeek} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   </div>
@@ -332,47 +290,33 @@ export default function Player() {
                   </div>
                 </div>
 
-                {/* Controles */}
                 <div className="flex items-center justify-between mb-5">
-                  {/* Shuffle — morado si activo */}
-                  <button onClick={() => setShuffle(p => !p)}
-                    className="p-2 rounded-full transition-colors hover:bg-white/10 relative"
-                    style={{ color: activeCtrl(shuffle) }}>
+                  <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <Shuffle className="w-5 h-5" />
-                    {shuffle && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-purple-400" />}
                   </button>
-
                   <div className="flex items-center gap-6">
-                    <button onClick={handlePrev} className="text-white hover:scale-110 transition-transform">
+                    <button onClick={playPrev} className="text-white hover:scale-110 transition-transform">
                       <SkipBack className="w-7 h-7" fill="currentColor" />
                     </button>
                     <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
                       className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-xl shadow-black/40">
                       {isPlaying ? <Pause className="w-7 h-7" fill="currentColor" /> : <Play className="w-7 h-7 ml-1" fill="currentColor" />}
                     </button>
-                    <button onClick={handleNext} className="text-white hover:scale-110 transition-transform">
+                    <button onClick={playNext} className="text-white hover:scale-110 transition-transform">
                       <SkipForward className="w-7 h-7" fill="currentColor" />
                     </button>
                   </div>
-
-                  {/* Repeat — morado si activo, indicador puntito */}
-                  <button onClick={cycleRepeat}
-                    className="p-2 rounded-full transition-colors hover:bg-white/10 relative"
-                    style={{ color: activeCtrl(repeatMode !== 'none') }}>
+                  <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <RepeatIcon className="w-5 h-5" />
-                    {repeatMode !== 'none' && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-purple-400" />}
                   </button>
                 </div>
 
-                {/* Volumen */}
                 <div className="flex items-center gap-3">
                   <button onClick={handleMuteToggle} className="text-white/50 hover:text-white transition-colors flex-shrink-0">
                     {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
-                  <input type="range" min={0} max={1} step={0.01} value={isMuted ? 0 : volume} onChange={handleVolume} className="flex-1 accent-purple-400 h-1 cursor-pointer" />
-                  <button onClick={() => setShowQueue(p => !p)}
-                    className="p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0"
-                    style={{ color: activeCtrl(showQueue) }}>
+                  <input type="range" min={0} max={1} step={0.01} value={isMuted ? 0 : volume} onChange={handleVolume} className="flex-1 accent-white h-1 cursor-pointer" />
+                  <button onClick={() => setShowQueue(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0 ${showQueue ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <ListMusic className="w-4 h-4" />
                   </button>
                 </div>
@@ -389,7 +333,6 @@ export default function Player() {
             </div>
           </div>
 
-          {/* Sección inferior */}
           <div className="bg-black/40 backdrop-blur-3xl w-full border-t border-white/5">
             <div className="max-w-4xl mx-auto px-6 py-16 space-y-16">
 
@@ -398,7 +341,8 @@ export default function Player() {
                   <motion.section initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
                     className="bg-white/5 border border-white/10 rounded-3xl p-6 md:p-8">
                     <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                      <ListMusic className="w-4 h-4" /><span>Cola · {queue.length} canciones</span>
+                      <ListMusic className="w-4 h-4" />
+                      <span>Cola · {queue.length} canciones</span>
                     </div>
                     <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
                       {queue.map((song, i) => {
@@ -411,7 +355,7 @@ export default function Player() {
                               {active && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><EqualizerBars isPlaying={isPlaying} /></div>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-bold truncate ${active ? 'text-purple-400' : 'text-white'}`}>{song.title}</p>
+                              <p className={`text-sm font-bold truncate ${active ? 'text-green-400' : 'text-white'}`}>{song.title}</p>
                               <p className="text-xs text-white/40 truncate">{song.display_artist || song.artist}</p>
                             </div>
                             {!active && <Play className="w-4 h-4 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" />}
@@ -428,7 +372,8 @@ export default function Player() {
                   {albumTracks.length > 0 && (
                     <>
                       <div className="flex items-center gap-2 mb-4 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                        <Disc className="w-4 h-4" /><span>{currentSong.album_title || 'Álbum'} · {albumTracks.length} canciones</span>
+                        <Disc className="w-4 h-4" />
+                        <span>{currentSong.album_title || 'Álbum'} · {albumTracks.length} canciones</span>
                       </div>
                       <div className="bg-white/5 border border-white/10 rounded-2xl overflow-hidden mb-4">
                         {albumTracks.map((track, i) => {
@@ -441,7 +386,7 @@ export default function Player() {
                                 {!active && <Play className="w-3 h-3 text-white/60 hidden group-hover:block mx-auto" fill="currentColor" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${active ? 'text-purple-400' : 'text-white group-hover:text-purple-400 transition-colors'}`}>{track.title}</p>
+                                <p className={`text-sm font-semibold truncate ${active ? 'text-green-400' : 'text-white group-hover:text-green-400 transition-colors'}`}>{track.title}</p>
                                 <p className="text-xs text-white/40 truncate">{track.display_artist}</p>
                               </div>
                               {track.duration && <span className="text-xs text-white/30 flex-shrink-0 tabular-nums">{formatTime(track.duration)}</span>}
@@ -454,13 +399,14 @@ export default function Player() {
                   {nextSong && (
                     <div className="mt-6">
                       <div className="flex items-center gap-2 mb-3 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                        <SkipForward className="w-4 h-4" /><span>Siguiente en la cola</span>
+                        <SkipForward className="w-4 h-4" />
+                        <span>Siguiente en la cola</span>
                       </div>
                       <div onClick={() => playSong(nextSong)}
                         className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group">
                         <img src={nextSong.cover_url || nextSong.coverUrl} alt={nextSong.title} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate group-hover:text-purple-400 transition-colors">{nextSong.title}</p>
+                          <p className="text-sm font-bold truncate group-hover:text-green-400 transition-colors">{nextSong.title}</p>
                           <p className="text-xs text-white/40 truncate">{nextSong.display_artist || nextSong.artist}</p>
                         </div>
                         <Play className="w-5 h-5 text-white/40 group-hover:text-white transition-colors flex-shrink-0" />
@@ -470,11 +416,12 @@ export default function Player() {
                 </section>
               )}
 
-              {/* CTA iTunes para canciones de Ánimo */}
+              {/* CAMBIO 5: CTA iTunes para canciones de Ánimo */}
               {currentSong?.isSpotify && currentSong?.previewUrl && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8">
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                    <Music2 className="w-4 h-4" /><span>Preview de Ánimo</span>
+                    <Music2 className="w-4 h-4" />
+                    <span>Preview de Ánimo</span>
                   </div>
                   <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
                     <div className="w-24 h-24 rounded-2xl overflow-hidden shadow-2xl flex-shrink-0">
@@ -484,9 +431,12 @@ export default function Player() {
                       <p className="text-white/40 text-xs uppercase tracking-widest mb-2">Estás escuchando un preview de 30s</p>
                       <h3 className="text-xl font-black mb-1">{currentSong.title}</h3>
                       <p className="text-white/60 text-sm mb-4">{artistName}</p>
-                      <a href={currentSong.externalUrl || `https://music.apple.com/search?term=${encodeURIComponent(currentSong.title + ' ' + artistName)}`}
-                        target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-white text-black font-bold text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-lg">
+                      <a
+                        href={currentSong.externalUrl || `https://music.apple.com/search?term=${encodeURIComponent(currentSong.title + ' ' + artistName)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-white text-black font-bold text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-lg"
+                      >
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                         </svg>
@@ -500,7 +450,8 @@ export default function Player() {
               {artistInfo && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8 md:p-10">
                   <div className="flex items-center gap-2 mb-8 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                    <Mic2 className="w-4 h-4" /><span>Acerca del artista</span>
+                    <Mic2 className="w-4 h-4" />
+                    <span>Acerca del artista</span>
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
                     <div className="relative flex-shrink-0">
@@ -525,7 +476,7 @@ export default function Player() {
                         <div className="h-8 w-px bg-white/10" />
                         <div className="text-center md:text-left">
                           <div className="flex items-center gap-1 justify-center md:justify-start">
-                            <TrendingUp className="w-4 h-4 text-purple-400" />
+                            <TrendingUp className="w-4 h-4 text-green-400" />
                             <p className="font-black text-2xl">{formatNumber(artistInfo.total_streams)}</p>
                           </div>
                           <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">Reproducciones totales</p>
@@ -536,6 +487,9 @@ export default function Player() {
                           <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">Género</p>
                         </div>
                       </div>
+                      {artistInfo.location && (
+                        <p className="mt-4 text-xs text-white/30 flex items-center gap-1 justify-center md:justify-start">📍 {artistInfo.location}</p>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -544,7 +498,8 @@ export default function Player() {
               {relatedSongs.length > 0 && (
                 <section>
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
-                    <Music2 className="w-4 h-4" /><span>Más de {artistName}</span>
+                    <Music2 className="w-4 h-4" />
+                    <span>Más de {artistName}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {relatedSongs.map(song => (
@@ -557,12 +512,12 @@ export default function Player() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm truncate group-hover:text-purple-400 transition-colors">{song.title}</h4>
+                          <h4 className="font-bold text-sm truncate group-hover:text-green-400 transition-colors">{song.title}</h4>
                           <p className="text-xs text-white/40 truncate mt-0.5">{song.display_artist}</p>
                         </div>
                         <button onClick={(e) => handleAddToQueue(song, e)}
                           className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10 flex-shrink-0">
-                          {addedToQueue[song.id] ? <Check className="w-4 h-4 text-purple-400" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
+                          {addedToQueue[song.id] ? <Check className="w-4 h-4 text-green-400" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
                         </button>
                       </div>
                     ))}
@@ -576,9 +531,14 @@ export default function Player() {
 
       {/* MINI PLAYER */}
       {!isFullscreen && (
-        <motion.div key="mini" initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+        <motion.div
+          key="mini"
+          initial={{ y: 100, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 100, opacity: 0 }}
           transition={{ type: 'spring', damping: 28, stiffness: 220 }}
-          className="fixed bottom-0 left-0 right-0 z-50">
+          className="fixed bottom-0 left-0 right-0 z-50"
+        >
           <div className="relative h-[3px] bg-gray-200 w-full group cursor-pointer">
             <div className="h-full bg-purple-600 transition-all duration-300" style={{ width: `${progressPct}%` }} />
             <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-purple-600 rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
@@ -586,11 +546,16 @@ export default function Player() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" style={{ height: '12px', top: '-4px' }} />
           </div>
 
+          {/* CAMBIO 4: eliminado tooltip "Toca para abrir" */}
+
           <div className="bg-white border-t border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-2xl">
-            <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group" onClick={() => setIsFullscreen(true)} role="button" tabIndex={0}>
+            <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group"
+              onClick={() => setIsFullscreen(true)} role="button" tabIndex={0}>
               <div className="relative flex-shrink-0">
                 <motion.img src={coverUrl} alt={currentSong.title} className="w-11 h-11 rounded-lg shadow-md object-cover"
-                  animate={{ scale: isPlaying ? [1, 1.04, 1] : 1 }} transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }} />
+                  animate={{ scale: isPlaying ? [1, 1.04, 1] : 1 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                />
                 {isPlaying && (
                   <div className="absolute inset-0 rounded-lg bg-black/30 flex items-center justify-center">
                     <EqualizerBars isPlaying={isPlaying} />
@@ -603,30 +568,32 @@ export default function Player() {
               </div>
             </div>
 
-            {/* Like en mini player */}
-            <button onClick={handleLike} disabled={likeLoading || currentSong.isSpotify} className="p-2 flex-shrink-0 disabled:opacity-40">
-              <Heart className={`w-5 h-5 transition-all ${isLiked ? 'fill-purple-600 text-purple-600 scale-110' : 'text-gray-300 hover:text-gray-500'}`} />
+            <button onClick={() => setIsLiked(p => !p)} className="p-2 flex-shrink-0">
+              <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-gray-300 hover:text-gray-500'}`} />
             </button>
 
             <div className="flex items-center gap-1 flex-shrink-0">
-              <button onClick={handlePrev} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
+              <button onClick={playPrev} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
                 <SkipBack size={18} fill="currentColor" />
               </button>
               <button onClick={() => isPlaying ? pauseSong() : playSong(currentSong)}
                 className="w-10 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-full flex items-center justify-center transition-all active:scale-95 shadow-md">
                 {isPlaying ? <Pause size={17} fill="currentColor" /> : <Play size={17} fill="currentColor" className="ml-0.5" />}
               </button>
-              <button onClick={handleNext} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
+              <button onClick={playNext} className="p-2 text-gray-400 hover:text-gray-800 transition-colors rounded-full hover:bg-gray-100">
                 <SkipForward size={18} fill="currentColor" />
               </button>
             </div>
 
-            <button onClick={handleClose} className="p-2 flex-shrink-0 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all" aria-label="Cerrar reproductor">
+            <button onClick={handleClose}
+              className="p-2 flex-shrink-0 text-gray-300 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-all"
+              aria-label="Cerrar reproductor">
               <X size={16} />
             </button>
           </div>
         </motion.div>
       )}
+
     </AnimatePresence>
   );
 }
