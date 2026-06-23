@@ -65,6 +65,7 @@ export default function Player() {
     isFullscreen, setIsFullscreen, volume, progress, duration,
     playSong, pauseSong, playNext, playPrev, handleSeek, handleVolume, formatTime,
     queue, setQueue, audioRef,
+    shuffle, setShuffle, repeatMode, cycleRepeat,
   } = usePlayer();
 
   const [dominantColor, setDominantColor] = useState('30, 10, 60');
@@ -73,8 +74,7 @@ export default function Player() {
   const [albumTracks, setAlbumTracks]     = useState([]);
   const [nextSong, setNextSong]           = useState(null);
   const [isLiked, setIsLiked]             = useState(false);
-  const [shuffle, setShuffle]             = useState(false);
-  const [repeatMode, setRepeatMode]       = useState('none');
+  const [likingLoading, setLikingLoading] = useState(false);
   const [showQueue, setShowQueue]         = useState(false);
   const [isMuted, setIsMuted]             = useState(false);
   const [prevVolume, setPrevVolume]       = useState(1);
@@ -84,9 +84,8 @@ export default function Player() {
   const coverUrl    = currentSong?.cover_url || currentSong?.coverUrl || '';
   const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
   const progressPct = duration ? (progress / duration) * 100 : 0;
+  const RepeatIcon  = repeatMode === 'one' ? Repeat1 : Repeat;
 
-  // CAMBIO 1 y 2: eliminado showOpenHint state y su useEffect
-  // CAMBIO: fullscreen solo si está reproduciendo
   useEffect(() => {
     if (currentSong && isPlaying) setIsFullscreen(true);
   }, [currentSong?.id]);
@@ -96,9 +95,24 @@ export default function Player() {
     return extractColor(coverUrl, setDominantColor);
   }, [coverUrl]);
 
-  // CAMBIO 3: limpiar siempre al cambiar canción, incluso Spotify/Ánimo
+  // ✅ Cargar estado del like al cambiar canción
   useEffect(() => {
-    // Limpiar siempre al cambiar canción (incluso Spotify/Ánimo)
+    if (!currentSong?.id || currentSong?.isSpotify) { setIsLiked(false); return; }
+    const checkLike = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase
+        .from('song_likes')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('song_id', currentSong.id)
+        .single();
+      setIsLiked(!!data);
+    };
+    checkLike();
+  }, [currentSong?.id]);
+
+  useEffect(() => {
     setArtistInfo(null); setRelatedSongs([]); setAlbumTracks([]); setNextSong(null);
     if (!currentSong || currentSong.isSpotify) return;
     let cancelled = false;
@@ -124,12 +138,9 @@ export default function Player() {
         if (cancelled) return;
 
         if (profileRes?.data) {
-          const { data: songsData } = await supabase
-            .from('songs')
-            .select('streams')
-            .eq('user_id', currentSong.user_id)
-          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0
-          setArtistInfo({ ...profileRes.data, total_streams: totalStreams })
+          const { data: songsData } = await supabase.from('songs').select('streams').eq('user_id', currentSong.user_id);
+          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
+          setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
         }
 
         if (albumRes?.data?.length) setAlbumTracks(albumRes.data);
@@ -165,39 +176,53 @@ export default function Player() {
     else { setPrevVolume(volume); handleVolume({ target: { value: 0 } }); setIsMuted(true); }
   }, [isMuted, volume, prevVolume]);
 
-  const cycleRepeat = () => setRepeatMode(p => p === 'none' ? 'all' : p === 'all' ? 'one' : 'none');
-  const RepeatIcon  = repeatMode === 'one' ? Repeat1 : Repeat;
+  // ✅ Like persiste en Supabase
+  const handleLike = async () => {
+    if (!currentSong?.id || currentSong?.isSpotify || likingLoading) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setLikingLoading(true);
+    try {
+      if (isLiked) {
+        await supabase.from('song_likes').delete()
+          .eq('user_id', session.user.id)
+          .eq('song_id', currentSong.id);
+        setIsLiked(false);
+      } else {
+        await supabase.from('song_likes').insert([{
+          user_id: session.user.id,
+          song_id: currentSong.id
+        }]);
+        setIsLiked(true);
+      }
+    } catch (e) { console.error(e); }
+    finally { setLikingLoading(false); }
+  };
 
   const handleShare = async () => {
-    const text = `🎵 Escuchando "${currentSong.title}" de ${artistName} en SoundSeekers`
-    const url  = window.location.href
+    const text = `🎵 Escuchando "${currentSong.title}" de ${artistName} en SoundSeekers`;
+    const url  = window.location.href;
     try {
-      if (navigator.share) {
-        await navigator.share({ title: currentSong.title, text, url })
-      } else {
-        await navigator.clipboard.writeText(`${text}\n${url}`)
-        setShared(true)
-        setTimeout(() => setShared(false), 2000)
-      }
+      if (navigator.share) { await navigator.share({ title: currentSong.title, text, url }); }
+      else { await navigator.clipboard.writeText(`${text}\n${url}`); setShared(true); setTimeout(() => setShared(false), 2000); }
     } catch {}
-  }
+  };
 
   const handleAddToQueue = (song, e) => {
-    e.stopPropagation()
+    e.stopPropagation();
     setQueue(prev => {
-      const already = prev.some(s => s.id === song.id)
-      if (already) return prev
-      return [...prev, song]
-    })
-    setAddedToQueue(prev => ({ ...prev, [song.id]: true }))
-    setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000)
-  }
+      if (prev.some(s => s.id === song.id)) return prev;
+      return [...prev, song];
+    });
+    setAddedToQueue(prev => ({ ...prev, [song.id]: true }));
+    setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000);
+  };
 
   const handleClose = (e) => {
-    e.stopPropagation()
-    pauseSong()
-    setIsVisible(false)
-  }
+    e.stopPropagation();
+    pauseSong();
+    setIsVisible(false);
+  };
 
   if (!currentSong || !isVisible) return null;
 
@@ -269,7 +294,8 @@ export default function Player() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-                    <button onClick={() => setIsLiked(p => !p)} className="p-2 hover:scale-110 transition-transform">
+                    {/* ✅ Like conectado a Supabase */}
+                    <button onClick={handleLike} disabled={likingLoading} className="p-2 hover:scale-110 transition-transform">
                       <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-green-400 text-green-400' : 'text-white/50 hover:text-white'}`} />
                     </button>
                     <button onClick={handleShare} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white">
@@ -291,6 +317,7 @@ export default function Player() {
                 </div>
 
                 <div className="flex items-center justify-between mb-5">
+                  {/* ✅ Shuffle funcional desde contexto */}
                   <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <Shuffle className="w-5 h-5" />
                   </button>
@@ -306,6 +333,7 @@ export default function Player() {
                       <SkipForward className="w-7 h-7" fill="currentColor" />
                     </button>
                   </div>
+                  {/* ✅ Repeat funcional desde contexto */}
                   <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
                     <RepeatIcon className="w-5 h-5" />
                   </button>
@@ -416,7 +444,6 @@ export default function Player() {
                 </section>
               )}
 
-              {/* CAMBIO 5: CTA iTunes para canciones de Ánimo */}
               {currentSong?.isSpotify && currentSong?.previewUrl && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8">
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -431,12 +458,9 @@ export default function Player() {
                       <p className="text-white/40 text-xs uppercase tracking-widest mb-2">Estás escuchando un preview de 30s</p>
                       <h3 className="text-xl font-black mb-1">{currentSong.title}</h3>
                       <p className="text-white/60 text-sm mb-4">{artistName}</p>
-                      <a
-                        href={currentSong.externalUrl || `https://music.apple.com/search?term=${encodeURIComponent(currentSong.title + ' ' + artistName)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 bg-white text-black font-bold text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-lg"
-                      >
+                      <a href={currentSong.externalUrl || `https://music.apple.com/search?term=${encodeURIComponent(currentSong.title + ' ' + artistName)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 bg-white text-black font-bold text-sm px-6 py-3 rounded-full hover:bg-gray-100 transition-colors shadow-lg">
                         <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
                         </svg>
@@ -546,8 +570,6 @@ export default function Player() {
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" style={{ height: '12px', top: '-4px' }} />
           </div>
 
-          {/* CAMBIO 4: eliminado tooltip "Toca para abrir" */}
-
           <div className="bg-white border-t border-gray-100 px-4 py-2.5 flex items-center gap-3 shadow-2xl">
             <div className="flex flex-1 items-center gap-3 min-w-0 cursor-pointer group"
               onClick={() => setIsFullscreen(true)} role="button" tabIndex={0}>
@@ -568,7 +590,8 @@ export default function Player() {
               </div>
             </div>
 
-            <button onClick={() => setIsLiked(p => !p)} className="p-2 flex-shrink-0">
+            {/* ✅ Like en mini player conectado a Supabase */}
+            <button onClick={handleLike} disabled={likingLoading} className="p-2 flex-shrink-0">
               <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-gray-300 hover:text-gray-500'}`} />
             </button>
 

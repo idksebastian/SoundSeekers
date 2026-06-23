@@ -6,22 +6,15 @@ const PlayerContext = createContext()
 function getPlayerKey(userId) { return `ss_player_${userId ?? 'guest'}` }
 
 function savePlayerState(userId, song, queue) {
-  try {
-    localStorage.setItem(getPlayerKey(userId), JSON.stringify({ song, queue }))
-  } catch {}
+  try { localStorage.setItem(getPlayerKey(userId), JSON.stringify({ song, queue })) } catch {}
 }
 
 function loadPlayerState(userId) {
-  try {
-    const saved = localStorage.getItem(getPlayerKey(userId))
-    return saved ? JSON.parse(saved) : null
-  } catch { return null }
+  try { const saved = localStorage.getItem(getPlayerKey(userId)); return saved ? JSON.parse(saved) : null } catch { return null }
 }
 
 function clearPlayerState(userId) {
-  try {
-    localStorage.removeItem(getPlayerKey(userId))
-  } catch {}
+  try { localStorage.removeItem(getPlayerKey(userId)) } catch {}
 }
 
 export function PlayerProvider({ children }) {
@@ -35,38 +28,29 @@ export function PlayerProvider({ children }) {
   const [isVisible, setIsVisible] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [activeUserId, setActiveUserId] = useState(null)
+  const [shuffle, setShuffle] = useState(false)
+  const [repeatMode, setRepeatMode] = useState('none') // 'none' | 'all' | 'one'
   const audioRef = useRef(null)
   const queueRef = useRef([])
   const currentIndexRef = useRef(0)
+  const shuffleRef = useRef(false)
+  const repeatModeRef = useRef('none')
 
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
+  useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
+  useEffect(() => { repeatModeRef.current = repeatMode }, [repeatMode])
 
   useEffect(() => {
-    if (currentSong && activeUserId) {
-      savePlayerState(activeUserId, currentSong, queueRef.current)
-    }
+    if (currentSong && activeUserId) savePlayerState(activeUserId, currentSong, queueRef.current)
   }, [currentSong, activeUserId])
-
-  const getShuffleIndex = (currentIdx, total) => {
-    if (total <= 1) return 0
-    let idx
-    do { idx = Math.floor(Math.random() * total) } while (idx === currentIdx)
-    return idx
-  }
 
   const stopAndClear = () => {
     audioRef.current?.pause()
     if (audioRef.current) audioRef.current.src = ''
-    setCurrentSong(null)
-    setIsPlaying(false)
-    setIsVisible(false)
-    setQueue([])
-    setCurrentIndex(0)
-    setProgress(0)
-    setDuration(0)
-    queueRef.current = []
-    currentIndexRef.current = 0
+    setCurrentSong(null); setIsPlaying(false); setIsVisible(false)
+    setQueue([]); setCurrentIndex(0); setProgress(0); setDuration(0)
+    queueRef.current = []; currentIndexRef.current = 0
   }
 
   const restoreForUser = (userId) => {
@@ -75,57 +59,55 @@ export function PlayerProvider({ children }) {
       setCurrentSong(saved.song)
       setQueue(saved.queue ?? [])
       queueRef.current = saved.queue ?? []
-      setIsVisible(true)
-      setIsPlaying(false)
+      setIsVisible(true); setIsPlaying(false)
       const idx = (saved.queue ?? []).findIndex(s => s.id === saved.song.id)
-      if (idx !== -1) {
-        setCurrentIndex(idx)
-        currentIndexRef.current = idx
-      }
+      if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
     }
   }
 
   const playSong = (song, songList = null) => {
     setIsVisible(true)
-    if (songList) {
-      setQueue(songList)
-      queueRef.current = songList
-    }
+    if (songList) { setQueue(songList); queueRef.current = songList }
     const list = songList ?? queueRef.current
     const idx = list.findIndex(s => (s.id ?? s.spotifyId) === (song.id ?? song.spotifyId))
-    if (idx !== -1) {
-      setCurrentIndex(idx)
-      currentIndexRef.current = idx
-    }
+    if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
 
     if (currentSong?.id === song.id && currentSong?.id) {
-      if (isPlaying) {
-        audioRef.current?.pause()
-        setIsPlaying(false)
-      } else {
-        audioRef.current?.play()
-        setIsPlaying(true)
-      }
+      if (isPlaying) { audioRef.current?.pause(); setIsPlaying(false) }
+      else { audioRef.current?.play(); setIsPlaying(true) }
     } else {
-      setCurrentSong(song)
-      setIsPlaying(true)
+      setCurrentSong(song); setIsPlaying(true)
       if (song.id && !song.isSpotify) registerStream(song.id)
     }
-
-    if (activeUserId) {
-      savePlayerState(activeUserId, song, songList ?? queueRef.current)
-    }
+    if (activeUserId) savePlayerState(activeUserId, song, songList ?? queueRef.current)
   }
 
-  const pauseSong = () => {
-    audioRef.current?.pause()
-    setIsPlaying(false)
-  }
+  const pauseSong = () => { audioRef.current?.pause(); setIsPlaying(false) }
 
   const playNext = () => {
     const list = queueRef.current
     if (!list.length) return
-    const nextIdx = getShuffleIndex(currentIndexRef.current, list.length)
+
+    // repeat one — reiniciar la misma
+    if (repeatModeRef.current === 'one') {
+      if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
+      setIsPlaying(true); return
+    }
+
+    let nextIdx
+    if (shuffleRef.current) {
+      // shuffle — índice aleatorio distinto al actual
+      if (list.length === 1) { nextIdx = 0 }
+      else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
+    } else {
+      nextIdx = currentIndexRef.current + 1
+      // repeat all — volver al inicio
+      if (nextIdx >= list.length) {
+        if (repeatModeRef.current === 'all') nextIdx = 0
+        else return // sin repeat, parar al final
+      }
+    }
+
     currentIndexRef.current = nextIdx
     setCurrentIndex(nextIdx)
     setCurrentSong(list[nextIdx])
@@ -137,7 +119,23 @@ export function PlayerProvider({ children }) {
   const playPrev = () => {
     const list = queueRef.current
     if (!list.length) return
-    const prevIdx = getShuffleIndex(currentIndexRef.current, list.length)
+
+    // Si llevamos más de 3 segundos, reiniciar la canción actual
+    if (audioRef.current && audioRef.current.currentTime > 3) {
+      audioRef.current.currentTime = 0
+      setProgress(0)
+      return
+    }
+
+    let prevIdx
+    if (shuffleRef.current) {
+      if (list.length === 1) { prevIdx = 0 }
+      else { do { prevIdx = Math.floor(Math.random() * list.length) } while (prevIdx === currentIndexRef.current) }
+    } else {
+      prevIdx = currentIndexRef.current - 1
+      if (prevIdx < 0) prevIdx = repeatModeRef.current === 'all' ? list.length - 1 : 0
+    }
+
     currentIndexRef.current = prevIdx
     setCurrentIndex(prevIdx)
     setCurrentSong(list[prevIdx])
@@ -162,6 +160,14 @@ export function PlayerProvider({ children }) {
     const vol = parseFloat(e.target.value)
     if (audioRef.current) audioRef.current.volume = vol
     setVolume(vol)
+  }
+
+  const cycleRepeat = () => {
+    setRepeatMode(p => {
+      const next = p === 'none' ? 'all' : p === 'all' ? 'one' : 'none'
+      repeatModeRef.current = next
+      return next
+    })
   }
 
   useEffect(() => {
@@ -189,11 +195,12 @@ export function PlayerProvider({ children }) {
   return (
     <PlayerContext.Provider value={{
       currentSong, isPlaying, volume, progress, duration,
-      isVisible, setIsVisible,
-      isFullscreen, setIsFullscreen,
+      isVisible, setIsVisible, isFullscreen, setIsFullscreen,
       playSong, pauseSong, playNext, playPrev,
       handleSeek, handleVolume, formatTime, audioRef,
       setQueue, queue,
+      shuffle, setShuffle,
+      repeatMode, cycleRepeat,
       stopAndClear, restoreForUser, setActiveUserId,
       savePlayerState, clearPlayerState,
     }}>
