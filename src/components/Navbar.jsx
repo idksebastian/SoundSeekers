@@ -125,32 +125,43 @@ export default function Navbar() {
     })
 
     const channel = subscribeToNotifications(user.id, async (payload) => {
-      const newNotif = payload.new
-      if (!isNotifEnabled(user.id, newNotif.type)) return
+  const newNotif = payload.new
 
-      // Mostrar inmediatamente sin perfil
-      setNotifications(prev => [{ ...newNotif, from_profile: null }, ...prev])
-      setUnreadCount(prev => prev + 1)
-      if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
-      if (newNotif.type === 'artist_request') setPendingCount(prev => prev + 1)
+  // isNotifEnabled es sync — OK
+  if (!isNotifEnabled(user.id, newNotif.type)) return
 
-      // Buscar perfil con reintentos (puede ser usuario nuevo sin perfil aún)
-      if (newNotif.from_user_id) {
-        let from_profile = null
-        for (let attempt = 0; attempt < 3; attempt++) {
-          if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt))
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('user_id, name, artist_name, avatar_url')
-            .eq('user_id', newNotif.from_user_id)
-            .single()
-          if (profile) { from_profile = profile; break }
-        }
-        setNotifications(prev => prev.map(n =>
-          n.id === newNotif.id ? { ...n, from_profile } : n
-        ))
+  // Insertar con placeholder de carga (no null, para distinguir)
+  setNotifications(prev => [{ ...newNotif, from_profile: undefined }, ...prev])
+  setUnreadCount(prev => prev + 1)
+  if (newNotif.type === 'feat_invite') setFeatCount(prev => prev + 1)
+  if (newNotif.type === 'artist_request') setPendingCount(prev => prev + 1)
+
+  // Buscar perfil con más reintentos y delays más largos
+  if (newNotif.from_user_id) {
+    let from_profile = null
+    const delays = [0, 1000, 2000, 4000, 8000] // 5 intentos, backoff exponencial
+
+    for (let attempt = 0; attempt < delays.length; attempt++) {
+      if (delays[attempt] > 0) await new Promise(r => setTimeout(r, delays[attempt]))
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id, name, artist_name, avatar_url')
+        .eq('user_id', newNotif.from_user_id)
+        .single()
+
+      if (profile) {
+        from_profile = profile
+        break
       }
-    })
+    }
+
+    // Actualizar con el perfil encontrado (o null si no se encontró tras todos los intentos)
+    setNotifications(prev => prev.map(n =>
+      n.id === newNotif.id ? { ...n, from_profile: from_profile ?? null } : n
+    ))
+  }
+})
 
     return () => { channel.unsubscribe() }
   }, [user])
@@ -232,11 +243,12 @@ export default function Navbar() {
     )
   }
 
-  const getFromName = (notif) => {
-    const p = notif.from_profile
-    if (!p) return 'Alguien'
-    return p.artist_name || p.name || 'Alguien'
-  }
+const getFromName = (notif) => {
+  if (notif.from_profile === undefined) return '...' // cargando
+  const p = notif.from_profile
+  if (!p) return 'Alguien'
+  return p.artist_name || p.name || 'Alguien'
+}
 
   const getFromAvatar = (notif) => notif.from_profile?.avatar_url ?? null
 

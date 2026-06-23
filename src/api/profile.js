@@ -103,10 +103,14 @@ export async function isFollowing(followingId) {
   return !!data
 }
 
+// profiles.js — reemplaza la función toggleFollow completa
+
 export async function toggleFollow(followingId) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
+
   const following = await isFollowing(followingId)
+
   if (following) {
     await supabase.from('follows').delete()
       .eq('follower_id', session.user.id)
@@ -116,13 +120,39 @@ export async function toggleFollow(followingId) {
       follower_id: session.user.id,
       following_id: followingId
     }])
+
+    // Esperar que el perfil del follower exista antes de crear la notificación
+    let profileExists = false
+    const delays = [0, 500, 1000, 2000, 4000]
+
+    for (const delay of delays) {
+      if (delay > 0) await new Promise(r => setTimeout(r, delay))
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .single()
+      if (profile) { profileExists = true; break }
+    }
+
     await supabase.from('notifications').insert([{
       user_id: followingId,
       type: 'follow',
       from_user_id: session.user.id,
       reference_id: null
     }])
+
+    // Si el perfil no existía aún, crearlo con datos mínimos del auth
+    if (!profileExists) {
+      await supabase.from('profiles').upsert({
+        user_id: session.user.id,
+        name: session.user.user_metadata?.name ?? session.user.email,
+        avatar_url: session.user.user_metadata?.avatar_url ?? null,
+        artist_name: session.user.user_metadata?.artist_name ?? null
+      })
+    }
   }
+
   return !following
 }
 

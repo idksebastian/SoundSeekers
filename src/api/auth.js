@@ -12,18 +12,9 @@ function traducirError(mensaje) {
 }
 
 export async function checkEmailExists(email) {
-  // Intenta un OTP sin enviarlo realmente — si el usuario no existe Supabase lo indica
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { shouldCreateUser: false }
-  })
-  // "Email not found" o similar → no existe
-  if (error?.message?.toLowerCase().includes('not found') ||
-      error?.message?.toLowerCase().includes('user not found') ||
-      error?.status === 422) {
-    return false
-  }
-  return true
+  const { data, error } = await supabase.rpc('check_email_exists', { input_email: email })
+  if (error) return true // si falla el check, dejar pasar y que Supabase maneje el error
+  return data
 }
 
 export async function registerUser(email, password, name) {
