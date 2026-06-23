@@ -261,7 +261,7 @@ const getFromName = (notif) => {
         <div className="hidden sm:flex items-center gap-1">
           {navLink('/home', 'Inicio')}
           {navLink('/dashboard', 'Explorar')}
-          {navLink('/animo', 'Ánimo')}
+          {navLink('/animo', 'Mixtape')}
           {navLink('/community', 'Comunidad')}
           <Link to="/ai"
             className={`text-sm font-medium transition-all px-3 py-1.5 rounded-lg flex items-center gap-1.5 ${
@@ -419,7 +419,7 @@ const getFromName = (notif) => {
                       {[
                         { to: '/home', label: 'Inicio' },
                         { to: '/dashboard', label: 'Explorar' },
-                        { to: '/animo', label: 'Ánimo' },
+                        { to: '/animo', label: 'Mixtape' },
                         { to: '/community', label: 'Comunidad' },
                         { to: '/ai', label: 'SeekeAI' },
                       ].map(({ to, label }) => (

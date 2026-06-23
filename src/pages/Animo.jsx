@@ -68,9 +68,9 @@ export default function Animo() {
       <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '2rem 1rem 4.5rem' }}>
         <div style={{ maxWidth: '760px', margin: '0 auto' }}>
           <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', margin: '0 0 8px' }}>Descubrimiento Personalizado</p>
-          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: '#fff', margin: '0 0 6px', letterSpacing: '0.02em' }}>Ánimo y Clima</h1>
+          <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(2rem, 5vw, 3.5rem)', color: '#fff', margin: '0 0 6px', letterSpacing: '0.02em' }}>Mixtape</h1>
           <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.65)', margin: 0, maxWidth: '400px' }}>
-            Cuéntanos cómo te sientes y cómo está el cielo. Te crearemos la banda sonora perfecta.
+            Cuéntanos cómo te sientes y cómo está el cielo. Te crearemos tu mixtape perfecto.
           </p>
         </div>
       </div>

@@ -112,20 +112,20 @@ export default function Dashboard() {
   const publishedSongs = useMemo(() => songs.filter(s => s.status === 'published'), [songs])
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    const showAllSongs = !!selectedGenre || !!q
-    return {
-      songs: songs.filter(s =>
-        (!selectedGenre || s.genre === selectedGenre) &&
-        (!q || s.title?.toLowerCase().includes(q) || s.artist_name?.toLowerCase().includes(q) || s.display_artist?.toLowerCase().includes(q))
-      ),
-      albums: showAllSongs ? [] : albums.filter(a => !q || a.title?.toLowerCase().includes(q)),
-      artists: artists.filter(a =>
-        (!selectedGenre || a.genre === selectedGenre) &&
-        (!q || a.name?.toLowerCase().includes(q))
-      ),
-    }
-  }, [songs, albums, artists, search, selectedGenre])
+  const q = search.toLowerCase()
+  return {
+    songs: songs.filter(s =>
+      (!selectedGenre || s.genre === selectedGenre) &&
+      (!q || s.title?.toLowerCase().includes(q) || s.artist_name?.toLowerCase().includes(q) || s.display_artist?.toLowerCase().includes(q))
+    ),
+    // ✅ Albums solo se ocultan si hay búsqueda de texto, no por género
+    albums: albums.filter(a => !q || a.title?.toLowerCase().includes(q)),
+    artists: artists.filter(a =>
+      (!selectedGenre || a.genre === selectedGenre) &&
+      (!q || a.name?.toLowerCase().includes(q))
+    ),
+  }
+}, [songs, albums, artists, search, selectedGenre])
 
   const genreCounts = useMemo(() => {
     const map = {}

@@ -7,6 +7,10 @@ import { updateProfile, getFollowStats } from '../api/profile'
 import { getMySongs, deleteSong, updateSong } from '../api/songs'
 import { getArtistAlbums } from '../api/albums'
 import { usePlayer } from '../context/PlayerContext'
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  RadialBarChart, RadialBar, Cell, PieChart, Pie, Legend
+} from 'recharts'
 
 const SECTIONS = [
   { id: 'stats',         label: 'Estadísticas',     icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', color: '#7c3aed', bg: '#f5f3ff', artist: true },
@@ -21,7 +25,6 @@ const GENRES = ['Reggaeton', 'Hip-Hop', 'Champeta', 'Electrónica', 'Pop', 'Indi
 const NAME_CHANGE_LIMIT = 2
 const NAME_CHANGE_DAYS  = 30
 
-/* ─── Toggle reutilizable estilo iOS ─── */
 function IOSToggle({ on, onChange, color = '#7c3aed' }) {
   return (
     <div onClick={onChange}
@@ -31,7 +34,6 @@ function IOSToggle({ on, onChange, color = '#7c3aed' }) {
   )
 }
 
-/* ─── Fila iOS tipo Settings de iPhone ─── */
 function IOSRow({ icon, iconColor = '#7c3aed', iconBg = '#f5f3ff', label, sublabel, right, onClick, border = true }) {
   return (
     <div onClick={onClick}
@@ -54,7 +56,6 @@ function IOSRow({ icon, iconColor = '#7c3aed', iconBg = '#f5f3ff', label, sublab
   )
 }
 
-/* ─── Grupo de filas con título opcional estilo iOS ─── */
 function IOSGroup({ title, children }) {
   return (
     <div style={{ marginBottom: '24px' }}>
@@ -66,7 +67,6 @@ function IOSGroup({ title, children }) {
   )
 }
 
-/* ─── Input estilo iOS ─── */
 function IOSInput({ label, ...props }) {
   return (
     <div style={{ marginBottom: '12px' }}>
@@ -79,7 +79,6 @@ function IOSInput({ label, ...props }) {
   )
 }
 
-/* ─── Notificaciones ─── */
 function NotificationSettings({ userId, isArtist }) {
   const STORAGE_KEY = `ss_notif_prefs_${userId}`
   const defaultPrefs = { follow: true, like: true, comment: true, feat_invite: true, presave: true }
@@ -123,6 +122,170 @@ function NotificationSettings({ userId, isArtist }) {
   )
 }
 
+/* ════════ STATS DASHBOARD ════════ */
+function StatsDashboard({ stats, songStats }) {
+  const COLORS = ['#7c3aed', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#6366f1']
+
+  // Datos para gráfica de barras — top canciones
+  const barData = songStats.map(s => ({
+    name: s.title.length > 12 ? s.title.slice(0, 12) + '…' : s.title,
+    rep: s.streams ?? 0,
+  }))
+
+  // Datos para pie chart — distribución canciones vs álbumes
+  const pieData = [
+    { name: 'Singles', value: Math.max(stats.totalSongs - stats.totalAlbums * 2, 0) },
+    { name: 'En álbumes', value: stats.totalAlbums * 2 },
+  ].filter(d => d.value > 0)
+
+  // Engagement score (métrica inventada pero útil)
+  const engagementScore = stats.followers > 0
+    ? Math.min(100, Math.round((stats.totalStreams / stats.followers) * 10))
+    : 0
+
+  const CustomTooltip = ({ active, payload, label }) => {
+    if (!active || !payload?.length) return null
+    return (
+      <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '8px 12px', boxShadow: '0 4px 16px rgba(0,0,0,0.1)', fontSize: '12px' }}>
+        <p style={{ margin: '0 0 2px', fontWeight: '700', color: '#111' }}>{label}</p>
+        <p style={{ margin: 0, color: '#7c3aed', fontWeight: '600' }}>{payload[0].value.toLocaleString()} rep.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {/* ── Hero metric ── */}
+      <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', borderRadius: '20px', padding: '20px', marginBottom: '12px', position: 'relative', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}/>
+        <div style={{ position: 'absolute', bottom: '-30px', right: '40px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }}/>
+        <p style={{ fontSize: '11px', fontWeight: '700', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: '0 0 4px' }}>Total de reproducciones</p>
+        <p style={{ fontSize: '42px', fontWeight: '800', color: '#fff', margin: '0 0 4px', lineHeight: 1, fontFamily: "'Bebas Neue', sans-serif", letterSpacing: '0.02em' }}>
+          {stats.totalStreams.toLocaleString()}
+        </p>
+        <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>en {stats.totalSongs} canción{stats.totalSongs !== 1 ? 'es' : ''}</p>
+      </div>
+
+      {/* ── Stat cards 2x2 ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
+        {[
+          { label: 'Seguidores',   value: stats.followers,   color: '#ec4899', bg: '#fdf2f8',  icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
+          { label: 'Siguiendo',    value: stats.following,   color: '#3b82f6', bg: '#eff6ff',  icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
+          { label: 'Álbumes / EPs', value: stats.totalAlbums, color: '#f59e0b', bg: '#fffbeb', icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' },
+          { label: 'Presaves',      value: stats.presaves,    color: '#6366f1', bg: '#eef2ff',  icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z' },
+        ].map(card => (
+          <div key={card.label} style={{ background: '#fff', borderRadius: '16px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={card.icon}/></svg>
+            </div>
+            <div>
+              <p style={{ fontSize: '24px', fontWeight: '800', color: '#111', margin: '0 0 1px', lineHeight: 1 }}>{card.value.toLocaleString()}</p>
+              <p style={{ fontSize: '11px', color: '#6b7280', margin: 0, fontWeight: '500' }}>{card.label}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Engagement score ── */}
+      <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 2px' }}>Score de engagement</p>
+            <p style={{ fontSize: '11px', color: '#9ca3af', margin: 0 }}>Reproducciones por seguidor</p>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ fontSize: '28px', fontWeight: '800', color: engagementScore > 60 ? '#10b981' : engagementScore > 30 ? '#f59e0b' : '#7c3aed', margin: 0, lineHeight: 1 }}>{engagementScore}</p>
+            <p style={{ fontSize: '10px', color: '#9ca3af', margin: 0 }}>/100</p>
+          </div>
+        </div>
+        <div style={{ height: '8px', background: '#f3f4f6', borderRadius: '4px', overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${engagementScore}%`,
+            borderRadius: '4px',
+            background: engagementScore > 60
+              ? 'linear-gradient(to right, #10b981, #34d399)'
+              : engagementScore > 30
+              ? 'linear-gradient(to right, #f59e0b, #fbbf24)'
+              : 'linear-gradient(to right, #7c3aed, #a78bfa)',
+            transition: 'width 1s ease'
+          }}/>
+        </div>
+        <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0' }}>
+          {engagementScore > 60 ? '🔥 Excelente engagement' : engagementScore > 30 ? '📈 Buen progreso' : '🎯 Sigue creciendo'}
+        </p>
+      </div>
+
+      {/* ── Gráfica de barras — top canciones ── */}
+      {barData.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 4px' }}>Top canciones</p>
+          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 16px' }}>Reproducciones por canción</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={barData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false}/>
+              <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}/>
+              <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false}/>
+              <Tooltip content={<CustomTooltip />}/>
+              <Bar dataKey="rep" radius={[6, 6, 0, 0]}>
+                {barData.map((_, i) => (
+                  <Cell key={i} fill={i === 0 ? '#7c3aed' : i === 1 ? '#a78bfa' : '#ddd6fe'}/>
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ── Pie chart — distribución del catálogo ── */}
+      {pieData.length > 1 && (
+        <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 4px' }}>Tu catálogo</p>
+          <p style={{ fontSize: '11px', color: '#9ca3af', margin: '0 0 8px' }}>Distribución de canciones</p>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={pieData} cx="50%" cy="50%" innerRadius={45} outerRadius={65} paddingAngle={4} dataKey="value">
+                {pieData.map((_, i) => <Cell key={i} fill={COLORS[i]}/>)}
+              </Pie>
+              <Legend iconType="circle" iconSize={8} formatter={(v) => <span style={{ fontSize: '11px', color: '#6b7280' }}>{v}</span>}/>
+              <Tooltip formatter={(v) => [`${v} canciones`, '']}/>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* ── Lista top canciones detallada ── */}
+      {songStats.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+            <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: 0 }}>Ranking detallado</p>
+          </div>
+          {songStats.map((song, idx) => {
+            const max = songStats[0]?.streams ?? 1
+            const pct = Math.max(5, Math.round(((song.streams ?? 0) / max) * 100))
+            const medals = ['🥇', '🥈', '🥉']
+            return (
+              <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: idx < songStats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <span style={{ fontSize: '16px', width: '20px', textAlign: 'center', flexShrink: 0 }}>
+                  {medals[idx] ?? <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '700' }}>{idx + 1}</span>}
+                </span>
+                <img src={song.cover_url} alt={song.title} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}/>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#111', margin: '0 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
+                  <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '2px', overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: idx === 0 ? 'linear-gradient(to right, #7c3aed, #a78bfa)' : '#e9d5ff', borderRadius: '2px', transition: 'width 0.8s ease' }}/>
+                  </div>
+                </div>
+                <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: '700', flexShrink: 0 }}>{(song.streams ?? 0).toLocaleString()}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ════════════════════════════════════════════════════════ */
 export default function Settings() {
   const { user } = useAuth()
@@ -131,12 +294,10 @@ export default function Settings() {
   const avatarInputRef = useRef(null)
   const coverInputRef   = useRef(null)
 
-  /* mobile: null = menú principal, string = sección activa */
   const [activeSection, setActiveSection] = useState(null)
   const [role, setRole] = useState(null)
   const [loadingRole, setLoadingRole] = useState(true)
 
-  /* Edit profile */
   const [name, setName] = useState('')
   const [artistName, setArtistName] = useState('')
   const [description, setDescription] = useState('')
@@ -144,7 +305,6 @@ export default function Settings() {
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [socialLinks, setSocialLinks] = useState({ instagram: '', twitter: '', tiktok: '', youtube: '', website: '' })
 
-  /* Account */
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -155,12 +315,10 @@ export default function Settings() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  /* Stats */
   const [stats, setStats] = useState(null)
   const [loadingStats, setLoadingStats] = useState(false)
   const [songStats, setSongStats] = useState([])
 
-  /* Songs */
   const [songs, setSongs] = useState([])
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
@@ -293,7 +451,6 @@ export default function Settings() {
   }
 
   const visibleSections = SECTIONS.filter(s => !s.artist || isArtist)
-
   const goBack = () => { setActiveSection(null); setMsg(''); setError('') }
 
   if (loadingRole) return (
@@ -307,15 +464,16 @@ export default function Settings() {
 
   const displayName = isArtist ? artistName || name : name
 
-  /* ─── Sección activa: vista de detalle (mobile-first) ─── */
   const renderSection = () => {
     const section = SECTIONS.find(s => s.id === activeSection)
-
     return (
       <div style={{ minHeight: '100vh', background: '#f2f2f7', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
+          @keyframes spin { to { transform: rotate(360deg) } }
+          .mood-btn:hover { transform: translateY(-2px); }
+        `}</style>
 
-        {/* Nav bar estilo iOS */}
         <div style={{ background: 'rgba(242,242,247,0.92)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', position: 'sticky', top: 0, zIndex: 10, borderBottom: '1px solid rgba(0,0,0,0.08)', padding: '0 16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', height: '52px', gap: '8px' }}>
             <button onClick={goBack} style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer', color: '#7c3aed', fontSize: '16px', fontWeight: '500', padding: '4px 0', fontFamily: 'inherit' }}>
@@ -331,56 +489,17 @@ export default function Settings() {
 
         <div style={{ padding: '20px 16px 100px' }}>
 
-          {/* ── ESTADÍSTICAS ── */}
+          {/* ── ESTADÍSTICAS DASHBOARD ── */}
           {activeSection === 'stats' && (
             loadingStats ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '60px' }}>
-                <svg style={{ width: '28px', height: '28px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24"><circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                <svg style={{ width: '28px', height: '28px', color: '#7c3aed', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
+                  <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
               </div>
             ) : stats ? (
-              <>
-                {/* Stat cards 2x3 */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '24px' }}>
-                  {[
-                    { label: 'Reproducciones', value: stats.totalStreams.toLocaleString(), icon: 'M5 3l14 9-14 9V3z',           color: '#7c3aed', bg: '#f5f3ff' },
-                    { label: 'Seguidores',      value: stats.followers.toLocaleString(),    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', color: '#ec4899', bg: '#fdf2f8' },
-                    { label: 'Siguiendo',       value: stats.following.toLocaleString(),    icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: '#3b82f6', bg: '#eff6ff' },
-                    { label: 'Canciones',        value: stats.totalSongs.toLocaleString(),  icon: 'M12 3v10.55A4 4 0 1014 17V7h4V3h-6z', color: '#10b981', bg: '#f0fdf4' },
-                    { label: 'Álbumes / EPs',    value: stats.totalAlbums.toLocaleString(), icon: 'M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3', color: '#f59e0b', bg: '#fffbeb' },
-                    { label: 'Presaves',         value: stats.presaves.toLocaleString(),    icon: 'M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z', color: '#6366f1', bg: '#eef2ff' },
-                  ].map(card => (
-                    <div key={card.label} style={{ background: '#fff', borderRadius: '16px', padding: '14px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                      <div style={{ width: '34px', height: '34px', borderRadius: '10px', background: card.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px' }}>
-                        <svg width="15" height="15" fill="none" stroke={card.color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d={card.icon}/></svg>
-                      </div>
-                      <p style={{ fontSize: '22px', fontWeight: '800', color: '#111', margin: '0 0 2px', lineHeight: 1 }}>{card.value}</p>
-                      <p style={{ fontSize: '11px', color: '#6b7280', margin: 0, fontWeight: '500' }}>{card.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {songStats.length > 0 && (
-                  <IOSGroup title="Top canciones">
-                    {songStats.map((song, idx) => {
-                      const max = songStats[0]?.streams ?? 1
-                      const pct = Math.max(5, Math.round(((song.streams ?? 0) / max) * 100))
-                      return (
-                        <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#fff', borderBottom: idx < songStats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                          <span style={{ fontSize: '12px', color: '#9ca3af', width: '14px', flexShrink: 0, textAlign: 'center' }}>{idx + 1}</span>
-                          <img src={song.cover_url} alt={song.title} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}/>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: '13px', fontWeight: '600', color: '#111', margin: '0 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
-                            <div style={{ height: '4px', background: '#f3f4f6', borderRadius: '2px', overflow: 'hidden' }}>
-                              <div style={{ height: '100%', width: `${pct}%`, background: idx === 0 ? '#7c3aed' : '#d1d5db', borderRadius: '2px', transition: 'width 0.6s' }}/>
-                            </div>
-                          </div>
-                          <span style={{ fontSize: '12px', color: '#7c3aed', fontWeight: '700', flexShrink: 0 }}>{(song.streams ?? 0).toLocaleString()}</span>
-                        </div>
-                      )
-                    })}
-                  </IOSGroup>
-                )}
-              </>
+              <StatsDashboard stats={stats} songStats={songStats} />
             ) : null
           )}
 
@@ -401,7 +520,6 @@ export default function Settings() {
                 </div>
               )}
 
-              {/* Modal editar canción */}
               {editingSong && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={() => setEditingSong(null)}>
                   <div style={{ background: '#f2f2f7', width: '100%', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
@@ -412,7 +530,6 @@ export default function Settings() {
                         <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                       </button>
                     </div>
-
                     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
                       <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => coverInputRef.current?.click()}>
                         <img src={editCoverPreview} alt="" style={{ width: '64px', height: '64px', borderRadius: '14px', objectFit: 'cover' }}/>
@@ -426,7 +543,6 @@ export default function Settings() {
                         <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Toca la imagen para cambiar portada</p>
                       </div>
                     </div>
-
                     <IOSGroup>
                       <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
                         <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Título</p>
@@ -446,7 +562,6 @@ export default function Settings() {
                           style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }}/>
                       </div>
                     </IOSGroup>
-
                     <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.title.trim()}
                       style={{ width: '100%', padding: '14px', borderRadius: '14px', background: savingEdit ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: '700', fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: '8px', opacity: !editForm.title.trim() ? 0.5 : 1 }}>
                       {savingEdit ? 'Guardando...' : 'Guardar cambios'}
@@ -514,7 +629,6 @@ export default function Settings() {
               {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
               {msg   && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{msg}</div>}
 
-              {/* Avatar */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
                 <div onClick={() => avatarInputRef.current?.click()} style={{ position: 'relative', cursor: 'pointer', marginBottom: '8px' }}>
                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', border: '3px solid #fff', boxShadow: '0 4px 16px rgba(0,0,0,0.12)' }}>
@@ -625,12 +739,10 @@ export default function Settings() {
             </div>
           )}
 
-          {/* ── NOTIFICACIONES ── */}
           {activeSection === 'notifications' && (
             <NotificationSettings userId={user?.id} isArtist={isArtist} />
           )}
 
-          {/* ── ZONA DE PELIGRO ── */}
           {activeSection === 'danger' && (
             <div>
               <IOSGroup>
@@ -645,27 +757,21 @@ export default function Settings() {
               </IOSGroup>
             </div>
           )}
-
         </div>
       </div>
     )
   }
 
-  /* ─── Si hay sección activa: mostrar detalle ─── */
   if (activeSection) return renderSection()
 
-  /* ─── Menú principal estilo iOS Settings ─── */
   return (
     <div style={{ minHeight: '100vh', background: '#f2f2f7', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap'); @keyframes spin { to { transform: rotate(360deg) } }`}</style>
 
-      {/* Header con avatar grande */}
       <div style={{ background: 'linear-gradient(160deg, #7c3aed 0%, #6d28d9 60%, #5b21b6 100%)', padding: '60px 20px 32px', textAlign: 'center', position: 'relative' }}>
         <button onClick={() => navigate(-1)} style={{ position: 'absolute', top: '16px', left: '16px', width: '32px', height: '32px', borderRadius: '50%', background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <svg width="14" height="14" fill="none" stroke="white" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
         </button>
-
-        {/* Avatar */}
         <div style={{ width: '88px', height: '88px', borderRadius: '50%', overflow: 'hidden', background: 'rgba(255,255,255,0.2)', border: '3px solid rgba(255,255,255,0.4)', margin: '0 auto 12px', boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
           {avatarPreview
             ? <img src={avatarPreview} alt="avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
@@ -680,10 +786,7 @@ export default function Settings() {
         </div>
       </div>
 
-      {/* Lista de secciones */}
       <div style={{ padding: '20px 16px 100px' }}>
-
-        {/* Grupo artista */}
         {isArtist && (
           <IOSGroup title="Artista">
             {visibleSections.filter(s => s.artist).map((s, i, arr) => (
@@ -694,7 +797,6 @@ export default function Settings() {
           </IOSGroup>
         )}
 
-        {/* Grupo perfil y cuenta */}
         <IOSGroup title="Perfil y cuenta">
           {visibleSections.filter(s => !s.artist && !s.danger).map((s, i, arr) => (
             <IOSRow key={s.id} icon={s.icon} iconColor={s.color} iconBg={s.bg}
@@ -703,7 +805,6 @@ export default function Settings() {
           ))}
         </IOSGroup>
 
-        {/* Cerrar sesión */}
         <IOSGroup>
           <IOSRow
             icon="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
@@ -713,7 +814,6 @@ export default function Settings() {
           />
         </IOSGroup>
 
-        {/* Zona de peligro */}
         <IOSGroup>
           <IOSRow
             icon={SECTIONS.find(s => s.id === 'danger').icon}

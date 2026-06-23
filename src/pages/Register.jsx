@@ -7,6 +7,7 @@ export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [acceptedTerms, setAcceptedTerms] = useState(false) // ✅
   const [msg, setMsg] = useState('')
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -19,6 +20,7 @@ export default function Register() {
     if (!/[A-Z]/.test(password)) return 'La contraseña debe tener al menos una mayúscula.'
     if (!/[0-9]/.test(password)) return 'La contraseña debe tener al menos un número.'
     if (password !== confirm) return 'Las contraseñas no coinciden.'
+    if (!acceptedTerms) return 'Debes aceptar los términos y condiciones.' // ✅
     return null
   }
 
@@ -97,7 +99,32 @@ export default function Register() {
             )}
           </div>
 
-          <button type="submit" className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition">
+          {/* ✅ Términos y condiciones */}
+          <div className={`flex items-start gap-3 p-3 rounded-xl border transition ${acceptedTerms ? 'border-purple-200 bg-purple-50' : 'border-gray-200 bg-gray-50'}`}>
+            <input
+              type="checkbox"
+              id="terms"
+              checked={acceptedTerms}
+              onChange={e => setAcceptedTerms(e.target.checked)}
+              className="mt-0.5 w-4 h-4 accent-purple-600 cursor-pointer shrink-0"
+            />
+            <label htmlFor="terms" className="text-xs text-gray-600 cursor-pointer leading-relaxed">
+              He leído y acepto los{' '}
+              <a href="/terminos" target="_blank" rel="noreferrer" className="text-purple-600 font-semibold hover:underline">
+                Términos y Condiciones
+              </a>{' '}
+              y la{' '}
+              <a href="/privacidad" target="_blank" rel="noreferrer" className="text-purple-600 font-semibold hover:underline">
+                Política de Tratamiento de Datos
+              </a>{' '}
+              de SoundSeekers.
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!acceptedTerms}
+            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition disabled:opacity-50 disabled:cursor-not-allowed">
             Crear cuenta
           </button>
         </form>
