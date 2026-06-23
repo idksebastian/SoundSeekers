@@ -436,9 +436,9 @@ const getFromName = (notif) => {
                     <div className="py-1">
                       <button
                         onClick={() => {
-                          role?.role === 'artist' ? navigate(`/artist/${user.id}`) : navigate('/profile')
-                          setMenuOpen(false)
-                        }}
+                        navigate('/profile')
+                        setMenuOpen(false)
+                      }}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition text-left group">
                         <div className="w-7 h-7 rounded-lg bg-gray-100 group-hover:bg-purple-100 flex items-center justify-center transition shrink-0">
                           <svg className="w-3.5 h-3.5 text-gray-500 group-hover:text-purple-600 transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
