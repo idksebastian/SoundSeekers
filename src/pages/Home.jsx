@@ -55,6 +55,20 @@ export default function Home() {
 
   useEffect(() => { setRecentlyPlayed(getHistory(user?.id)) }, [user?.id])
 
+  const [profileName, setProfileName] = useState(null)
+
+useEffect(() => {
+  if (!user) return
+  supabase
+    .from('profiles')
+    .select('name, artist_name')
+    .eq('user_id', user.id)
+    .single()
+    .then(({ data }) => {
+      if (data) setProfileName(data.artist_name || data.name)
+    })
+}, [user?.id])
+
   useEffect(() => {
     if (!currentSong) return
     const item = currentSong.album_id
@@ -222,7 +236,7 @@ export default function Home() {
     return items.slice(0, 8)
   }, [allSongs, albums, selectedGenre])
 
-  const userName = user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
+const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
 
   const slides = [
     {
