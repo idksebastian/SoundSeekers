@@ -11,64 +11,20 @@ const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 
 
 const LISTENER_LEVELS = [
   {
-    label: 'Curioso',
-    desc: 'Registrarte en SoundSeekers',
-    min: 0,
-    max: 10,
-    color: '#7c3aed',
-    bg: '#f5f3ff',
-    border: '#e9d5ff',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-      </svg>
-    ),
+    label: 'Curioso', desc: 'Registrarte en SoundSeekers', min: 0, max: 10, color: '#7c3aed', bg: '#f5f3ff', border: '#e9d5ff',
+    icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>),
   },
   {
-    label: 'Explorador',
-    desc: '10 reproducciones',
-    min: 10,
-    max: 20,
-    color: '#2563eb',
-    bg: '#eff6ff',
-    border: '#bfdbfe',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="10"/>
-        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-      </svg>
-    ),
+    label: 'Explorador', desc: '10 reproducciones', min: 10, max: 20, color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe',
+    icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>),
   },
   {
-    label: 'Melómano',
-    desc: '20 reproducciones',
-    min: 20,
-    max: 50,
-    color: '#0891b2',
-    bg: '#ecfeff',
-    border: '#a5f3fc',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <path d="M3 18v-6a9 9 0 0118 0v6"/>
-        <path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/>
-      </svg>
-    ),
+    label: 'Melómano', desc: '20 reproducciones', min: 20, max: 50, color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc',
+    icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>),
   },
   {
-    label: 'Descubridor',
-    desc: '50 reproducciones',
-    min: 50,
-    max: 50,
-    color: '#d97706',
-    bg: '#fffbeb',
-    border: '#fde68a',
-    icon: (
-      <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
-        <circle cx="11" cy="11" r="8"/>
-        <path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/>
-      </svg>
-    ),
+    label: 'Descubridor', desc: '50 reproducciones', min: 50, max: 50, color: '#d97706', bg: '#fffbeb', border: '#fde68a',
+    icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>),
   },
 ]
 
@@ -86,6 +42,11 @@ export default function Profile() {
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(null)
+
+  // ✅ Canciones con like
+  const [likedSongs, setLikedSongs] = useState([])
+  const [loadingLikes, setLoadingLikes] = useState(false)
+  const [unlikingId, setUnlikingId] = useState(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -108,10 +69,56 @@ export default function Profile() {
           .eq('user_id', u.id)
         setListenerStreams(count ?? 0)
       }
+
+      // ✅ Cargar canciones con like
+      loadLikedSongs(u.id)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadLikedSongs = async (userId) => {
+    setLoadingLikes(true)
+    try {
+      const { data: likes } = await supabase
+        .from('song_likes')
+        .select('song_id, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+
+      if (!likes?.length) { setLikedSongs([]); return }
+
+      const songIds = likes.map(l => l.song_id)
+      const { data: songsData } = await supabase
+        .from('songs')
+        .select('id, title, cover_url, display_artist, artist_name, audio_url, genre, streams')
+        .in('id', songIds)
+
+      if (!songsData) return
+      // mantener el orden de likes (más reciente primero)
+      const ordered = songIds.map(id => songsData.find(s => s.id === id)).filter(Boolean)
+      setLikedSongs(ordered)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoadingLikes(false)
+    }
+  }
+
+  const handleUnlike = async (songId) => {
+    if (!user) return
+    setUnlikingId(songId)
+    try {
+      await supabase.from('song_likes').delete()
+        .eq('user_id', user.id)
+        .eq('song_id', songId)
+      setLikedSongs(prev => prev.filter(s => s.id !== songId))
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setUnlikingId(null)
     }
   }
 
@@ -126,7 +133,6 @@ export default function Profile() {
 
       const userId = session.user.id
 
-      // ✅ Realtime: actualizar seguidores/siguiendo en tiempo real
       channel = supabase
         .channel(`follows:profile:${userId}`)
         .on('postgres_changes', {
@@ -145,7 +151,6 @@ export default function Profile() {
     }
 
     setup()
-
     return () => { channel?.unsubscribe() }
   }, [])
 
@@ -212,6 +217,8 @@ export default function Profile() {
       )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
+
+        {/* ── CARD PERFIL ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 shrink-0">
@@ -310,6 +317,7 @@ export default function Profile() {
           )}
         </div>
 
+        {/* ── MIS CANCIONES (artista) ── */}
         {isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
             <h2 className="text-base sm:text-lg font-bold text-black mb-4">Mis canciones</h2>
@@ -363,6 +371,7 @@ export default function Profile() {
           </div>
         )}
 
+        {/* ── NIVEL OYENTE ── */}
         {!isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
             <div className="flex items-center justify-between mb-1">
@@ -408,17 +417,14 @@ export default function Profile() {
               {LISTENER_LEVELS.map((lvl) => {
                 const done = listenerStreams >= lvl.min
                 return (
-                  <div key={lvl.label}
-                    className="p-3 rounded-xl border transition-all"
+                  <div key={lvl.label} className="p-3 rounded-xl border transition-all"
                     style={{ borderColor: done ? lvl.border : '#f3f4f6', background: done ? lvl.bg : '#f9fafb', opacity: done ? 1 : 0.5 }}>
                     <div className="mb-1.5" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.icon}</div>
                     <p className="text-sm font-semibold" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.label}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{lvl.desc}</p>
                     {done && (
                       <div className="mt-1.5 flex items-center gap-1">
-                        <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ color: lvl.color }}>
-                          <path d="M20 6L9 17l-5-5"/>
-                        </svg>
+                        <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ color: lvl.color }}><path d="M20 6L9 17l-5-5"/></svg>
                         <span className="text-xs font-semibold" style={{ color: lvl.color }}>Desbloqueado</span>
                       </div>
                     )}
@@ -428,6 +434,78 @@ export default function Profile() {
             </div>
           </div>
         )}
+
+        {/* ── CANCIONES CON LIKE ── */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5 text-purple-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+              <h2 className="text-base sm:text-lg font-bold text-black">Canciones que me gustan</h2>
+            </div>
+            {likedSongs.length > 0 && (
+              <span className="text-xs text-gray-400 font-medium">{likedSongs.length} canción{likedSongs.length !== 1 ? 'es' : ''}</span>
+            )}
+          </div>
+
+          {loadingLikes ? (
+            <div className="flex justify-center py-8">
+              <svg className="w-6 h-6 animate-spin text-purple-400" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+            </div>
+          ) : likedSongs.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="w-12 h-12 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-6 h-6 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-gray-500">Aún no tienes canciones guardadas</p>
+              <p className="text-xs text-gray-400 mt-1">Dale like a una canción desde el reproductor</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {likedSongs.map(song => {
+                const isCurrentSong = currentSong?.id === song.id
+                return (
+                  <div key={song.id} className="flex items-center gap-3 p-2.5 rounded-xl border border-gray-100 hover:bg-gray-50 transition group">
+                    <img src={song.cover_url} alt={song.title} className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-black font-medium text-xs sm:text-sm truncate">{song.title}</p>
+                      <p className="text-gray-400 text-xs truncate">{song.display_artist || song.artist_name}</p>
+                    </div>
+                    {song.streams > 0 && (
+                      <span className="text-xs text-gray-400 hidden sm:block shrink-0">{song.streams.toLocaleString()} rep.</span>
+                    )}
+                    {/* Quitar like */}
+                    <button
+                      onClick={() => handleUnlike(song.id)}
+                      disabled={unlikingId === song.id}
+                      className="w-8 h-8 rounded-full flex items-center justify-center transition shrink-0 text-purple-500 hover:bg-red-50 hover:text-red-400 opacity-0 group-hover:opacity-100"
+                    >
+                      {unlikingId === song.id ? (
+                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                      )}
+                    </button>
+                    {/* Reproducir */}
+                    <button onClick={() => playSong(song, likedSongs)} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-purple-700 hover:bg-purple-800 flex items-center justify-center transition shrink-0">
+                      {isCurrentSong && isPlaying
+                        ? <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+                        : <svg className="w-3 h-3 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                      }
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   )
