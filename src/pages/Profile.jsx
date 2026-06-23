@@ -115,7 +115,39 @@ export default function Profile() {
     }
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    let channel
+
+    const setup = async () => {
+      await loadData()
+
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const userId = session.user.id
+
+      // ✅ Realtime: actualizar seguidores/siguiendo en tiempo real
+      channel = supabase
+        .channel(`follows:profile:${userId}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'follows',
+          filter: `following_id=eq.${userId}`
+        }, async () => {
+          const [{ count: followers }, { count: following }] = await Promise.all([
+            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
+            supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
+          ])
+          setStats(prev => ({ ...prev, followers: followers ?? 0, following: following ?? 0 }))
+        })
+        .subscribe()
+    }
+
+    setup()
+
+    return () => { channel?.unsubscribe() }
+  }, [])
 
   const handleMoodChange = async (mood) => {
     await updateArtistMood(user.id, mood)
@@ -180,7 +212,6 @@ export default function Profile() {
       )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
-
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
           <div className="flex items-start gap-3 sm:gap-4">
             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 shrink-0">
@@ -344,16 +375,12 @@ export default function Profile() {
               <div className="mb-5 p-3.5 rounded-xl border border-gray-100 bg-gray-50">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <div style={{ color: currentLevel.color }}>
-                      {currentLevel.icon}
-                    </div>
+                    <div style={{ color: currentLevel.color }}>{currentLevel.icon}</div>
                     <span className="text-sm font-bold text-gray-800">{currentLevel.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-gray-400">→</span>
-                    <div style={{ color: nextLevel.color }}>
-                      {nextLevel.icon}
-                    </div>
+                    <div style={{ color: nextLevel.color }}>{nextLevel.icon}</div>
                     <span className="text-sm font-semibold" style={{ color: nextLevel.color }}>{nextLevel.label}</span>
                   </div>
                 </div>
@@ -378,19 +405,13 @@ export default function Profile() {
             )}
 
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
-              {LISTENER_LEVELS.map((lvl, idx) => {
+              {LISTENER_LEVELS.map((lvl) => {
                 const done = listenerStreams >= lvl.min
                 return (
                   <div key={lvl.label}
                     className="p-3 rounded-xl border transition-all"
-                    style={{
-                      borderColor: done ? lvl.border : '#f3f4f6',
-                      background: done ? lvl.bg : '#f9fafb',
-                      opacity: done ? 1 : 0.5,
-                    }}>
-                    <div className="mb-1.5" style={{ color: done ? lvl.color : '#9ca3af' }}>
-                      {lvl.icon}
-                    </div>
+                    style={{ borderColor: done ? lvl.border : '#f3f4f6', background: done ? lvl.bg : '#f9fafb', opacity: done ? 1 : 0.5 }}>
+                    <div className="mb-1.5" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.icon}</div>
                     <p className="text-sm font-semibold" style={{ color: done ? lvl.color : '#9ca3af' }}>{lvl.label}</p>
                     <p className="text-xs text-gray-400 mt-0.5">{lvl.desc}</p>
                     {done && (

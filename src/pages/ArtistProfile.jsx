@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
 import { getUserRole } from '../api/roles'
 import SkeletonSongRow from '../components/SkeletonSongRow'
+import { supabase } from '../lib/supabase'
 
 const TABS = ['Populares', 'Álbumes', 'EPs', 'Singles', 'Aparece en']
 
@@ -34,17 +35,12 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
 
   return (
     <>
-      {/* Backdrop */}
       <div
         style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
         onClick={onClose}
       />
-
-      {/* Modal centrado — inline styles para garantizar centrado en cualquier contexto */}
       <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
         <div style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
-
-          {/* Header */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f3f4f6' }}>
             <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111', margin: 0 }}>{title}</h3>
             <button
@@ -56,8 +52,6 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
               </svg>
             </button>
           </div>
-
-          {/* List */}
           <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
             {users.length === 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 20px', gap: '8px' }}>
@@ -79,7 +73,6 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     onClick={() => { onNavigate(u.user_id); onClose() }}
                   >
-                    {/* Avatar */}
                     <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', border: '1px solid #e5e7eb', flexShrink: 0 }}>
                       {u.avatar_url ? (
                         <img src={u.avatar_url} alt={u.artist_name || u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
@@ -89,8 +82,6 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
                         </div>
                       )}
                     </div>
-
-                    {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.3 }}>
                         {u.artist_name || u.name}
@@ -102,8 +93,6 @@ function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentU
                         <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.artist_genre}</p>
                       )}
                     </div>
-
-                    {/* Follow button */}
                     {!isMe && currentUserId && (
                       <button
                         onClick={(e) => handleToggleFollow(e, u.user_id)}
@@ -146,7 +135,7 @@ export default function ArtistProfile() {
   const [error, setError] = useState('')
   const [role, setRole] = useState(null)
   const [activeTab, setActiveTab] = useState('Populares')
-  const [followModal, setFollowModal] = useState(null) // 'followers' | 'following' | null
+  const [followModal, setFollowModal] = useState(null)
   const [followModalUsers, setFollowModalUsers] = useState([])
   const [loadingModal, setLoadingModal] = useState(false)
 
@@ -178,7 +167,6 @@ export default function ArtistProfile() {
       if (userId === user?.id) {
         navigate('/profile')
       } else {
-        // Si no tiene perfil de artista, redirigir al perfil de oyente
         navigate(`/listener/${userId}`, { replace: true })
       }
     } finally {
@@ -186,7 +174,28 @@ export default function ArtistProfile() {
     }
   }
 
-  useEffect(() => { loadData() }, [userId])
+  useEffect(() => {
+    loadData()
+
+    // ✅ Realtime: actualizar contador de seguidores en tiempo real
+    const channel = supabase
+      .channel(`follows:${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'follows',
+        filter: `following_id=eq.${userId}`
+      }, async () => {
+        const { count } = await supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('following_id', userId)
+        setProfile(prev => prev ? { ...prev, followers: count ?? 0 } : prev)
+      })
+      .subscribe()
+
+    return () => { channel.unsubscribe() }
+  }, [userId])
 
   const handleFollow = async () => {
     if (!user) return navigate('/login')
@@ -205,7 +214,6 @@ export default function ArtistProfile() {
     }
   }
 
-  // Al abrir el modal se consulta is_following para cada usuario
   const handleOpenFollowModal = (type) => {
     navigate(`/artist/${userId}/followers`, { state: { tab: type } })
   }
@@ -313,7 +321,6 @@ export default function ArtistProfile() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
-
       {followModal && (
         <FollowModal
           title={
@@ -329,8 +336,6 @@ export default function ArtistProfile() {
       )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
-
-        {/* Profile card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
           <div className="flex items-start justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -396,7 +401,6 @@ export default function ArtistProfile() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 sm:mt-6 pt-4 sm:pt-6 border-t border-gray-100">
             <div className="text-center">
               <p className="text-lg sm:text-2xl font-bold text-black leading-tight">{songs.length}</p>
@@ -421,7 +425,6 @@ export default function ArtistProfile() {
           </div>
         </div>
 
-        {/* Tabs + content */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="flex gap-1 p-2 border-b border-gray-100 overflow-x-auto">
             {TABS.filter(tab => {
