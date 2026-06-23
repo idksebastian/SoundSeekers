@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { PlayerProvider, usePlayer } from './context/PlayerContext'
 import { useAuth } from './context/AuthContext'
@@ -10,7 +10,6 @@ import Navbar from './components/Navbar'
 import Player from './components/Player'
 import ChatBot from './components/ChatBot'
 
-// ✅ Lazy loading — cada página se carga solo cuando se necesita
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
 const Landing = lazy(() => import('./pages/Landing'))
@@ -39,7 +38,6 @@ const Cookies = lazy(() => import('./pages/Cookies'))
 const Contacto = lazy(() => import('./pages/Contacto'))
 const FollowersPage = lazy(() => import('./pages/FollowersPage'))
 
-// ✅ Spinner de carga para el Suspense
 function PageLoader() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-white">
@@ -80,59 +78,76 @@ function ChatBotConditional() {
   return <ChatBot />
 }
 
+function AppRoutes() {
+  const { user, loading } = useAuth()
+
+  if (loading) return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <svg className="w-8 h-8 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+    </div>
+  )
+
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Rutas públicas — redirigen al home si ya hay sesión */}
+        <Route path="/" element={user ? <Navigate to="/home" replace /> : <Landing />} />
+        <Route path="/login" element={user ? <Navigate to="/home" replace /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/home" replace /> : <Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Rutas protegidas */}
+        <Route path="/*" element={
+          <ProtectedRoute>
+            <Navbar />
+            <PageTransition>
+              <Routes>
+                <Route path="/terminos" element={<Terminos />} />
+                <Route path="/privacidad" element={<Privacidad />} />
+                <Route path="/cookies" element={<Cookies />} />
+                <Route path="/contacto" element={<Contacto />} />
+                <Route path="/home" element={<Home />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/community" element={<Community />} />
+                <Route path="/community/post/:postId" element={<PostPage />} />
+                <Route path="/community/create" element={<CreatePost />} />
+                <Route path="/animo" element={<Animo />} />
+                <Route path="/ai" element={<AI />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/album/:albumId" element={<AlbumDetail />} />
+                <Route path="/artist/:userId" element={<ArtistProfile />} />
+                <Route path="/artist/:userId/followers" element={<FollowersPage />} />
+                <Route path="/listener/:userId" element={<ListenerProfile />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/requests" element={<Requests />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/upload" element={
+                  <ArtistRoute>
+                    <Upload />
+                  </ArtistRoute>
+                } />
+                <Route path="/edit/:id" element={<EditSong />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </PageTransition>
+          </ProtectedRoute>
+        } />
+      </Routes>
+    </Suspense>
+  )
+}
+
 export default function App() {
   return (
     <PlayerProvider>
       <AuthProvider>
         <BrowserRouter>
           <PlayerAuthBridge />
-          {/* ✅ Suspense wrappea todas las rutas */}
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-
-              <Route path="/*" element={
-                <ProtectedRoute>
-                  <Navbar />
-                  <PageTransition>
-                    <Routes>
-                      <Route path="/terminos" element={<Terminos />} />
-                      <Route path="/privacidad" element={<Privacidad />} />
-                      <Route path="/cookies" element={<Cookies />} />
-                      <Route path="/contacto" element={<Contacto />} />
-                      <Route path="/home" element={<Home />} />
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/community" element={<Community />} />
-                      <Route path="/community/post/:postId" element={<PostPage />} />
-                      <Route path="/community/create" element={<CreatePost />} />
-                      <Route path="/animo" element={<Animo />} />
-                      <Route path="/ai" element={<AI />} />
-                      <Route path="/admin" element={<Admin />} />
-                      <Route path="/album/:albumId" element={<AlbumDetail />} />
-                      <Route path="/artist/:userId" element={<ArtistProfile />} />
-                      <Route path="/artist/:userId/followers" element={<FollowersPage />} />
-                      <Route path="/listener/:userId" element={<ListenerProfile />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/requests" element={<Requests />} />
-                      <Route path="/settings" element={<Settings />} />
-                      <Route path="/upload" element={
-                        <ArtistRoute>
-                          <Upload />
-                        </ArtistRoute>
-                      } />
-                      <Route path="/edit/:id" element={<EditSong />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
-                  </PageTransition>
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </Suspense>
-
+          <AppRoutes />
           <ProtectedRoute silent>
             <Player />
             <ChatBotConditional />
