@@ -296,17 +296,17 @@ export default function Player() {
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
                     {/* ✅ Like conectado a Supabase */}
                     <button onClick={handleLike} disabled={likingLoading} className="p-2 hover:scale-110 transition-transform">
-                      <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-green-400 text-green-400' : 'text-white/50 hover:text-white'}`} />
+                      <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-white/50 hover:text-white'}`} />
                     </button>
                     <button onClick={handleShare} className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white">
-                      {shared ? <Check className="w-5 h-5 text-green-400" /> : <Share2 className="w-5 h-5" />}
+                      {shared ? <Check className="w-5 h-5 text-purple-600" /> : <Share2 className="w-5 h-5" />}
                     </button>
                   </div>
                 </div>
 
                 <div className="mb-5">
                   <div className="relative h-1 w-full bg-white/20 rounded-full cursor-pointer group">
-                    <div className="absolute h-full bg-white rounded-full transition-all group-hover:bg-green-400" style={{ width: `${progressPct}%` }} />
+                    <div className="absolute h-full bg-white rounded-full transition-all group-hover:bg-purple-600" style={{ width: `${progressPct}%` }} />
                     <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity -ml-1.5" style={{ left: `${progressPct}%` }} />
                     <input type="range" min={0} max={duration || 0} step={0.1} value={progress} onChange={handleSeek} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   </div>
@@ -318,7 +318,7 @@ export default function Player() {
 
                 <div className="flex items-center justify-between mb-5">
                   {/* ✅ Shuffle funcional desde contexto */}
-                  <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
+                  <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-purple-600' : 'text-white/50 hover:text-white'}`}>
                     <Shuffle className="w-5 h-5" />
                   </button>
                   <div className="flex items-center gap-6">
@@ -334,7 +334,7 @@ export default function Player() {
                     </button>
                   </div>
                   {/* ✅ Repeat funcional desde contexto */}
-                  <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
+                  <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-purple-600' : 'text-white/50 hover:text-white'}`}>
                     <RepeatIcon className="w-5 h-5" />
                   </button>
                 </div>
@@ -344,7 +344,7 @@ export default function Player() {
                     {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                   </button>
                   <input type="range" min={0} max={1} step={0.01} value={isMuted ? 0 : volume} onChange={handleVolume} className="flex-1 accent-white h-1 cursor-pointer" />
-                  <button onClick={() => setShowQueue(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0 ${showQueue ? 'text-green-400' : 'text-white/50 hover:text-white'}`}>
+                  <button onClick={() => setShowQueue(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 flex-shrink-0 ${showQueue ? 'text-purple-600' : 'text-white/50 hover:text-white'}`}>
                     <ListMusic className="w-4 h-4" />
                   </button>
                 </div>
@@ -383,7 +383,7 @@ export default function Player() {
                               {active && <div className="absolute inset-0 bg-black/40 flex items-center justify-center"><EqualizerBars isPlaying={isPlaying} /></div>}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-bold truncate ${active ? 'text-green-400' : 'text-white'}`}>{song.title}</p>
+                              <p className={`text-sm font-bold truncate ${active ? 'text-purple-600' : 'text-white'}`}>{song.title}</p>
                               <p className="text-xs text-white/40 truncate">{song.display_artist || song.artist}</p>
                             </div>
                             {!active && <Play className="w-4 h-4 text-white/30 opacity-0 group-hover:opacity-100 transition-opacity" />}
@@ -414,7 +414,7 @@ export default function Player() {
                                 {!active && <Play className="w-3 h-3 text-white/60 hidden group-hover:block mx-auto" fill="currentColor" />}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold truncate ${active ? 'text-green-400' : 'text-white group-hover:text-green-400 transition-colors'}`}>{track.title}</p>
+                                <p className={`text-sm font-semibold truncate ${active ? 'text-purple-600' : 'text-white group-hover:text-purple-600 transition-colors'}`}>{track.title}</p>
                                 <p className="text-xs text-white/40 truncate">{track.display_artist}</p>
                               </div>
                               {track.duration && <span className="text-xs text-white/30 flex-shrink-0 tabular-nums">{formatTime(track.duration)}</span>}
@@ -434,7 +434,7 @@ export default function Player() {
                         className="flex items-center gap-4 p-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer group">
                         <img src={nextSong.cover_url || nextSong.coverUrl} alt={nextSong.title} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold truncate group-hover:text-green-400 transition-colors">{nextSong.title}</p>
+                          <p className="text-sm font-bold truncate group-hover:text-purple-600 transition-colors">{nextSong.title}</p>
                           <p className="text-xs text-white/40 truncate">{nextSong.display_artist || nextSong.artist}</p>
                         </div>
                         <Play className="w-5 h-5 text-white/40 group-hover:text-white transition-colors flex-shrink-0" />
@@ -500,7 +500,7 @@ export default function Player() {
                         <div className="h-8 w-px bg-white/10" />
                         <div className="text-center md:text-left">
                           <div className="flex items-center gap-1 justify-center md:justify-start">
-                            <TrendingUp className="w-4 h-4 text-green-400" />
+                            <TrendingUp className="w-4 h-4 text-purple-600" />
                             <p className="font-black text-2xl">{formatNumber(artistInfo.total_streams)}</p>
                           </div>
                           <p className="text-[10px] text-white/35 uppercase tracking-wider mt-0.5">Reproducciones totales</p>
@@ -536,12 +536,12 @@ export default function Player() {
                           </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-bold text-sm truncate group-hover:text-green-400 transition-colors">{song.title}</h4>
+                          <h4 className="font-bold text-sm truncate group-hover:text-purple-600 transition-colors">{song.title}</h4>
                           <p className="text-xs text-white/40 truncate mt-0.5">{song.display_artist}</p>
                         </div>
                         <button onClick={(e) => handleAddToQueue(song, e)}
                           className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10 flex-shrink-0">
-                          {addedToQueue[song.id] ? <Check className="w-4 h-4 text-green-400" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
+                          {addedToQueue[song.id] ? <Check className="w-4 h-4 text-purple-600" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
                         </button>
                       </div>
                     ))}
