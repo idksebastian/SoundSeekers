@@ -5,20 +5,13 @@ const AuthContext = createContext()
 
 async function ensureProfile(user) {
   if (!user) return
-  const { data: existing } = await supabase
-    .from('profiles')
-    .select('user_id')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!existing) {
-    await supabase.from('profiles').upsert({
-      user_id: user.id,
-      name: user.user_metadata?.name ?? user.email,
-      avatar_url: user.user_metadata?.avatar_url ?? null,
-      artist_name: user.user_metadata?.artist_name ?? null
-    })
-  }
+  await supabase.from('profiles').upsert({
+    user_id: user.id,
+    name: user.user_metadata?.name ?? user.email,
+    avatar_url: user.user_metadata?.avatar_url ?? null,
+    artist_name: user.user_metadata?.artist_name ?? null,
+    email: user.email  // ✅ siempre sincronizar el email
+  }, { onConflict: 'user_id' })
 }
 
 export function AuthProvider({ children }) {
