@@ -803,7 +803,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
               <Link to="/home" className="footer-link">Inicio</Link>
               <Link to="/dashboard" className="footer-link">Explorar</Link>
               <Link to="/community" className="footer-link">Comunidad</Link>
-              <Link to="/animo" className="footer-link">Ánimo</Link>
+              <Link to="/animo" className="footer-link">Mixtape</Link>
             </div>
             <div>
               <p className="footer-col-title">Artistas</p>

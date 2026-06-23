@@ -9,6 +9,7 @@ import PageTransition from './components/PageTransition'
 import Navbar from './components/Navbar'
 import Player from './components/Player'
 import ChatBot from './components/ChatBot'
+import ScrollToTop from './components/ScrollToTop'
 
 const Login = lazy(() => import('./pages/Login'))
 const Register = lazy(() => import('./pages/Register'))
@@ -89,7 +90,6 @@ function AppRoutes() {
       </svg>
     </div>
   )
-
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
@@ -146,6 +146,7 @@ export default function App() {
     <PlayerProvider>
       <AuthProvider>
         <BrowserRouter>
+          <ScrollToTop />
           <PlayerAuthBridge />
           <AppRoutes />
           <ProtectedRoute silent>
