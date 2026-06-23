@@ -11,6 +11,21 @@ function traducirError(mensaje) {
   return 'Ocurrió un error inesperado. Intenta de nuevo.'
 }
 
+export async function checkEmailExists(email) {
+  // Intenta un OTP sin enviarlo realmente — si el usuario no existe Supabase lo indica
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { shouldCreateUser: false }
+  })
+  // "Email not found" o similar → no existe
+  if (error?.message?.toLowerCase().includes('not found') ||
+      error?.message?.toLowerCase().includes('user not found') ||
+      error?.status === 422) {
+    return false
+  }
+  return true
+}
+
 export async function registerUser(email, password, name) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -21,6 +36,15 @@ export async function registerUser(email, password, name) {
   if (error) throw new Error(traducirError(error.message))
   if (data?.user?.identities?.length === 0) {
     throw new Error('Este correo ya está registrado. Inicia sesión o usa otro correo.')
+  }
+
+  if (data?.user) {
+    await supabase.from('profiles').upsert({
+      user_id: data.user.id,
+      name: name,
+      avatar_url: null,
+      artist_name: null
+    })
   }
 
   return data

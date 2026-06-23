@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { loginUser } from '../api/auth'
+import { loginUser, checkEmailExists } from '../api/auth'
 import { Link, useNavigate, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -12,7 +12,6 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Si ya hay sesión activa → redirige al home
   if (user) return <Navigate to="/home" replace />
 
   const handleLogin = async (e) => {
@@ -20,8 +19,15 @@ export default function Login() {
     setError('')
     setLoading(true)
     try {
+      // ✅ Verificar si el correo existe antes de intentar login
+      const exists = await checkEmailExists(email)
+      if (!exists) {
+        setError('No encontramos una cuenta con ese correo. ¿Quieres registrarte?')
+        setLoading(false)
+        return
+      }
+
       await loginUser(email, password)
-      // Si venía de una ruta protegida, volver a ella; si no, ir a /home
       const from = location.state?.from?.pathname || '/home'
       navigate(from, { replace: true })
     } catch (err) {
@@ -45,26 +51,45 @@ export default function Login() {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-4">
             {error}
+            {/* ✅ Si no existe la cuenta, mostrar link directo a registro */}
+            {error.includes('registrarte') && (
+              <Link to={`/register`} className="block mt-1 text-purple-600 font-semibold hover:underline">
+                Crear cuenta →
+              </Link>
+            )}
           </div>
         )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label className="text-black font-semibold text-sm">Correo Electrónico</label>
-            <input type="email" placeholder="tu@email.com" value={email} onChange={e => setEmail(e.target.value)}
-              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input
+              type="email"
+              placeholder="tu@email.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
           <div>
             <label className="text-black font-semibold text-sm">Contraseña</label>
-            <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
-              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500" />
+            <input
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full mt-1 bg-white border border-gray-300 text-black rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
             <Link to="/forgot-password" className="text-xs text-purple-600 hover:underline">
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
-          <button type="submit" disabled={loading}
-            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition disabled:opacity-50">
-            {loading ? 'Iniciando sesión...' : 'Iniciar sesión'}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-purple-700 text-white font-semibold py-2 rounded-lg hover:bg-purple-800 transition disabled:opacity-50"
+          >
+            {loading ? 'Verificando...' : 'Iniciar sesión'}
           </button>
         </form>
 
