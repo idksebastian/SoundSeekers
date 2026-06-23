@@ -212,7 +212,15 @@ function StatsDashboard({ stats, songStats }) {
           }}/>
         </div>
         <p style={{ fontSize: '11px', color: '#9ca3af', margin: '6px 0 0' }}>
-          {engagementScore > 60 ? '🔥 Excelente engagement' : engagementScore > 30 ? '📈 Buen progreso' : '🎯 Sigue creciendo'}
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+  {engagementScore > 60 ? (
+    <><svg width="11" height="11" fill="none" stroke="#10b981" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg> Excelente engagement</>
+  ) : engagementScore > 30 ? (
+    <><svg width="11" height="11" fill="none" stroke="#f59e0b" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg> Buen progreso</>
+  ) : (
+    <><svg width="11" height="11" fill="none" stroke="#7c3aed" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Sigue creciendo</>
+  )}
+</span>
         </p>
       </div>
 
@@ -263,12 +271,18 @@ function StatsDashboard({ stats, songStats }) {
           {songStats.map((song, idx) => {
             const max = songStats[0]?.streams ?? 1
             const pct = Math.max(5, Math.round(((song.streams ?? 0) / max) * 100))
-            const medals = ['🥇', '🥈', '🥉']
+            const medalColors = ['#f59e0b', '#9ca3af', '#cd7c2f']
             return (
               <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', borderBottom: idx < songStats.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <span style={{ fontSize: '16px', width: '20px', textAlign: 'center', flexShrink: 0 }}>
-                  {medals[idx] ?? <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '700' }}>{idx + 1}</span>}
-                </span>
+                <span style={{ width: '20px', textAlign: 'center', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {idx < 3 ? (
+        <svg width="14" height="14" fill={medalColors[idx]} viewBox="0 0 24 24">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+        </svg>
+      ) : (
+        <span style={{ fontSize: '12px', color: '#9ca3af', fontWeight: '700' }}>{idx + 1}</span>
+      )}
+    </span>
                 <img src={song.cover_url} alt={song.title} style={{ width: '40px', height: '40px', borderRadius: '10px', objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: '13px', fontWeight: '600', color: '#111', margin: '0 0 5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
@@ -394,7 +408,13 @@ export default function Settings() {
     if (!name.trim()) return setError('El nombre es obligatorio.')
     if (isArtist && artistName !== initialArtistName && !canChangeName) return setError(`Podrás cambiar tu nombre artístico en ${NAME_CHANGE_DAYS - daysSinceLastChange} días.`)
     setLoading(true); setError(''); setMsg('')
-    try { await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks }); setMsg('Perfil actualizado.'); setAvatarFile(null) }
+    try {
+  await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks })
+  // ✅ Actualizar estado local inmediatamente sin esperar recarga
+  setRole(prev => ({ ...prev, artist_name: isArtist ? artistName : prev?.artist_name, name_changes: (isArtist && artistName !== initialArtistName) ? (prev?.name_changes ?? 0) + 1 : prev?.name_changes, last_name_change: (isArtist && artistName !== initialArtistName) ? new Date().toISOString() : prev?.last_name_change }))
+  setMsg('Perfil actualizado.')
+  setAvatarFile(null)
+}
     catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
@@ -624,7 +644,7 @@ export default function Settings() {
           )}
 
           {/* ── EDITAR PERFIL ── */}
-          {activeSection === 'edit' && (
+            {activeSection === 'edit' && (
             <div>
               {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
               {msg   && <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{msg}</div>}
@@ -644,10 +664,13 @@ export default function Settings() {
 
               <IOSGroup title="Información">
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                  <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nombre</p>
-                  <input required value={name} onChange={e => setName(e.target.value)} maxLength={50}
-                    style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
-                </div>
+  <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Nombre</p>
+  <input required value={name} onChange={e => setName(e.target.value)} maxLength={50} placeholder="Tu nombre"
+    style={{ width: '100%', border: '1.5px solid #e5e7eb', background: '#f9fafb', borderRadius: '10px', padding: '10px 12px', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+  />
+</div>
                 {isArtist && (
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
@@ -656,32 +679,41 @@ export default function Settings() {
                         {canChangeName ? `${remainingChanges} cambio${remainingChanges !== 1 ? 's' : ''}` : `En ${NAME_CHANGE_DAYS - daysSinceLastChange}d`}
                       </span>
                     </div>
-                    <input value={artistName} onChange={e => setArtistName(e.target.value)} disabled={!canChangeName} maxLength={50}
-                      style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: canChangeName ? '#111' : '#9ca3af', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
+                    <input value={artistName} onChange={e => setArtistName(e.target.value)} disabled={!canChangeName} maxLength={50} placeholder="Tu nombre artístico"
+  style={{ width: '100%', border: `1.5px solid ${canChangeName ? '#e5e7eb' : '#f3f4f6'}`, background: canChangeName ? '#f9fafb' : '#f3f4f6', borderRadius: '10px', padding: '10px 12px', fontSize: '15px', color: canChangeName ? '#111' : '#9ca3af', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+  onFocus={e => { if (canChangeName) e.target.style.borderColor = '#7c3aed' }}
+  onBlur={e => e.target.style.borderColor = canChangeName ? '#e5e7eb' : '#f3f4f6'}
+/>
                   </div>
                 )}
                 <div style={{ padding: '12px 16px' }}>
                   <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descripción</p>
                   <textarea placeholder="Cuéntale al mundo quién eres..." value={description} onChange={e => setDescription(e.target.value)} maxLength={150} rows={3}
-                    style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }}/>
+  style={{ width: '100%', border: '1.5px solid #e5e7eb', background: '#f9fafb', borderRadius: '10px', padding: '10px 12px', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+  onFocus={e => e.target.style.borderColor = '#7c3aed'}
+  onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+/>  
                   <p style={{ fontSize: '11px', color: '#d1d5db', margin: '4px 0 0', textAlign: 'right' }}>{description?.length ?? 0}/150</p>
                 </div>
               </IOSGroup>
 
               <IOSGroup title="Redes sociales">
                 {[
-                  { key: 'instagram', label: 'Instagram', placeholder: '@usuario' },
-                  { key: 'twitter',   label: 'Twitter/X',  placeholder: '@usuario' },
-                  { key: 'tiktok',    label: 'TikTok',     placeholder: '@usuario' },
-                  { key: 'youtube',   label: 'YouTube',    placeholder: 'URL del canal' },
-                  { key: 'website',   label: 'Sitio web',  placeholder: 'https://...' },
-                ].map(({ key, label, placeholder }, i, arr) => (
-                  <div key={key} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                    <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
-                    <input type="text" placeholder={placeholder} value={socialLinks[key] ?? ''} onChange={e => setSocialLinks(p => ({ ...p, [key]: e.target.value }))}
-                      style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
-                  </div>
-                ))}
+  { key: 'instagram', label: 'Instagram', placeholder: '@usuario' },
+  { key: 'twitter',   label: 'Twitter/X',  placeholder: '@usuario' },
+  { key: 'tiktok',    label: 'TikTok',     placeholder: '@usuario' },
+  { key: 'youtube',   label: 'YouTube',    placeholder: 'URL del canal' },
+  { key: 'website',   label: 'Sitio web',  placeholder: 'https://...' },
+].map(({ key, label, placeholder }, i, arr) => (
+  <div key={key} style={{ padding: '12px 16px', borderBottom: i < arr.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+    <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 6px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>
+    <input type="text" placeholder={placeholder} value={socialLinks[key] ?? ''} onChange={e => setSocialLinks(p => ({ ...p, [key]: e.target.value }))}
+      style={{ width: '100%', border: '1.5px solid #e5e7eb', background: '#f9fafb', borderRadius: '10px', padding: '10px 12px', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
+      onFocus={e => e.target.style.borderColor = '#7c3aed'}
+      onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+    />
+  </div>
+))}
               </IOSGroup>
 
               <button onClick={handleSaveProfile} disabled={loading || !hasChanges}
