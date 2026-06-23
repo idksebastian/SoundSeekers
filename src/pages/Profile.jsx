@@ -47,7 +47,7 @@ export default function Profile() {
   const [likedSongs, setLikedSongs] = useState([])
   const [loadingLikes, setLoadingLikes] = useState(false)
   const [unlikingId, setUnlikingId] = useState(null)
-
+  
   const loadData = async () => {
     setLoading(true)
     try {
@@ -80,15 +80,17 @@ export default function Profile() {
   }
 
   const loadLikedSongs = async (userId) => {
-    setLoadingLikes(true)
-    try {
-      const { data: likes } = await supabase
-        .from('song_likes')
-        .select('song_id, created_at')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-
-      if (!likes?.length) { setLikedSongs([]); return }
+  console.log('loadLikedSongs userId:', userId)
+  setLoadingLikes(true)
+  try {
+    const { data: likes, error } = await supabase
+      .from('song_likes')
+      .select('song_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    console.log('likes resultado:', likes, 'error:', error)
+    
+    if (!likes?.length) { setLikedSongs([]); return }
 
       const songIds = likes.map(l => l.song_id)
       const { data: songsData } = await supabase
