@@ -29,7 +29,7 @@ export default function Upload() {
   const [coverPreview, setCoverPreview] = useState(null)
   const [projectTitle, setProjectTitle] = useState('')
   const [projectDescription, setProjectDescription] = useState('')
-  const [releaseDate, setReleaseDate] = useState('')      // fecha de lanzamiento (también usada para presave)
+  const [releaseDate, setReleaseDate] = useState('')
   const [isPresave, setIsPresave] = useState(false)
   const [tracks, setTracks] = useState([emptyTrack()])
   const [dragOver, setDragOver] = useState(null)
@@ -145,7 +145,6 @@ export default function Upload() {
     if (trackError) return setError(trackError)
     setUploading(true); setError('')
     try {
-      // presaveDate solo si isPresave está activo y hay fecha
       const presaveDate = isPresave && releaseDate ? releaseDate : null
 
       let albumId = null
@@ -180,7 +179,6 @@ export default function Upload() {
           credits: t.credits,
           trackNumber: i + 1,
           collaboratorNames: collabNames,
-          // Para singles en presave
           presaveDate: projectType === 'single' ? presaveDate : null,
           status: presaveDate ? 'presave' : 'published',
         })
@@ -201,7 +199,6 @@ export default function Upload() {
     { type: 'album', icon: '💿', title: 'Álbum', desc: '7+ canciones', detail: 'Tu proyecto completo. Cuéntalo todo.' },
   ]
 
-  // Fecha mínima = mañana
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const minDate = tomorrow.toISOString().split('T')[0]
@@ -299,14 +296,15 @@ export default function Upload() {
                 <div className="flex-1 space-y-3">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">
-                      Nombre del {projectType === 'single' ? 'single' : projectType === 'ep' ? 'EP' : 'álbum'} *
+                      {/* ✅ Para singles el label dice "Nombre de la canción" */}
+                      {projectType === 'single' ? 'Nombre de la canción *' : `Nombre del ${projectType === 'ep' ? 'EP' : 'álbum'} *`}
                     </label>
-                    <input placeholder={`Nombre de tu ${projectType === 'ep' ? 'EP' : projectType}`}
+                    <input
+                      placeholder={projectType === 'single' ? 'Nombre de tu canción' : `Nombre de tu ${projectType === 'ep' ? 'EP' : 'álbum'}`}
                       value={projectTitle} onChange={e => setProjectTitle(e.target.value)} maxLength={100}
                       className="w-full bg-white text-black border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"/>
                   </div>
 
-                  {/* Fecha de lanzamiento — ÚNICA */}
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">
                       Fecha de lanzamiento
@@ -331,12 +329,10 @@ export default function Upload() {
                   className="w-full bg-white text-black border border-gray-300 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none"/>
               </div>
 
-              {/* Toggle presave */}
               <label className="flex items-start gap-3 cursor-pointer p-3 rounded-xl border border-gray-200 hover:bg-gray-50 transition">
                 <input type="checkbox" checked={isPresave}
                   onChange={e => {
                     setIsPresave(e.target.checked)
-                    // Si activan presave sin fecha futura, limpiar la fecha para forzar selección
                     if (e.target.checked && releaseDate && releaseDate <= new Date().toISOString().split('T')[0]) {
                       setReleaseDate('')
                     }
@@ -362,7 +358,12 @@ export default function Upload() {
               <button onClick={() => {
                 const err = validateStep2()
                 if (err) return setError(err)
-                setError(''); setStep(3)
+                setError('')
+                // ✅ Para singles, prerellenar el título con el nombre del single
+                if (projectType === 'single') {
+                  setTracks([{ ...emptyTrack(), title: projectTitle }])
+                }
+                setStep(3)
               }} className="flex-1 h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm flex items-center justify-center gap-2">
                 Continuar
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +392,6 @@ export default function Upload() {
               )}
             </div>
 
-            {/* Banner presave activo */}
             {isPresave && releaseDate && (
               <div className="flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
                 <svg className="w-5 h-5 text-purple-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -431,9 +431,14 @@ export default function Upload() {
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <input placeholder="Título de la canción *" value={track.title}
-                          onChange={e => updateTrack(track.id, 'title', e.target.value)} maxLength={100}
-                          className="w-full text-black font-semibold text-sm bg-transparent border-b border-gray-200 focus:border-purple-500 focus:outline-none pb-1 transition"/>
+                        {/* ✅ Para singles mostrar el título como texto fijo, no editable */}
+                        {projectType === 'single' ? (
+                          <p className="text-black font-semibold text-sm pb-1 truncate">{track.title}</p>
+                        ) : (
+                          <input placeholder="Título de la canción *" value={track.title}
+                            onChange={e => updateTrack(track.id, 'title', e.target.value)} maxLength={100}
+                            className="w-full text-black font-semibold text-sm bg-transparent border-b border-gray-200 focus:border-purple-500 focus:outline-none pb-1 transition"/>
+                        )}
                       </div>
                       {projectType !== 'single' && tracks.length > 1 && (
                         <button onClick={() => setTracks(prev => prev.filter(t => t.id !== track.id))}
