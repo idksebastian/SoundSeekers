@@ -100,14 +100,21 @@ export default function Home() {
   }, [user?.id])
 
   useEffect(() => {
-    if (!currentSong || !user?.id) return
-    const item = currentSong.album_id
-      ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
-      : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
-    addToHistory(item, user.id).then(() => {
-      getHistory(user.id).then(setRecentlyPlayed)
-    })
-  }, [currentSong?.id])
+  if (!currentSong || !user?.id) return
+  const item = {
+    type: 'song',
+    id: currentSong.id,
+    title: currentSong.title,
+    cover: currentSong.cover_url,
+    artist: currentSong.display_artist || currentSong.artist_name,
+    songObj: currentSong,
+    // Guardar album_id por si se quiere navegar al álbum en el futuro
+    album_id: currentSong.album_id ?? null,
+  }
+  addToHistory(item, user.id).then(() => {
+    getHistory(user.id).then(setRecentlyPlayed)
+  })
+}, [currentSong?.id])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -485,8 +492,12 @@ export default function Home() {
             {recentlyPlayed.slice(0, 6).map(item => (
               <div key={item.id} className="recent-item"
                 onClick={() => {
-                  if (item.type === 'album') navigate(`/album/${item.id}`)
-                  else if (item.songObj) playWithShuffle(item.songObj) // ✅
+                if (item.songObj) {
+                    playWithShuffle(item.songObj)
+                  } else if (item.type === 'album') {
+                  
+                    navigate(`/album/${item.id}`)
+                  }
                 }}>
                 {item.cover
                   ? <img src={item.cover} alt={item.title} className="recent-item-cover"/>
