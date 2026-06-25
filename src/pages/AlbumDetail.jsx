@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getAlbum, togglePresave, getPresaveCount, hasPresaved } from '../api/albums'
 import { usePlayer } from '../context/PlayerContext'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
 
 export default function AlbumDetail() {
   const { albumId } = useParams()
@@ -52,6 +53,31 @@ export default function AlbumDetail() {
       console.error(err)
     } finally {
       setPresaving(false)
+    }
+  }
+
+  // ✅ Reproducir álbum con cola que continúa con canciones de la plataforma
+  const playAlbum = async (startSong) => {
+    try {
+      const { data: allSongs } = await supabase
+        .from('songs')
+        .select('id, title, cover_url, audio_url, display_artist, artist_name, genre, streams, user_id, album_id, album_title')
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      // Canciones fuera del álbum mezcladas
+      const albumIds = new Set(songs.map(s => s.id))
+      const rest = (allSongs ?? [])
+        .filter(s => !albumIds.has(s.id))
+        .sort(() => Math.random() - 0.5)
+
+      // Cola = canciones del álbum en orden + resto mezclado
+      const fullQueue = [...songs, ...rest]
+      playSong(startSong, fullQueue)
+    } catch {
+      // fallback: solo el álbum
+      playSong(startSong, songs)
     }
   }
 
@@ -164,7 +190,7 @@ export default function AlbumDetail() {
                 </div>
               ) : (
                 songs.length > 0 && (
-                  <button onClick={() => playSong(songs[0], songs)}
+                  <button onClick={() => playAlbum(songs[0])}
                     className="flex items-center gap-2 bg-purple-700 hover:bg-purple-800 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition mx-auto sm:mx-0">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M5 3l14 9-14 9V3z" />
@@ -195,7 +221,7 @@ export default function AlbumDetail() {
                       className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition ${
                         locked ? 'opacity-60 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
                       } ${isCurrentSong && isPlaying ? 'bg-purple-50' : ''}`}
-                      onClick={() => !locked && playSong(song, songs)}>
+                      onClick={() => !locked && playAlbum(song)}>
 
                       <div className="w-6 text-center shrink-0">
                         {isCurrentSong && isPlaying ? (
