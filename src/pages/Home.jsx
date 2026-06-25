@@ -608,7 +608,11 @@ export default function Home() {
               const isAlbumPresave = isAlbum && d.status === 'presave'
               const isSaved = songPresaves[d.id]
               return (
-                <div key={`${item.type}-${d.id}`} className="grid-card" onClick={() => handlePlayItem(item)}>
+                <div key={`${item.type}-${d.id}`} className="grid-card"
+  onClick={() => {
+    if (isAlbumPresave) { navigate(`/album/${d.id}`); return }
+    handlePlayItem(item)
+  }}>
                   <div className="grid-card-img-wrap">
                     {d.cover_url
                       ? <img src={d.cover_url} alt={d.title} className="grid-card-img"/>
@@ -616,12 +620,13 @@ export default function Home() {
                           <svg width="28" height="28" fill="none" stroke="#7c3aed" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
                         </div>
                     }
-                    {(isPresave || isAlbumPresave) ? (
-  <div className="presave-overlay" style={{ background: 'linear-gradient(160deg, rgba(26,5,51,0.92) 0%, rgba(45,27,105,0.88) 100%)' }}>
-    {/* Countdown mini */}
-    <PresaveCountdown releaseDate={d.presave_date || d.release_date || d.presave_date} />
+{(isPresave || isAlbumPresave) ? (
+  <div className="presave-overlay"
+    style={{ background: 'linear-gradient(160deg, rgba(26,5,51,0.92) 0%, rgba(45,27,105,0.88) 100%)', cursor: 'pointer' }}
+    onClick={e => { e.stopPropagation(); handlePlayItem(item) }}>
+    <PresaveCountdown releaseDate={d.presave_date || d.release_date} />
     <span className="presave-badge" style={{ background: 'rgba(124,58,237,0.9)', backdropFilter: 'blur(4px)' }}>
-      {isPresave ? (presaving === d.id ? '...' : isSaved ? '✓ Guardado' : '+ Preguardar') : 'Próximamente'}
+      {isAlbumPresave ? 'Ver lanzamiento →' : (presaving === d.id ? '...' : isSaved ? '✓ Guardado' : '+ Preguardar')}
     </span>
   </div>
 ) : (
