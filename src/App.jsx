@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import ArtistRoute from './components/ArtistRoute'
 import PageTransition from './components/PageTransition'
 import Navbar from './components/Navbar'
+import NavbarPublic from './components/NavbarPublic'
 import Player from './components/Player'
 import ChatBot from './components/ChatBot'
 import ScrollToTop from './components/ScrollToTop'
@@ -79,6 +80,17 @@ function ChatBotConditional() {
   return <ChatBot />
 }
 
+// ✅ Navbar que cambia según si hay sesión o no
+function PublicLegalRoute({ children }) {
+  const { user } = useAuth()
+  return (
+    <>
+      {user ? <Navbar /> : <NavbarPublic />}
+      {children}
+    </>
+  )
+}
+
 function AppRoutes() {
   const { user, loading } = useAuth()
 
@@ -90,26 +102,29 @@ function AppRoutes() {
       </svg>
     </div>
   )
+
   return (
     <Suspense fallback={<PageLoader />}>
       <Routes>
-        {/* Rutas públicas — redirigen al home si ya hay sesión */}
+        {/* Rutas públicas */}
         <Route path="/" element={user ? <Navigate to="/home" replace /> : <Landing />} />
         <Route path="/login" element={user ? <Navigate to="/home" replace /> : <Login />} />
         <Route path="/register" element={user ? <Navigate to="/home" replace /> : <Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Rutas protegidas */}
+        {/* ✅ Legales — fuera del ProtectedRoute, antes del /* */}
+        <Route path="/terminos" element={<PublicLegalRoute><Terminos /></PublicLegalRoute>} />
+        <Route path="/privacidad" element={<PublicLegalRoute><Privacidad /></PublicLegalRoute>} />
+        <Route path="/cookies" element={<PublicLegalRoute><Cookies /></PublicLegalRoute>} />
+        <Route path="/contacto" element={<PublicLegalRoute><Contacto /></PublicLegalRoute>} />
+
+        {/* Rutas protegidas — /* siempre al final */}
         <Route path="/*" element={
           <ProtectedRoute>
             <Navbar />
             <PageTransition>
               <Routes>
-                <Route path="/terminos" element={<Terminos />} />
-                <Route path="/privacidad" element={<Privacidad />} />
-                <Route path="/cookies" element={<Cookies />} />
-                <Route path="/contacto" element={<Contacto />} />
                 <Route path="/home" element={<Home />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/community" element={<Community />} />
