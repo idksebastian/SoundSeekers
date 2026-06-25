@@ -87,10 +87,6 @@ export default function Player() {
   const RepeatIcon  = repeatMode === 'one' ? Repeat1 : Repeat;
 
   useEffect(() => {
-    if (currentSong && isPlaying) setIsFullscreen(true);
-  }, [currentSong?.id]);
-
-  useEffect(() => {
     if (!coverUrl) return;
     return extractColor(coverUrl, setDominantColor);
   }, [coverUrl]);
@@ -154,22 +150,22 @@ export default function Player() {
     return () => { cancelled = true; };
   }, [currentSong?.id]);
 
-  useEffect(() => {
-    const onKey = (e) => {
-      if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
-      switch (e.code) {
-        case 'Space':       e.preventDefault(); isPlaying ? pauseSong() : playSong(currentSong); break;
-        case 'ArrowRight':  if (e.shiftKey) playNext(); break;
-        case 'ArrowLeft':   if (e.shiftKey) playPrev(); break;
-        case 'ArrowUp':     e.preventDefault(); handleVolume({ target: { value: Math.min(1, volume + 0.05) } }); break;
-        case 'ArrowDown':   e.preventDefault(); handleVolume({ target: { value: Math.max(0, volume - 0.05) } }); break;
-        case 'KeyM':        handleMuteToggle(); break;
-        case 'Escape':      if (isFullscreen) setIsFullscreen(false); if (showQueue) setShowQueue(false); break;
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isPlaying, volume, isFullscreen, showQueue, currentSong]);
+useEffect(() => {
+  const onKey = (e) => {
+    if (['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return;
+    switch (e.code) {
+      case 'Space':      e.preventDefault(); isPlaying ? pauseSong() : playSong(currentSong); break;
+      case 'ArrowRight': if (e.shiftKey) playNext(); break;
+      case 'ArrowLeft':  if (e.shiftKey) playPrev(); break;
+      case 'ArrowUp':    e.preventDefault(); handleVolume({ target: { value: Math.min(1, volume + 0.05) } }); break;
+      case 'ArrowDown':  e.preventDefault(); handleVolume({ target: { value: Math.max(0, volume - 0.05) } }); break;
+      case 'KeyM':       handleMuteToggle(); break;
+      case 'Escape':     if (isFullscreen) setIsFullscreen(false); if (showQueue) setShowQueue(false); break;
+    }
+  };
+  window.addEventListener('keydown', onKey);
+  return () => window.removeEventListener('keydown', onKey);
+}, [isPlaying, volume, isFullscreen, showQueue, currentSong, playNext, playPrev]); // ✅ agregar playNext, playPrev
 
   const handleMuteToggle = useCallback(() => {
     if (isMuted) { handleVolume({ target: { value: prevVolume } }); setIsMuted(false); }

@@ -29,7 +29,7 @@ export function PlayerProvider({ children }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [activeUserId, setActiveUserId] = useState(null)
   const [shuffle, setShuffle] = useState(false)
-  const [repeatMode, setRepeatMode] = useState('none') // 'none' | 'all' | 'one'
+  const [repeatMode, setRepeatMode] = useState('none')
   const audioRef = useRef(null)
   const queueRef = useRef([])
   const currentIndexRef = useRef(0)
@@ -44,6 +44,38 @@ export function PlayerProvider({ children }) {
   useEffect(() => {
     if (currentSong && activeUserId) savePlayerState(activeUserId, currentSong, queueRef.current)
   }, [currentSong, activeUserId])
+
+  // ✅ Media Session API — controles del teclado del PC
+  useEffect(() => {
+    if (!currentSong) return
+    if (!('mediaSession' in navigator)) return
+
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: currentSong.title ?? '',
+      artist: currentSong.display_artist || currentSong.artist_name || 'Artista',
+      artwork: currentSong.cover_url
+        ? [{ src: currentSong.cover_url, sizes: '512x512', type: 'image/png' }]
+        : []
+    })
+
+    navigator.mediaSession.setActionHandler('play', () => {
+      audioRef.current?.play().catch(() => {})
+      setIsPlaying(true)
+    })
+    navigator.mediaSession.setActionHandler('pause', () => {
+      audioRef.current?.pause()
+      setIsPlaying(false)
+    })
+    navigator.mediaSession.setActionHandler('nexttrack', () => playNext())
+    navigator.mediaSession.setActionHandler('previoustrack', () => playPrev())
+
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null)
+      navigator.mediaSession.setActionHandler('pause', null)
+      navigator.mediaSession.setActionHandler('nexttrack', null)
+      navigator.mediaSession.setActionHandler('previoustrack', null)
+    }
+  }, [currentSong?.id])
 
   const stopAndClear = () => {
     audioRef.current?.pause()
@@ -88,7 +120,6 @@ export function PlayerProvider({ children }) {
     const list = queueRef.current
     if (!list.length) return
 
-    // repeat one — reiniciar la misma
     if (repeatModeRef.current === 'one') {
       if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
       setIsPlaying(true); return
@@ -96,15 +127,13 @@ export function PlayerProvider({ children }) {
 
     let nextIdx
     if (shuffleRef.current) {
-      // shuffle — índice aleatorio distinto al actual
       if (list.length === 1) { nextIdx = 0 }
       else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
     } else {
       nextIdx = currentIndexRef.current + 1
-      // repeat all — volver al inicio
       if (nextIdx >= list.length) {
         if (repeatModeRef.current === 'all') nextIdx = 0
-        else return // sin repeat, parar al final
+        else return
       }
     }
 
@@ -120,7 +149,6 @@ export function PlayerProvider({ children }) {
     const list = queueRef.current
     if (!list.length) return
 
-    // Si llevamos más de 3 segundos, reiniciar la canción actual
     if (audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0
       setProgress(0)
