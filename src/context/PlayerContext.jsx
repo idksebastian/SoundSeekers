@@ -167,34 +167,98 @@ export function PlayerProvider({ children }) {
 
   const pauseSong = () => { audioRef.current?.pause(); setIsPlaying(false) }
 
-  const playNext = () => {
-    const list = queueRef.current
-    if (!list.length) return
+  const playNext = async () => {
+  const list = queueRef.current
+  if (!list.length) return
 
-    if (repeatModeRef.current === 'one') {
-      if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
-      setIsPlaying(true); return
-    }
+  // repeat one — reiniciar la misma
+  if (repeatModeRef.current === 'one') {
+    if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
+    setIsPlaying(true); return
+  }
 
-    let nextIdx
-    if (shuffleRef.current) {
-      if (list.length === 1) { nextIdx = 0 }
-      else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
-    } else {
-      nextIdx = currentIndexRef.current + 1
-      if (nextIdx >= list.length) {
-        if (repeatModeRef.current === 'all') nextIdx = 0
-        else return
-      }
-    }
+  let nextIdx
 
+  if (shuffleRef.current) {
+    if (list.length === 1) { nextIdx = 0 }
+    else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
     currentIndexRef.current = nextIdx
     setCurrentIndex(nextIdx)
     setCurrentSong(list[nextIdx])
     setIsPlaying(true)
     if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
     if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
+    return
   }
+
+  nextIdx = currentIndexRef.current + 1
+
+  // repeat all — volver al inicio
+  if (repeatModeRef.current === 'all') {
+    if (nextIdx >= list.length) nextIdx = 0
+    currentIndexRef.current = nextIdx
+    setCurrentIndex(nextIdx)
+    setCurrentSong(list[nextIdx])
+    setIsPlaying(true)
+    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
+    if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
+    return
+  }
+
+  // ── Sin repeat: hay canción siguiente en la cola ──
+  if (nextIdx < list.length) {
+    currentIndexRef.current = nextIdx
+    setCurrentIndex(nextIdx)
+    setCurrentSong(list[nextIdx])
+    setIsPlaying(true)
+    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
+    if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
+    return
+  }
+
+  // ── Sin repeat: llegamos al final — modo radio inteligente ──
+  try {
+    const { data: allSongs } = await supabase
+      .from('songs')
+      .select('id, title, cover_url, audio_url, display_artist, artist_name, genre, streams, user_id, album_id, album_title')
+      .eq('status', 'published')
+      .order('created_at', { ascending: false })
+      .limit(50)
+
+    if (!allSongs?.length) return
+
+    // IDs ya en la cola para evitar repetir las inmediatas
+    const recentIds = new Set(list.slice(-Math.min(5, list.length)).map(s => s.id))
+    const currentId = list[currentIndexRef.current]?.id
+
+    // Filtrar: excluir las últimas 5 reproducidas si hay suficientes
+    let candidates = allSongs.filter(s => !recentIds.has(s.id))
+
+    // Si no hay suficientes candidatos (plataforma pequeña), usar todas
+    if (candidates.length < 3) candidates = allSongs.filter(s => s.id !== currentId)
+
+    // Si aún no hay nada, repetir cualquiera
+    if (!candidates.length) candidates = allSongs
+
+    // Elegir aleatoriamente entre los candidatos
+    const pick = candidates[Math.floor(Math.random() * candidates.length)]
+
+    // Agregar a la cola
+    const newQueue = [...list, pick]
+    queueRef.current = newQueue
+    setQueue(newQueue)
+
+    const newIdx = newQueue.length - 1
+    currentIndexRef.current = newIdx
+    setCurrentIndex(newIdx)
+    setCurrentSong(pick)
+    setIsPlaying(true)
+    if (pick.id) registerStream(pick.id)
+    if (activeUserId) savePlayerState(activeUserId, pick, newQueue)
+  } catch (err) {
+    console.error('Radio error:', err)
+  }
+}
 
   const playPrev = () => {
     const list = queueRef.current
