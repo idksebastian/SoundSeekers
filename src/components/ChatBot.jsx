@@ -22,9 +22,9 @@ Tu especialidad es TODO lo relacionado con música. Responde con confianza sobre
 
 IMPORTANTE: Tienes conocimiento de TODOS los artistas mundialmente famosos. Si el usuario pregunta sobre cualquier artista conocido, responde con confianza. Solo si genuinamente no reconoces el artista, sugiere que podría ser emergente en SoundSeekers.
 
-Responde SIEMPRE preguntas musicales, sin importar si el artista es famoso o emergente. Ejemplos de lo que SÍ debes responder: "¿Quién es el vocalista de Maroon 5?" → Adam Levine. "¿Qué géneros hace Bad Bunny?" → Trap latino, reggaeton. "¿Cuándo murió Kurt Cobain?" → 1994. NUNCA digas que no puedes responder preguntas musicales sobre artistas famosos. Solo rechaza preguntas completamente ajenas a la música como matemáticas, cocina, política, etc. En ese caso di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵"
+Responde SIEMPRE preguntas musicales, sin importar si el artista es famoso o emergente. NUNCA digas que no puedes responder preguntas musicales sobre artistas famosos. Solo rechaza preguntas completamente ajenas a la música como matemáticas, cocina, política, etc. En ese caso di: "Solo puedo ayudarte con temas musicales y de SoundSeekers 🎵"
 
-Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir. Solo sugiere reproducir canciones que estén en esa lista. Nunca sugieras reproducir canciones que no estén en el contexto.
+Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir. Solo sugiere reproducir canciones que estén en esa lista.
 
 Cuando el usuario pregunte cómo subir canciones o quiera subir música:
 - Si es artista verificado: explica brevemente el proceso e incluye [NAV:upload]
@@ -32,7 +32,8 @@ Cuando el usuario pregunte cómo subir canciones o quiera subir música:
 
 Cuando quiera reproducir una canción de SoundSeekers: [PLAY:titulo_exacto]
 Cuando pida recomendaciones de SoundSeekers: [CANCIONES:titulo1|titulo2|titulo3]
-Cuando pida navegar: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings] o [NAV:requests]
+Cuando pida navegar: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings], [NAV:requests] o [NAV:contacto]
+Cuando el usuario quiera contactar soporte, servicio al cliente, reportar algo o necesite ayuda con la plataforma: usa [NAV:contacto]
 
 Formato: sin asteriscos, sin markdown, sin #. Usa • para listas. Máximo 3-4 oraciones. Responde en español, amigable y conciso.`
 
@@ -44,7 +45,10 @@ const NAV_CONFIG = {
   profile: { label: 'Mi Perfil', path: '/profile', icon: '👤' },
   settings: { label: 'Ajustes', path: '/settings', icon: '⚙️' },
   requests: { label: 'Solicitudes', path: '/requests', icon: '🤝' },
+  contacto: { label: 'Contacto', path: '/contacto', icon: '✉️' },
 }
+
+const SLOW_MSG = '⏳ Conectando... puede tardar unos segundos.'
 
 function getChatKey(userId) { return `seekai_chat_${userId ?? 'guest'}` }
 
@@ -139,7 +143,6 @@ export default function ChatBot() {
   const chatKey = getChatKey(user?.id)
   const publishedSongs = allSongs.filter(s => s.status === 'published')
 
-  // Cargar rol del usuario
   useEffect(() => {
     if (!user) return
     supabase.from('user_roles').select('role').eq('user_id', user.id).single()
@@ -161,7 +164,7 @@ export default function ChatBot() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(chatKey, JSON.stringify(messages.slice(-20)))
+      localStorage.setItem(chatKey, JSON.stringify(messages.filter(m => m.content !== SLOW_MSG).slice(-20)))
     } catch {}
   }, [messages, chatKey])
 
@@ -196,8 +199,15 @@ export default function ChatBot() {
     const newMessages = [...messages, { role: 'user', content }]
     setMessages(newMessages)
     setLoading(true)
+
+    // ✅ Mostrar mensaje si el servidor tarda en despertar
+    const slowTimer = setTimeout(() => {
+      setMessages(prev => [...prev, { role: 'assistant', content: SLOW_MSG }])
+    }, 8000)
+
     try {
       const reply = await askSeekeAI(newMessages, publishedSongs, currentSong, isArtist)
+      clearTimeout(slowTimer)
       const cleaned = cleanMarkdown(reply)
       const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
       if (playMatch) {
@@ -208,10 +218,17 @@ export default function ChatBot() {
         )
         if (song) playSong(song, publishedSongs)
       }
-      setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.content !== SLOW_MSG)
+        return [...filtered, { role: 'assistant', content: cleaned }]
+      })
       if (!open) setUnread(n => n + 1)
     } catch {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Hubo un error al conectar con SeekeAI 🙏' }])
+      clearTimeout(slowTimer)
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.content !== SLOW_MSG)
+        return [...filtered, { role: 'assistant', content: 'Hubo un error al conectar con SeekeAI 🙏 Intenta de nuevo.' }]
+      })
     } finally {
       setLoading(false)
     }
@@ -221,6 +238,9 @@ export default function ChatBot() {
 
   const renderMessage = (msg) => {
     if (msg.role !== 'assistant') return msg.content
+    if (msg.content === SLOW_MSG) return (
+      <span style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#9ca3af', fontStyle: 'italic' }}>{msg.content}</span>
+    )
 
     if (msg.itunesSongs) {
       return (

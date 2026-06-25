@@ -29,7 +29,8 @@ Las canciones que te paso en el contexto son las ÚNICAS disponibles para reprod
 
 Cuando el usuario quiera reproducir una canción de SoundSeekers incluye al final: [PLAY:titulo_exacto]
 Cuando pida recomendaciones de SoundSeekers incluye al final: [CANCIONES:titulo1|titulo2|titulo3]
-Cuando pida navegar incluye: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings] o [NAV:requests]
+Cuando pida navegar incluye: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings], [NAV:requests] o [NAV:contacto]
+Cuando el usuario quiera contactar soporte, servicio al cliente, reportar algo o necesite ayuda con la plataforma: usa [NAV:contacto]
 
 Formato: sin asteriscos, sin markdown, sin #. Usa • para listas. Texto conversacional. Máximo 3-4 oraciones.
 Responde en español, amigable y conciso. Emojis ocasionales.`
@@ -42,6 +43,7 @@ const NAV_CONFIG = {
   profile: { label: 'Ir a mi Perfil', path: '/profile', icon: '👤' },
   settings: { label: 'Ir a Ajustes', path: '/settings', icon: '⚙️' },
   requests: { label: 'Ir a Solicitudes', path: '/requests', icon: '🤝' },
+  contacto: { label: 'Ir a Contacto', path: '/contacto', icon: '✉️' },
 }
 
 const SUGGESTIONS = [
@@ -108,6 +110,8 @@ async function askSeekeAI(messages, publishedSongs, currentSong, isArtist = fals
   return data.reply
 }
 
+const SLOW_MSG = '⏳ Conectando con SeekeAI... El servidor puede tardar unos segundos en despertar. Ya casi...'
+
 export default function AI() {
   const { currentSong, playSong, isVisible, isFullscreen } = usePlayer()
   const { user } = useAuth()
@@ -130,7 +134,6 @@ export default function AI() {
     return []
   })
 
-  // true = pantalla bienvenida, false = chat activo
   const showWelcome = messages.length === 0
 
   useEffect(() => {
@@ -165,17 +168,31 @@ export default function AI() {
     const newMessages = [...messages, { role: 'user', content }]
     setMessages(newMessages)
     setLoading(true)
+
+    // ✅ Mostrar mensaje si el servidor tarda en despertar
+    const slowTimer = setTimeout(() => {
+      setMessages(prev => [...prev, { role: 'assistant', content: SLOW_MSG }])
+    }, 8000)
+
     try {
       const reply = await askSeekeAI(newMessages, publishedSongs, currentSong, isArtist)
+      clearTimeout(slowTimer)
       const cleaned = cleanMarkdown(reply)
-      const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
-      if (playMatch) {
-        const title = playMatch[1].trim().toLowerCase()
-        const song = publishedSongs.find(s => s.title?.toLowerCase().includes(title) || title.includes(s.title?.toLowerCase()))
-        if (song) playSong(song, publishedSongs)
-      }
-      setMessages(prev => [...prev, { role: 'assistant', content: cleaned }])
+
+      // Remover mensaje de espera si apareció
+      setMessages(prev => {
+        const filtered = prev.filter(m => m.content !== SLOW_MSG)
+        const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
+        if (playMatch) {
+          const title = playMatch[1].trim().toLowerCase()
+          const song = publishedSongs.find(s => s.title?.toLowerCase().includes(title) || title.includes(s.title?.toLowerCase()))
+          if (song) playSong(song, publishedSongs)
+        }
+        return [...filtered, { role: 'assistant', content: cleaned }]
+      })
     } catch {
+      clearTimeout(slowTimer)
+      setMessages(prev => prev.filter(m => m.content !== SLOW_MSG))
       setError('Error al conectar con SeekeAI. Intenta de nuevo.')
       setMessages(prev => prev.slice(0, -1))
     } finally { setLoading(false); inputRef.current?.focus() }
@@ -186,6 +203,10 @@ export default function AI() {
 
   const renderAssistantContent = (msg) => {
     const { cleanText, recommendedSongs, playSongTitle, navKey } = parseMessage(msg.content, publishedSongs)
+    const isSlowMsg = msg.content === SLOW_MSG
+    if (isSlowMsg) return (
+      <p style={{ margin: 0, fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>{msg.content}</p>
+    )
     const songToPlay = playSongTitle
       ? publishedSongs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
       : null
@@ -266,13 +287,11 @@ export default function AI() {
     </div>
   )
 
-  // ── PANTALLA DE BIENVENIDA (estilo Claude) ──
   if (showWelcome) {
     return (
       <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'flex', flexDirection: 'column' }}>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap'); @keyframes fadeUp { from { opacity:0; transform:translateY(16px) } to { opacity:1; transform:translateY(0) } } .sugg-btn:hover { background: #f5f3ff !important; border-color: #7c3aed !important; transform: translateY(-1px); }`}</style>
 
-        {/* Header igual a las otras páginas */}
         <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '2rem 1rem 4.5rem' }}>
           <div style={{ maxWidth: '760px', margin: '0 auto' }}>
             <p style={{ fontSize: '11px', fontWeight: '700', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', margin: '0 0 8px' }}>Asistente Inteligente</p>
@@ -281,10 +300,8 @@ export default function AI() {
           </div>
         </div>
 
-        {/* Bienvenida centrada */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 16px', paddingBottom: `${playerOffset + 100}px`, marginTop: '-24px' }}>
           <div style={{ background: '#fff', borderRadius: '20px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', padding: '32px 24px', maxWidth: '480px', width: '100%', textAlign: 'center', animation: 'fadeUp 0.4s ease forwards' }}>
-            {/* Avatar IA */}
             <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', boxShadow: '0 8px 24px rgba(124,58,237,0.3)' }}>
               <svg width="32" height="32" fill="none" stroke="white" strokeWidth={1.8} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
@@ -296,8 +313,6 @@ export default function AI() {
             <p style={{ fontSize: '14px', color: '#6b7280', lineHeight: 1.6, margin: '0 0 24px' }}>
               Soy SeekeAI, tu asistente musical en SoundSeekers. Puedo recomendarte música, reproducir canciones, analizar lo que estás escuchando o resolver cualquier duda musical.
             </p>
-
-            {/* Sugerencias */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', textAlign: 'left' }}>
               {SUGGESTIONS.map(s => (
                 <button key={s.text} className="sugg-btn" onClick={() => sendMessage(s.text)}
@@ -315,12 +330,10 @@ export default function AI() {
     )
   }
 
-  // ── PANTALLA DE CHAT ──
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", display: 'flex', flexDirection: 'column' }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'); @keyframes dotBounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} } @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }`}</style>
 
-      {/* Header compacto en modo chat */}
       <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', padding: '12px 16px', position: 'sticky', top: 0, zIndex: 30 }}>
         <div style={{ maxWidth: '760px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <div style={{ width: '32px', height: '32px', borderRadius: '10px', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -351,7 +364,6 @@ export default function AI() {
         </div>
       </div>
 
-      {/* Mensajes */}
       <div style={{ flex: 1, maxWidth: '760px', width: '100%', margin: '0 auto', padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: '16px', paddingBottom: `${playerOffset + 90}px` }}>
         {messages.map((msg, i) => (
           <div key={i} style={{ display: 'flex', gap: '10px', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start', animation: 'fadeUp 0.2s ease forwards' }}>
