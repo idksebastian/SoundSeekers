@@ -4,7 +4,6 @@ import { supabase } from '../lib/supabase'
 
 const PlayerContext = createContext()
 
-// ✅ Guardar estado en Supabase
 async function savePlayerStateDB(userId, song, queue) {
   if (!userId) return
   try {
@@ -17,7 +16,6 @@ async function savePlayerStateDB(userId, song, queue) {
   } catch {}
 }
 
-// ✅ Cargar estado desde Supabase
 async function loadPlayerStateDB(userId) {
   if (!userId) return null
   try {
@@ -30,7 +28,6 @@ async function loadPlayerStateDB(userId) {
   } catch { return null }
 }
 
-// ✅ Mantener localStorage como fallback rápido
 function getPlayerKey(userId) { return `ss_player_${userId ?? 'guest'}` }
 function savePlayerStateLocal(userId, song, queue) {
   try { localStorage.setItem(getPlayerKey(userId), JSON.stringify({ song, queue })) } catch {}
@@ -67,7 +64,6 @@ export function PlayerProvider({ children }) {
   useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
   useEffect(() => { repeatModeRef.current = repeatMode }, [repeatMode])
 
-  // ✅ Guardar en Supabase con debounce para no saturar
   const savePlayerState = (userId, song, queue) => {
     if (!userId) return
     savePlayerStateLocal(userId, song, queue)
@@ -81,7 +77,7 @@ export function PlayerProvider({ children }) {
     if (currentSong && activeUserId) savePlayerState(activeUserId, currentSong, queueRef.current)
   }, [currentSong, activeUserId])
 
-  // ✅ Media Session API
+  // ✅ Media Session API — controles del teclado del PC
   useEffect(() => {
     if (!currentSong) return
     if (!('mediaSession' in navigator)) return
@@ -121,9 +117,7 @@ export function PlayerProvider({ children }) {
     queueRef.current = []; currentIndexRef.current = 0
   }
 
-  // ✅ Restaurar desde Supabase primero, localStorage como fallback
   const restoreForUser = async (userId) => {
-    // Primero cargar localStorage para respuesta inmediata
     const local = loadPlayerStateLocal(userId)
     if (local?.song) {
       setCurrentSong(local.song)
@@ -134,7 +128,6 @@ export function PlayerProvider({ children }) {
       if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
     }
 
-    // Luego cargar desde Supabase (más reciente, sincronizado entre dispositivos)
     const remote = await loadPlayerStateDB(userId)
     if (remote?.song) {
       setCurrentSong(remote.song)
@@ -143,7 +136,6 @@ export function PlayerProvider({ children }) {
       setIsVisible(true); setIsPlaying(false)
       const idx = (remote.queue ?? []).findIndex(s => s.id === remote.song.id)
       if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
-      // Sincronizar localStorage con el estado remoto
       savePlayerStateLocal(userId, remote.song, remote.queue ?? [])
     }
   }
@@ -168,97 +160,96 @@ export function PlayerProvider({ children }) {
   const pauseSong = () => { audioRef.current?.pause(); setIsPlaying(false) }
 
   const playNext = async () => {
-  const list = queueRef.current
-  if (!list.length) return
+    const list = queueRef.current
+    if (!list.length) return
 
-  // repeat one — reiniciar la misma
-  if (repeatModeRef.current === 'one') {
-    if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
-    setIsPlaying(true); return
+    // repeat one — reiniciar la misma
+    if (repeatModeRef.current === 'one') {
+      if (audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play().catch(() => {}) }
+      setIsPlaying(true); return
+    }
+
+    // shuffle activo
+    if (shuffleRef.current) {
+      let nextIdx
+      if (list.length === 1) { nextIdx = 0 }
+      else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
+      currentIndexRef.current = nextIdx
+      setCurrentIndex(nextIdx)
+      setCurrentSong(list[nextIdx])
+      setIsPlaying(true)
+      if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
+      if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
+      return
+    }
+
+    const nextIdx = currentIndexRef.current + 1
+
+    // repeat all — volver al inicio
+    if (repeatModeRef.current === 'all') {
+      const idx = nextIdx >= list.length ? 0 : nextIdx
+      currentIndexRef.current = idx
+      setCurrentIndex(idx)
+      setCurrentSong(list[idx])
+      setIsPlaying(true)
+      if (list[idx].id && !list[idx].isSpotify) registerStream(list[idx].id)
+      if (activeUserId) savePlayerState(activeUserId, list[idx], list)
+      return
+    }
+
+    // hay canción siguiente en la cola
+    if (nextIdx < list.length) {
+      currentIndexRef.current = nextIdx
+      setCurrentIndex(nextIdx)
+      setCurrentSong(list[nextIdx])
+      setIsPlaying(true)
+      if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
+      if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
+      return
+    }
+
+    // ✅ Sin repeat: llegamos al final — modo radio, reinicia cola mezclada
+    try {
+      const { data: allSongs } = await supabase
+        .from('songs')
+        .select('id, title, cover_url, audio_url, display_artist, artist_name, genre, streams, user_id, album_id, album_title')
+        .eq('status', 'published')
+        .order('created_at', { ascending: false })
+        .limit(50)
+
+      if (!allSongs?.length) return
+
+      const recentIds = new Set(list.slice(-Math.min(5, list.length)).map(s => s.id))
+      const currentId = list[currentIndexRef.current]?.id
+
+      let candidates = allSongs.filter(s => !recentIds.has(s.id))
+      if (candidates.length < 3) candidates = allSongs.filter(s => s.id !== currentId)
+      if (!candidates.length) candidates = allSongs
+
+      // ✅ Mezclar y reiniciar cola completa para que nunca se acabe
+      const freshQueue = [...allSongs].sort(() => Math.random() - 0.5)
+      const pick = [...candidates].sort(() => Math.random() - 0.5)[0]
+
+      // Poner el pick primero en la cola fresca
+      const pickIdx = freshQueue.findIndex(s => s.id === pick.id)
+      if (pickIdx > 0) {
+        freshQueue.splice(pickIdx, 1)
+        freshQueue.unshift(pick)
+      }
+
+      queueRef.current = freshQueue
+      setQueue(freshQueue)
+
+      currentIndexRef.current = 0
+      setCurrentIndex(0)
+      setCurrentSong(pick)
+      setIsPlaying(true)
+      if (pick.id) registerStream(pick.id)
+      if (activeUserId) savePlayerState(activeUserId, pick, freshQueue)
+    } catch (err) {
+      console.error('Radio error:', err)
+    }
   }
-
-  let nextIdx
-
-  if (shuffleRef.current) {
-    if (list.length === 1) { nextIdx = 0 }
-    else { do { nextIdx = Math.floor(Math.random() * list.length) } while (nextIdx === currentIndexRef.current) }
-    currentIndexRef.current = nextIdx
-    setCurrentIndex(nextIdx)
-    setCurrentSong(list[nextIdx])
-    setIsPlaying(true)
-    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
-    if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
-    return
-  }
-
-  nextIdx = currentIndexRef.current + 1
-
-  // repeat all — volver al inicio
-  if (repeatModeRef.current === 'all') {
-    if (nextIdx >= list.length) nextIdx = 0
-    currentIndexRef.current = nextIdx
-    setCurrentIndex(nextIdx)
-    setCurrentSong(list[nextIdx])
-    setIsPlaying(true)
-    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
-    if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
-    return
-  }
-
-  // ── Sin repeat: hay canción siguiente en la cola ──
-  if (nextIdx < list.length) {
-    currentIndexRef.current = nextIdx
-    setCurrentIndex(nextIdx)
-    setCurrentSong(list[nextIdx])
-    setIsPlaying(true)
-    if (list[nextIdx].id && !list[nextIdx].isSpotify) registerStream(list[nextIdx].id)
-    if (activeUserId) savePlayerState(activeUserId, list[nextIdx], list)
-    return
-  }
-
-  // ── Sin repeat: llegamos al final — modo radio inteligente ──
-  try {
-    const { data: allSongs } = await supabase
-      .from('songs')
-      .select('id, title, cover_url, audio_url, display_artist, artist_name, genre, streams, user_id, album_id, album_title')
-      .eq('status', 'published')
-      .order('created_at', { ascending: false })
-      .limit(50)
-
-    if (!allSongs?.length) return
-
-    // IDs ya en la cola para evitar repetir las inmediatas
-    const recentIds = new Set(list.slice(-Math.min(5, list.length)).map(s => s.id))
-    const currentId = list[currentIndexRef.current]?.id
-
-    // Filtrar: excluir las últimas 5 reproducidas si hay suficientes
-    let candidates = allSongs.filter(s => !recentIds.has(s.id))
-
-    // Si no hay suficientes candidatos (plataforma pequeña), usar todas
-    if (candidates.length < 3) candidates = allSongs.filter(s => s.id !== currentId)
-
-    // Si aún no hay nada, repetir cualquiera
-    if (!candidates.length) candidates = allSongs
-
-    // Elegir aleatoriamente entre los candidatos
-    const pick = candidates[Math.floor(Math.random() * candidates.length)]
-
-    // Agregar a la cola
-    const newQueue = [...list, pick]
-    queueRef.current = newQueue
-    setQueue(newQueue)
-
-    const newIdx = newQueue.length - 1
-    currentIndexRef.current = newIdx
-    setCurrentIndex(newIdx)
-    setCurrentSong(pick)
-    setIsPlaying(true)
-    if (pick.id) registerStream(pick.id)
-    if (activeUserId) savePlayerState(activeUserId, pick, newQueue)
-  } catch (err) {
-    console.error('Radio error:', err)
-  }
-}
 
   const playPrev = () => {
     const list = queueRef.current
