@@ -33,8 +33,9 @@ export default function AlbumDetail() {
   const [presaved, setPresaved] = useState(false)
   const [presaveCount, setPresaveCount] = useState(0)
   const [presaving, setPresaving] = useState(false)
-  const releaseDate = album?.presave_date || album?.release_date
-  const countdown = useCountdown(album?.status === 'presave' ? releaseDate : null)
+const releaseDate = album?.presave_date || album?.release_date || null
+const countdown = useCountdown(album?.status === 'presave' && releaseDate ? releaseDate : null)
+  
 
   useEffect(() => {
     const load = async () => {

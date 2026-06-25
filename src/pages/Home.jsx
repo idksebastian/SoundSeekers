@@ -609,10 +609,7 @@ export default function Home() {
               const isSaved = songPresaves[d.id]
               return (
                 <div key={`${item.type}-${d.id}`} className="grid-card"
-  onClick={() => {
-    if (isAlbumPresave) { navigate(`/album/${d.id}`); return }
-    handlePlayItem(item)
-  }}>
+  onClick={() => handlePlayItem(item)}>
                   <div className="grid-card-img-wrap">
                     {d.cover_url
                       ? <img src={d.cover_url} alt={d.title} className="grid-card-img"/>
