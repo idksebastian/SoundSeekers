@@ -31,8 +31,8 @@ SoundSeekers se reserva el derecho de suspender o eliminar cuentas que incumplan
 Al publicar contenido, otorgas a SoundSeekers una licencia no exclusiva, gratuita y mundial para mostrar, reproducir y distribuir dicho contenido dentro de la plataforma con el fin de prestar el servicio.`
   },
   {
-    title: '5. Contenido musical y licencia de uso',
-    content: `Al subir contenido musical a SoundSeekers, el artista declara y garantiza que:
+  title: '5. Contenido musical y licencia de uso',
+  content: `Al subir contenido musical a SoundSeekers, el artista declara y garantiza que:
 
 - Es el titular original o tiene autorización expresa de los titulares de todos los derechos de autor, derechos conexos y derechos de propiedad intelectual sobre el contenido subido, incluyendo composición, letra, interpretación y producción fonográfica.
 - El contenido no infringe derechos de terceros, no contiene material con restricciones de licencia incompatibles con esta plataforma, y cumple con la legislación colombiana vigente, en particular la Ley 23 de 1982 y la Ley 1915 de 2018 sobre derechos de autor.
@@ -43,8 +43,9 @@ Al subir contenido, el artista otorga a SoundSeekers una licencia no exclusiva, 
 
 Reclamaciones de derechos
 
-Si consideras que algún contenido publicado en SoundSeekers infringe tus derechos de autor, puedes enviar una reclamación formal a soundseekers.co@gmail.com indicando tu nombre completo, descripción del contenido protegido, enlace al contenido en cuestión y declaración de que eres el titular o representante autorizado. SoundSeekers se compromete a revisar y gestionar cada reclamación en un plazo máximo de 5 días hábiles.`
-  },
+Si consideras que algún contenido publicado en SoundSeekers infringe tus derechos de autor, puedes enviarnos una reclamación formal indicando tu nombre completo, descripción del contenido protegido, enlace al contenido en cuestión y declaración de que eres el titular o representante autorizado. Nos comprometemos a revisar y gestionar cada reclamación en un plazo máximo de 5 días hábiles.`,
+  hasContactBtn: true  // ✅ flag para renderizar el botón
+},
   {
     title: '6. Propiedad intelectual',
     content: `Todo el contenido propio de SoundSeekers — incluyendo diseño, logotipos, interfaz, código fuente y elementos visuales — está protegido por las leyes de propiedad intelectual de Colombia y los tratados internacionales. Queda prohibida la reproducción, copia o uso de estos elementos sin autorización escrita previa de SoundSeekers.`
@@ -114,11 +115,26 @@ export default function Terminos() {
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '32px 32px 80px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {sections.map((s, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 20, border: '1px solid #f3f4f6', padding: '28px 32px', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
-              <h2 style={{ fontSize: 16, fontWeight: 800, color: '#111', margin: '0 0 12px' }}>{s.title}</h2>
-              <p style={{ fontSize: 14, lineHeight: 1.8, color: '#6b7280', margin: 0, whiteSpace: 'pre-line' }}>{s.content}</p>
-            </div>
-          ))}
+  <div key={i} style={{ background: '#fff', borderRadius: 20, border: '1px solid #f3f4f6', padding: '28px 32px', boxShadow: '0 4px 16px rgba(0,0,0,0.04)' }}>
+    <h2 style={{ fontSize: 16, fontWeight: 800, color: '#111', margin: '0 0 12px' }}>{s.title}</h2>
+    <p style={{ fontSize: 14, lineHeight: 1.8, color: '#6b7280', margin: 0, whiteSpace: 'pre-line' }}>{s.content}</p>
+    {/* ✅ Botón de contacto solo en sección 5 */}
+    {s.hasContactBtn && (
+      <div style={{ marginTop: 20, padding: '16px 20px', background: '#f5f3ff', borderRadius: 12, border: '1px solid #ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', margin: '0 0 2px' }}>¿Tienes una reclamación de derechos?</p>
+          <p style={{ fontSize: 12, color: '#9ca3af', margin: 0 }}>Escríbenos y lo gestionamos en máximo 5 días hábiles.</p>
+        </div>
+        <Link to="/contacto" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#7c3aed', color: '#fff', fontWeight: 700, fontSize: 12, padding: '9px 18px', borderRadius: 100, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+          <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+          </svg>
+          Enviar reclamación
+        </Link>
+      </div>
+    )}
+  </div>
+))}
         </div>
 
         {/* Footer legal */}
