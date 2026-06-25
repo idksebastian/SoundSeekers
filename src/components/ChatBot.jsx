@@ -30,10 +30,11 @@ Cuando el usuario pregunte cómo subir canciones o quiera subir música:
 - Si es artista verificado: explica brevemente el proceso e incluye [NAV:upload]
 - Si NO es artista verificado: dile que primero debe solicitar verificación de artista en su perfil e incluye [NAV:profile]
 
-Cuando quiera reproducir una canción de SoundSeekers: [PLAY:titulo_exacto]
-Cuando pida recomendaciones de SoundSeekers: [CANCIONES:titulo1|titulo2|titulo3]
-Cuando pida navegar: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings], [NAV:requests] o [NAV:contacto]
-Cuando el usuario quiera contactar soporte, servicio al cliente, reportar algo o necesite ayuda con la plataforma: usa [NAV:contacto]
+Cuando pida navegar incluye: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings], [NAV:requests], [NAV:contacto], [NAV:terminos] o [NAV:privacidad]
+Cuando el usuario quiera contactar soporte o necesite ayuda: usa [NAV:contacto]
+Cuando pregunte sobre políticas, términos, derechos de autor o licencias: usa [NAV:terminos]
+Cuando pregunte sobre privacidad o datos personales: usa [NAV:privacidad]
+NUNCA uses [NAV:settings] para dirigir a políticas legales. Solo usa [NAV:settings] cuando el usuario quiera cambiar configuración de su cuenta.
 
 Formato: sin asteriscos, sin markdown, sin #. Usa • para listas. Máximo 3-4 oraciones. Responde en español, amigable y conciso.`
 
@@ -46,6 +47,8 @@ const NAV_CONFIG = {
   settings: { label: 'Ajustes', path: '/settings', icon: '⚙️' },
   requests: { label: 'Solicitudes', path: '/requests', icon: '🤝' },
   contacto: { label: 'Contacto', path: '/contacto', icon: '✉️' },
+  terminos: { label: 'Ver Términos de Uso', path: '/terminos', icon: '📄' },
+  privacidad: { label: 'Ver Política de Privacidad', path: '/privacidad', icon: '🔒' },
 }
 
 const SLOW_MSG = '⏳ Conectando... puede tardar unos segundos.'
