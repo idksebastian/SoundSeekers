@@ -58,6 +58,30 @@ async function addToHistory(item, userId) {
     }
   } catch (err) { console.error(err) }
 }
+function PresaveCountdown({ releaseDate }) {
+  const [t, setT] = useState(null)
+  useEffect(() => {
+    if (!releaseDate) return
+    const target = new Date(releaseDate + 'T00:00:00').getTime()
+    const calc = () => {
+      const diff = target - Date.now()
+      if (diff <= 0) { setT(null); return }
+      setT({ days: Math.floor(diff / 86400000), hours: Math.floor((diff % 86400000) / 3600000) })
+    }
+    calc(); const id = setInterval(calc, 60000); return () => clearInterval(id)
+  }, [releaseDate])
+  if (!t) return null
+  return (
+    <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+      {[{ val: t.days, label: 'd' }, { val: t.hours, label: 'h' }].map(({ val, label }) => (
+        <div key={label} style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', lineHeight: 1 }}>{String(val).padStart(2, '0')}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(196,181,253,0.8)', fontWeight: '600' }}>{label}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function Home() {
   const { user } = useAuth()
@@ -593,15 +617,14 @@ export default function Home() {
                         </div>
                     }
                     {(isPresave || isAlbumPresave) ? (
-                      <div className="presave-overlay">
-                        <svg width="16" height="16" fill="none" stroke="white" strokeWidth={2} viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/>
-                        </svg>
-                        <span className="presave-badge">
-                          {isPresave ? (presaving === d.id ? '...' : isSaved ? 'Presave Hecho' : 'Hacer Presave') : 'Próximamente'}
-                        </span>
-                      </div>
-                    ) : (
+  <div className="presave-overlay" style={{ background: 'linear-gradient(160deg, rgba(26,5,51,0.92) 0%, rgba(45,27,105,0.88) 100%)' }}>
+    {/* Countdown mini */}
+    <PresaveCountdown releaseDate={d.presave_date || d.release_date || d.presave_date} />
+    <span className="presave-badge" style={{ background: 'rgba(124,58,237,0.9)', backdropFilter: 'blur(4px)' }}>
+      {isPresave ? (presaving === d.id ? '...' : isSaved ? '✓ Guardado' : '+ Preguardar') : 'Próximamente'}
+    </span>
+  </div>
+) : (
                       <div className="grid-card-overlay">
                         <button className="grid-play-btn">
                           {isCurrentSong && isPlaying
