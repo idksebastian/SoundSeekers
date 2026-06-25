@@ -20,16 +20,47 @@ const GENRES = [
   { label: 'Rap', value: 'Rap' },
 ]
 
-function getHistoryKey(userId) { return `ss_recently_played_${userId ?? 'guest'}` }
-function getHistory(userId) {
-  try { return JSON.parse(localStorage.getItem(getHistoryKey(userId)) || '[]') }
-  catch { return [] }
-}
-function addToHistory(item, userId) {
+// ✅ REEMPLAZA por estas:
+async function getHistory(userId) {
+  if (!userId) return []
   try {
-    const prev = getHistory(userId).filter(h => h.id !== item.id)
-    localStorage.setItem(getHistoryKey(userId), JSON.stringify([item, ...prev].slice(0, 12)))
-  } catch {}
+    const { data } = await supabase
+      .from('recently_played')
+      .select('item')
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+      .limit(12)
+    return data?.map(r => r.item) ?? []
+  } catch { return [] }
+}
+
+async function addToHistory(item, userId) {
+  if (!userId) return
+  try {
+    // Eliminar si ya existe esa canción/álbum
+    await supabase
+      .from('recently_played')
+      .delete()
+      .eq('user_id', userId)
+      .eq('item->>id', item.id)
+
+    // Insertar al inicio
+    await supabase
+      .from('recently_played')
+      .insert([{ user_id: userId, item }])
+
+    // Mantener máximo 12 — eliminar los más viejos
+    const { data } = await supabase
+      .from('recently_played')
+      .select('id, played_at')
+      .eq('user_id', userId)
+      .order('played_at', { ascending: false })
+
+    if (data && data.length > 12) {
+      const toDelete = data.slice(12).map(r => r.id)
+      await supabase.from('recently_played').delete().in('id', toDelete)
+    }
+  } catch (err) { console.error(err) }
 }
 
 export default function Home() {
@@ -53,7 +84,10 @@ export default function Home() {
   const [presaving, setPresaving] = useState(null)
   const slideInterval = useRef(null)
 
-  useEffect(() => { setRecentlyPlayed(getHistory(user?.id)) }, [user?.id])
+  useEffect(() => {
+  if (!user?.id) return
+  getHistory(user.id).then(setRecentlyPlayed)
+}, [user?.id])
 
   const [profileName, setProfileName] = useState(null)
 
@@ -70,13 +104,14 @@ useEffect(() => {
 }, [user?.id])
 
   useEffect(() => {
-    if (!currentSong) return
-    const item = currentSong.album_id
-      ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
-      : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
-    addToHistory(item, user?.id)
-    setRecentlyPlayed(getHistory(user?.id))
-  }, [currentSong?.id])
+  if (!currentSong || !user?.id) return
+  const item = currentSong.album_id
+    ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
+    : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
+  addToHistory(item, user.id).then(() => {
+    getHistory(user.id).then(setRecentlyPlayed)
+  })
+}, [currentSong?.id])
 
   useEffect(() => {
     const fetchData = async () => {
