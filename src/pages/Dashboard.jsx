@@ -341,25 +341,13 @@ export default function Dashboard() {
                           <p className="song-row-artist">{song.display_artist || song.artist_name}</p>
                         </div>
                         {isPresave ? (
-                          // Reemplaza el song-row-presave button por:
-<div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', flexShrink: 0 }}>
-  {(song.presave_date || song.release_date) && (() => {
-    const target = new Date((song.presave_date || song.release_date) + 'T00:00:00').getTime()
-    const diff = target - Date.now()
-    if (diff > 0) {
-      const days = Math.floor(diff / 86400000)
-      return <span style={{ fontSize: '10px', color: '#a78bfa', fontWeight: '700' }}>en {days}d</span>
-    }
-    return null
-  })()}
   <button
     className="song-row-presave"
-    style={{ background: isSaved ? '#f5f3ff' : 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: isSaved ? '#7c3aed' : '#fff', opacity: presaving === song.id ? 0.6 : 1 }}
-    onClick={e => handleSongPresave(e, song)}>
-    {presaving === song.id ? '...' : isSaved ? 'Guardado ✓' : 'Preguardar'}
+    style={{ background: '#f5f3ff', color: '#7c3aed' }}
+    onClick={e => { e.stopPropagation(); navigate(`/album/${song.album_id}`) }}>
+    {song.album_id ? 'Ver álbum →' : (isSaved ? 'Guardado ✓' : 'Preguardar')}
   </button>
-</div>
-                        ) : (
+) : (
                           <>
                             <span className="song-row-genre">{song.genre}</span>
                             {song.streams > 0 && <span className="song-row-streams">{song.streams.toLocaleString()} rep.</span>}

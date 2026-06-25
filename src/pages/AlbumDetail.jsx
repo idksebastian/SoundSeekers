@@ -33,8 +33,6 @@ export default function AlbumDetail() {
   const [presaved, setPresaved] = useState(false)
   const [presaveCount, setPresaveCount] = useState(0)
   const [presaving, setPresaving] = useState(false)
-const releaseDate = album?.presave_date || album?.release_date || null
-const countdown = useCountdown(album?.status === 'presave' && releaseDate ? releaseDate : null)
   
 
   useEffect(() => {
@@ -84,6 +82,9 @@ const countdown = useCountdown(album?.status === 'presave' && releaseDate ? rele
   const formatDuration = (secs) => { if (!secs) return '--:--'; return `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}` }
   const totalDuration = songs.reduce((acc, s) => acc + (s.duration ?? 0), 0)
   const isPresave = album?.status === 'presave'
+
+  const releaseDate = (album?.presave_date || album?.release_date) ?? null
+  const countdown = useCountdown(!loading && album?.status === 'presave' && releaseDate ? releaseDate : null)
 
   if (loading) return (<div className="min-h-screen bg-gray-50 flex items-center justify-center"><svg className="w-8 h-8 animate-spin text-purple-600" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg></div>)
 

@@ -342,7 +342,7 @@ export default function Home() {
   ]
 
   const handlePlayItem = async (item) => {
-    if (item.type === 'album') { navigate(`/album/${item.id}`); return }
+    if (item.type === 'album') { navigate(`/album/${item.data.id}`); return }
     if (item.data.status === 'presave') {
       if (item.data.album_id) { navigate(`/album/${item.data.album_id}`); return }
       if (!user) { navigate('/login'); return }
