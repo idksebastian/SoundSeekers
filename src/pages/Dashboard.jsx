@@ -111,21 +111,26 @@ export default function Dashboard() {
 
   const publishedSongs = useMemo(() => songs.filter(s => s.status === 'published'), [songs])
 
-  const filtered = useMemo(() => {
-  const q = search.toLowerCase()
-  return {
-    songs: songs.filter(s =>
-      (!selectedGenre || s.genre === selectedGenre) &&
-      (!q || s.title?.toLowerCase().includes(q) || s.artist_name?.toLowerCase().includes(q) || s.display_artist?.toLowerCase().includes(q))
-    ),
-    // ✅ Albums solo se ocultan si hay búsqueda de texto, no por género
-    albums: albums.filter(a => !q || a.title?.toLowerCase().includes(q)),
-    artists: artists.filter(a =>
-      (!selectedGenre || a.genre === selectedGenre) &&
-      (!q || a.name?.toLowerCase().includes(q))
-    ),
+  // ✅ playWithShuffle — definida aquí, accesible en todo el componente
+  const playWithShuffle = (song) => {
+    const rest = [...publishedSongs.filter(s => s.id !== song.id)].sort(() => Math.random() - 0.5)
+    playSong(song, [song, ...rest])
   }
-}, [songs, albums, artists, search, selectedGenre])
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return {
+      songs: songs.filter(s =>
+        (!selectedGenre || s.genre === selectedGenre) &&
+        (!q || s.title?.toLowerCase().includes(q) || s.artist_name?.toLowerCase().includes(q) || s.display_artist?.toLowerCase().includes(q))
+      ),
+      albums: albums.filter(a => !q || a.title?.toLowerCase().includes(q)),
+      artists: artists.filter(a =>
+        (!selectedGenre || a.genre === selectedGenre) &&
+        (!q || a.name?.toLowerCase().includes(q))
+      ),
+    }
+  }, [songs, albums, artists, search, selectedGenre])
 
   const genreCounts = useMemo(() => {
     const map = {}
@@ -316,7 +321,7 @@ export default function Dashboard() {
                         style={{ cursor: isPresave ? 'default' : 'pointer' }}
                         onClick={() => {
                           if (isPresave) { if (song.album_id) navigate(`/album/${song.album_id}`); return }
-                          playSong(song, publishedSongs)
+                          playWithShuffle(song) // ✅
                         }}>
                         <span className="song-row-num">
                           {isCurrentSong && isPlaying ? <span className="now-dot"/> : idx + 1}
@@ -350,7 +355,7 @@ export default function Dashboard() {
                           <>
                             <span className="song-row-genre">{song.genre}</span>
                             {song.streams > 0 && <span className="song-row-streams">{song.streams.toLocaleString()} rep.</span>}
-                            <button className="song-row-play" onClick={e => { e.stopPropagation(); playSong(song, publishedSongs) }}>
+                            <button className="song-row-play" onClick={e => { e.stopPropagation(); playWithShuffle(song) }}> {/* ✅ */}
                               {isCurrentSong && isPlaying
                                 ? <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
                                 : <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>

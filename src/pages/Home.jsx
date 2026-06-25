@@ -20,7 +20,6 @@ const GENRES = [
   { label: 'Rap', value: 'Rap' },
 ]
 
-// ✅ REEMPLAZA por estas:
 async function getHistory(userId) {
   if (!userId) return []
   try {
@@ -37,19 +36,16 @@ async function getHistory(userId) {
 async function addToHistory(item, userId) {
   if (!userId) return
   try {
-    // Eliminar si ya existe esa canción/álbum
     await supabase
       .from('recently_played')
       .delete()
       .eq('user_id', userId)
       .eq('item->>id', item.id)
 
-    // Insertar al inicio
     await supabase
       .from('recently_played')
       .insert([{ user_id: userId, item }])
 
-    // Mantener máximo 12 — eliminar los más viejos
     const { data } = await supabase
       .from('recently_played')
       .select('id, played_at')
@@ -85,33 +81,33 @@ export default function Home() {
   const slideInterval = useRef(null)
 
   useEffect(() => {
-  if (!user?.id) return
-  getHistory(user.id).then(setRecentlyPlayed)
-}, [user?.id])
+    if (!user?.id) return
+    getHistory(user.id).then(setRecentlyPlayed)
+  }, [user?.id])
 
   const [profileName, setProfileName] = useState(null)
 
-useEffect(() => {
-  if (!user) return
-  supabase
-    .from('profiles')
-    .select('name, artist_name')
-    .eq('user_id', user.id)
-    .single()
-    .then(({ data }) => {
-      if (data) setProfileName(data.artist_name || data.name)
-    })
-}, [user?.id])
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('profiles')
+      .select('name, artist_name')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data) setProfileName(data.artist_name || data.name)
+      })
+  }, [user?.id])
 
   useEffect(() => {
-  if (!currentSong || !user?.id) return
-  const item = currentSong.album_id
-    ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
-    : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
-  addToHistory(item, user.id).then(() => {
-    getHistory(user.id).then(setRecentlyPlayed)
-  })
-}, [currentSong?.id])
+    if (!currentSong || !user?.id) return
+    const item = currentSong.album_id
+      ? { type: 'album', id: currentSong.album_id, title: currentSong.album_title || currentSong.title, cover: currentSong.cover_url, artist: currentSong.artist_name }
+      : { type: 'song', id: currentSong.id, title: currentSong.title, cover: currentSong.cover_url, artist: currentSong.display_artist || currentSong.artist_name, songObj: currentSong }
+    addToHistory(item, user.id).then(() => {
+      getHistory(user.id).then(setRecentlyPlayed)
+    })
+  }, [currentSong?.id])
 
   useEffect(() => {
     const fetchData = async () => {
@@ -271,7 +267,13 @@ useEffect(() => {
     return items.slice(0, 8)
   }, [allSongs, albums, selectedGenre])
 
-const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
+  const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
+
+  // ✅ playWithShuffle — definida aquí, accesible en todo el componente
+  const playWithShuffle = (song) => {
+    const rest = [...publishedSongs.filter(s => s.id !== song.id)].sort(() => Math.random() - 0.5)
+    playSong(song, [song, ...rest])
+  }
 
   const slides = [
     {
@@ -293,7 +295,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         ? `${topSong.weeklyStreams.toLocaleString()} reproducciones esta semana · ${topSong?.genre ?? ''}`
         : `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
       img: topSong?.cover_url ?? null,
-      action: () => topSong && playSong(topSong, publishedSongs),
+      action: () => topSong && playWithShuffle(topSong), // ✅
       btnLabel: 'Reproducir',
     },
     {
@@ -309,7 +311,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
   ]
 
   const handlePlayItem = async (item) => {
-    if (item.type === 'album') { navigate(`/album/${item.data.id}`); return }
+    if (item.type === 'album') { navigate(`/album/${item.id}`); return }
     if (item.data.status === 'presave') {
       if (item.data.album_id) { navigate(`/album/${item.data.album_id}`); return }
       if (!user) { navigate('/login'); return }
@@ -321,7 +323,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
       finally { setPresaving(null) }
       return
     }
-    playSong(item.data, publishedSongs)
+    playWithShuffle(item.data) // ✅
   }
 
   return (
@@ -330,127 +332,23 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Bebas+Neue&display=swap');
         * { box-sizing: border-box; }
         ::-webkit-scrollbar { display: none; }
-
-        /* ─── HERO SLIDER ─── */
-        .hero-slider {
-          position: relative;
-          margin: 0 1.5rem 2rem;
-          border-radius: 24px;
-          overflow: hidden;
-          height: 380px;
-          cursor: pointer;
-        }
-        @media (max-width: 600px) {
-          .hero-slider { height: 280px; margin: 0 0 1.5rem; border-radius: 0; }
-        }
-
-        /* Imagen pegada a la derecha, texto cómodo a la izquierda */
-        .slide-bg {
-          position: absolute;
-          inset: 0;
-          background-size: cover;
-          background-position: right center;
-          transition: opacity 0.6s ease;
-        }
-        @media (max-width: 600px) {
-          .slide-bg { background-position: center center; }
-        }
-
-        .slide-overlay {
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.05) 100%),
-            linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 40%);
-          z-index: 3;
-        }
-
-        /* ── FIX: contenido anclado al fondo, columna limpia sin gaps extra ── */
-        .slide-content {
-          position: absolute;
-          bottom: 0;
-          left: 0;
-          right: 0;
-          z-index: 4;
-          padding: 1.25rem 1.25rem 1.5rem;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-start;
-        }
-        @media (min-width: 600px) {
-          .slide-content { padding: 2rem 2rem 2.5rem; max-width: 560px; }
-        }
-
-        .slide-tag {
-          display: inline-flex;
-          align-items: center;
-          background: rgba(255,255,255,0.15);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          border: 1px solid rgba(255,255,255,0.25);
-          padding: 4px 12px;
-          border-radius: 100px;
-          font-size: 10px;
-          color: #e5e7eb;
-          font-weight: 700;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          margin: 0 0 8px 0;
-          white-space: nowrap;
-        }
-
-        .slide-title {
-          font-family: 'Bebas Neue', sans-serif;
-          font-size: clamp(2rem, 8vw, 4rem);
-          color: #fff;
-          line-height: 0.95;
-          margin: 0 0 5px 0;
-          letter-spacing: 0.02em;
-          text-shadow: 0 2px 16px rgba(0,0,0,0.5);
-        }
-
-        /* subtitle y desc: margin 0 para que no floten */
-        .slide-subtitle {
-          font-size: 13px;
-          color: rgba(255,255,255,0.72);
-          margin: 0;
-          font-weight: 500;
-          line-height: 1.4;
-        }
-
-        .slide-desc {
-          font-size: 12px;
-          color: rgba(255,255,255,0.45);
-          margin: 4px 0 0 0;
-        }
+        .hero-slider { position: relative; margin: 0 1.5rem 2rem; border-radius: 24px; overflow: hidden; height: 380px; cursor: pointer; }
+        @media (max-width: 600px) { .hero-slider { height: 280px; margin: 0 0 1.5rem; border-radius: 0; } }
+        .slide-bg { position: absolute; inset: 0; background-size: cover; background-position: right center; transition: opacity 0.6s ease; }
+        @media (max-width: 600px) { .slide-bg { background-position: center center; } }
+        .slide-overlay { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.05) 100%), linear-gradient(to top, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 40%); z-index: 3; }
+        .slide-content { position: absolute; bottom: 0; left: 0; right: 0; z-index: 4; padding: 1.25rem 1.25rem 1.5rem; display: flex; flex-direction: column; align-items: flex-start; }
+        @media (min-width: 600px) { .slide-content { padding: 2rem 2rem 2.5rem; max-width: 560px; } }
+        .slide-tag { display: inline-flex; align-items: center; background: rgba(255,255,255,0.15); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.25); padding: 4px 12px; border-radius: 100px; font-size: 10px; color: #e5e7eb; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin: 0 0 8px 0; white-space: nowrap; }
+        .slide-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2rem, 8vw, 4rem); color: #fff; line-height: 0.95; margin: 0 0 5px 0; letter-spacing: 0.02em; text-shadow: 0 2px 16px rgba(0,0,0,0.5); }
+        .slide-subtitle { font-size: 13px; color: rgba(255,255,255,0.72); margin: 0; font-weight: 500; line-height: 1.4; }
+        .slide-desc { font-size: 12px; color: rgba(255,255,255,0.45); margin: 4px 0 0 0; }
         @media (max-width: 600px) { .slide-desc { display: none; } }
-
-        /* btn: margen top fijo para separarse del subtitle/desc */
-        .slide-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          background: #fff;
-          color: #111;
-          font-weight: 700;
-          font-size: 12px;
-          padding: 9px 18px;
-          border-radius: 100px;
-          border: none;
-          cursor: pointer;
-          font-family: inherit;
-          transition: transform 0.15s, box-shadow 0.15s;
-          margin: 14px 0 0 0;
-          text-decoration: none;
-          flex-shrink: 0;
-        }
+        .slide-btn { display: inline-flex; align-items: center; gap: 8px; background: #fff; color: #111; font-weight: 700; font-size: 12px; padding: 9px 18px; border-radius: 100px; border: none; cursor: pointer; font-family: inherit; transition: transform 0.15s, box-shadow 0.15s; margin: 14px 0 0 0; text-decoration: none; flex-shrink: 0; }
         .slide-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
-
         .slide-dots { position: absolute; bottom: 16px; right: 16px; display: flex; gap: 6px; z-index: 4; }
         .slide-dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(255,255,255,0.35); border: none; cursor: pointer; transition: all 0.2s; padding: 0; }
         .slide-dot.active { background: #fff; width: 20px; border-radius: 4px; }
-
-        /* ─── SEARCH ─── */
         .search-wrap { max-width: 1100px; margin: 0 auto; padding: 0 1rem 1.5rem; position: relative; }
         @media (min-width: 600px) { .search-wrap { padding: 0 2rem 1.5rem; } }
         .search-input { width: 100%; background: #fff; border: 1px solid #e5e7eb; border-radius: 100px; padding: 12px 16px 12px 46px; color: #111; font-size: 14px; font-family: inherit; outline: none; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
@@ -460,23 +358,17 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         @media (min-width: 600px) { .search-results { left: 2rem; right: 2rem; } }
         .search-result-item { display: flex; align-items: center; gap: 12px; padding: 10px 16px; cursor: pointer; transition: background 0.15s; }
         .search-result-item:hover { background: #f5f3ff; }
-
-        /* ─── GÉNERO ─── */
         .genre-bar { display: flex; gap: 8px; overflow-x: auto; padding: 0 1rem 1.5rem; max-width: 1100px; margin: 0 auto; }
         @media (min-width: 600px) { .genre-bar { padding: 0 2rem 1.5rem; } }
         .genre-pill { flex-shrink: 0; padding: 7px 16px; border-radius: 100px; font-size: 12px; font-weight: 600; border: 1px solid #e5e7eb; background: #fff; color: #6b7280; cursor: pointer; transition: all 0.15s; font-family: inherit; }
         .genre-pill.active { background: #7c3aed; color: #fff; border-color: #7c3aed; box-shadow: 0 4px 12px rgba(124,58,237,0.25); }
         .genre-pill:hover:not(.active) { border-color: #7c3aed; color: #7c3aed; }
-
-        /* ─── SECCIONES ─── */
         .section { max-width: 1100px; margin: 0 auto; padding: 0 1rem 2.5rem; overflow: hidden; }
         @media (min-width: 600px) { .section { padding: 0 2rem 3rem; } }
         .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
         .section-title { font-size: 1.1rem; font-weight: 800; color: #111; margin: 0; }
         .see-all { font-size: 12px; color: #9ca3af; text-decoration: none; font-weight: 600; transition: color 0.15s; white-space: nowrap; }
         .see-all:hover { color: #7c3aed; }
-
-        /* ─── RECIENTES ─── */
         .recent-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
         @media (max-width: 600px) { .recent-grid { grid-template-columns: 1fr 1fr; gap: 6px; } }
         .recent-item { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 8px; overflow: hidden; cursor: pointer; transition: background 0.15s; height: 52px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
@@ -488,8 +380,6 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         .recent-item-sub { font-size: 10px; color: #9ca3af; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .recent-play-btn { width: 32px; height: 32px; border-radius: 50%; background: #7c3aed; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-right: 6px; opacity: 0; transition: opacity 0.15s; }
         .recent-item:hover .recent-play-btn { opacity: 1; }
-
-        /* ─── GRID PRINCIPAL ─── */
         .main-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         @media (min-width: 500px) { .main-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
         @media (min-width: 800px) { .main-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 16px; } }
@@ -508,8 +398,6 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         .album-badge { position: absolute; top: 6px; left: 6px; font-size: 9px; font-weight: 700; color: #fff; background: rgba(0,0,0,0.5); padding: 2px 6px; border-radius: 100px; backdrop-filter: blur(4px); }
         .presave-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.55); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; }
         .presave-badge { font-size: 9px; font-weight: 700; color: #fff; background: rgba(124,58,237,0.85); padding: 3px 8px; border-radius: 100px; }
-
-        /* ─── ARTISTAS ─── */
         .artists-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
         @media (max-width: 400px) { .artists-grid { grid-template-columns: repeat(3, 1fr); gap: 12px; } }
         .artist-card { cursor: pointer; text-align: center; }
@@ -518,22 +406,16 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         .artist-img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.4s; }
         .artist-card:hover .artist-img { transform: scale(1.08); }
         .artist-initial { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 800; color: #7c3aed; background: #f5f3ff; }
-
-        /* ─── STATS ─── */
         .stats-banner { background: linear-gradient(135deg, #7c3aed, #6d28d9); border-radius: 20px; padding: 2rem 1.5rem; display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; max-width: 1064px; margin: 0 auto 3rem; }
         @media (max-width: 600px) { .stats-banner { grid-template-columns: 1fr; margin: 0 0 2.5rem; border-radius: 0; } }
         .stat-number { font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; color: #fff; line-height: 1; margin-bottom: 4px; text-align: center; }
         .stat-label { font-size: 11px; color: rgba(255,255,255,0.65); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; }
-
-        /* ─── HOW ─── */
         .how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
         @media (max-width: 500px) { .how-grid { grid-template-columns: 1fr; } }
         .how-card { background: #fff; border-radius: 16px; padding: 1.5rem 1.25rem; border: 1px solid #f3f4f6; box-shadow: 0 4px 16px rgba(0,0,0,0.04); }
         .how-icon { width: 44px; height: 44px; border-radius: 12px; background: #f5f3ff; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; }
         .how-title { font-size: 14px; font-weight: 800; color: #111; margin: 0 0 6px; }
         .how-desc { font-size: 13px; color: #9ca3af; margin: 0; line-height: 1.6; }
-
-        /* ─── FOOTER ─── */
         .footer { background: #111; color: #fff; padding: 3rem 1rem 2rem; margin-top: 3rem; }
         @media (min-width: 600px) { .footer { padding: 4rem 2rem 2rem; } }
         .footer-inner { max-width: 1100px; margin: 0 auto; }
@@ -550,7 +432,6 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         .footer-bottom { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
         .footer-copy { font-size: 12px; color: #4b5563; }
         .footer-badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.25); border-radius: 100px; padding: 4px 12px; font-size: 11px; color: #a78bfa; font-weight: 600; }
-
         .divider { height: 1px; background: #f3f4f6; max-width: 1100px; margin: 0 auto 2rem; }
         .skeleton { background: #f3f4f6; border-radius: 8px; animation: shimmer 1.5s infinite; }
         @keyframes shimmer { 0%,100%{opacity:1}50%{opacity:0.5} }
@@ -585,10 +466,6 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
                 {slides[slide].btnLabel}
               </button>
             </div>
-
-
-
-
             <div className="slide-dots">
               {slides.map((_, i) => (
                 <button key={i} className={`slide-dot ${slide === i ? 'active' : ''}`}
@@ -609,7 +486,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
               <div key={item.id} className="recent-item"
                 onClick={() => {
                   if (item.type === 'album') navigate(`/album/${item.id}`)
-                  else if (item.songObj) playSong(item.songObj, publishedSongs)
+                  else if (item.songObj) playWithShuffle(item.songObj) // ✅
                 }}>
                 {item.cover
                   ? <img src={item.cover} alt={item.title} className="recent-item-cover"/>
@@ -642,7 +519,7 @@ const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_m
         {searchResults.length > 0 && (
           <div className="search-results">
             {searchResults.map(song => (
-              <div key={song.id} className="search-result-item" onClick={() => { playSong(song, publishedSongs); setSearch('') }}>
+              <div key={song.id} className="search-result-item" onClick={() => { playWithShuffle(song); setSearch('') }}> {/* ✅ */}
                 <img src={song.cover_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ fontSize: '13px', color: '#111', margin: 0, fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
