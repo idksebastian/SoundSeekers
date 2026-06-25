@@ -1,18 +1,43 @@
 import { createContext, useContext, useState, useRef, useEffect } from 'react'
 import { registerStream } from '../api/songs'
+import { supabase } from '../lib/supabase'
 
 const PlayerContext = createContext()
 
-function getPlayerKey(userId) { return `ss_player_${userId ?? 'guest'}` }
+// ✅ Guardar estado en Supabase
+async function savePlayerStateDB(userId, song, queue) {
+  if (!userId) return
+  try {
+    await supabase.from('player_state').upsert({
+      user_id: userId,
+      song,
+      queue,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'user_id' })
+  } catch {}
+}
 
-function savePlayerState(userId, song, queue) {
+// ✅ Cargar estado desde Supabase
+async function loadPlayerStateDB(userId) {
+  if (!userId) return null
+  try {
+    const { data } = await supabase
+      .from('player_state')
+      .select('song, queue')
+      .eq('user_id', userId)
+      .single()
+    return data ?? null
+  } catch { return null }
+}
+
+// ✅ Mantener localStorage como fallback rápido
+function getPlayerKey(userId) { return `ss_player_${userId ?? 'guest'}` }
+function savePlayerStateLocal(userId, song, queue) {
   try { localStorage.setItem(getPlayerKey(userId), JSON.stringify({ song, queue })) } catch {}
 }
-
-function loadPlayerState(userId) {
+function loadPlayerStateLocal(userId) {
   try { const saved = localStorage.getItem(getPlayerKey(userId)); return saved ? JSON.parse(saved) : null } catch { return null }
 }
-
 function clearPlayerState(userId) {
   try { localStorage.removeItem(getPlayerKey(userId)) } catch {}
 }
@@ -35,17 +60,28 @@ export function PlayerProvider({ children }) {
   const currentIndexRef = useRef(0)
   const shuffleRef = useRef(false)
   const repeatModeRef = useRef('none')
+  const saveTimeoutRef = useRef(null)
 
   useEffect(() => { queueRef.current = queue }, [queue])
   useEffect(() => { currentIndexRef.current = currentIndex }, [currentIndex])
   useEffect(() => { shuffleRef.current = shuffle }, [shuffle])
   useEffect(() => { repeatModeRef.current = repeatMode }, [repeatMode])
 
+  // ✅ Guardar en Supabase con debounce para no saturar
+  const savePlayerState = (userId, song, queue) => {
+    if (!userId) return
+    savePlayerStateLocal(userId, song, queue)
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+    saveTimeoutRef.current = setTimeout(() => {
+      savePlayerStateDB(userId, song, queue)
+    }, 2000)
+  }
+
   useEffect(() => {
     if (currentSong && activeUserId) savePlayerState(activeUserId, currentSong, queueRef.current)
   }, [currentSong, activeUserId])
 
-  // ✅ Media Session API — controles del teclado del PC
+  // ✅ Media Session API
   useEffect(() => {
     if (!currentSong) return
     if (!('mediaSession' in navigator)) return
@@ -85,15 +121,30 @@ export function PlayerProvider({ children }) {
     queueRef.current = []; currentIndexRef.current = 0
   }
 
-  const restoreForUser = (userId) => {
-    const saved = loadPlayerState(userId)
-    if (saved?.song) {
-      setCurrentSong(saved.song)
-      setQueue(saved.queue ?? [])
-      queueRef.current = saved.queue ?? []
+  // ✅ Restaurar desde Supabase primero, localStorage como fallback
+  const restoreForUser = async (userId) => {
+    // Primero cargar localStorage para respuesta inmediata
+    const local = loadPlayerStateLocal(userId)
+    if (local?.song) {
+      setCurrentSong(local.song)
+      setQueue(local.queue ?? [])
+      queueRef.current = local.queue ?? []
       setIsVisible(true); setIsPlaying(false)
-      const idx = (saved.queue ?? []).findIndex(s => s.id === saved.song.id)
+      const idx = (local.queue ?? []).findIndex(s => s.id === local.song.id)
       if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
+    }
+
+    // Luego cargar desde Supabase (más reciente, sincronizado entre dispositivos)
+    const remote = await loadPlayerStateDB(userId)
+    if (remote?.song) {
+      setCurrentSong(remote.song)
+      setQueue(remote.queue ?? [])
+      queueRef.current = remote.queue ?? []
+      setIsVisible(true); setIsPlaying(false)
+      const idx = (remote.queue ?? []).findIndex(s => s.id === remote.song.id)
+      if (idx !== -1) { setCurrentIndex(idx); currentIndexRef.current = idx }
+      // Sincronizar localStorage con el estado remoto
+      savePlayerStateLocal(userId, remote.song, remote.queue ?? [])
     }
   }
 
