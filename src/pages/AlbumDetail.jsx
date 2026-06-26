@@ -142,9 +142,11 @@ export default function AlbumDetail() {
               {/* Info */}
               <div className="flex-1 min-w-0 text-center sm:text-left">
                 <h1 className="text-2xl sm:text-3xl font-bold text-black mb-1">{album?.title}</h1>
+                <p className="text-sm font-medium text-gray-500 mb-1">
+                  {album?.artist_name || songs[0]?.display_artist || songs[0]?.artist_name}
+                </p>
                 {album?.description && <p className="text-gray-400 text-sm mb-3 line-clamp-2">{album.description}</p>}
 
-                {/* Fecha — ✅ emoji 📅 reemplazado por ícono calendario */}
                 {releaseDate && !isNaN(new Date(releaseDate.split('T')[0] + 'T00:00:00').getTime()) && (
                   <p className="text-sm text-gray-500 mb-4 flex items-center gap-1.5 justify-center sm:justify-start">
                     <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -200,7 +202,7 @@ export default function AlbumDetail() {
                     </span>
                   )}
                 </button>
-                {/* ✅ emoji 🔔 reemplazado por ícono campana */}
+
                 {presaved && (
                   <p className="text-xs text-purple-500 mt-2 flex items-center gap-1 justify-center sm:justify-start">
                     Recibirás una notificación cuando se publique
