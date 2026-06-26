@@ -157,6 +157,17 @@ export function PlayerProvider({ children }) {
     if (activeUserId) savePlayerState(activeUserId, song, songList ?? queueRef.current)
   }
 
+  // ✅ Añadir una canción a la cola (actualiza estado Y ref para que surta efecto)
+  const addToQueue = (song) => {
+    if (!song?.id) return false
+    if (queueRef.current.some(s => s.id === song.id)) return false
+    const newQueue = [...queueRef.current, song]
+    queueRef.current = newQueue
+    setQueue(newQueue)
+    if (activeUserId) savePlayerState(activeUserId, currentSong, newQueue)
+    return true
+  }
+
   const pauseSong = () => { audioRef.current?.pause(); setIsPlaying(false) }
 
   const playNext = async () => {
@@ -332,7 +343,7 @@ export function PlayerProvider({ children }) {
       isVisible, setIsVisible, isFullscreen, setIsFullscreen,
       playSong, pauseSong, playNext, playPrev,
       handleSeek, handleVolume, formatTime, audioRef,
-      setQueue, queue,
+      setQueue, queue, addToQueue,
       shuffle, setShuffle,
       repeatMode, cycleRepeat,
       stopAndClear, restoreForUser, setActiveUserId,

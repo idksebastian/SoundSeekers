@@ -64,7 +64,7 @@ export default function Player() {
     currentSong, isPlaying, isVisible, setIsVisible,
     isFullscreen, setIsFullscreen, volume, progress, duration,
     playSong, pauseSong, playNext, playPrev, handleSeek, handleVolume, formatTime,
-    queue, setQueue, audioRef,
+    queue, setQueue, addToQueue, audioRef,
     shuffle, setShuffle, repeatMode, cycleRepeat,
   } = usePlayer();
 
@@ -80,7 +80,7 @@ export default function Player() {
   const [prevVolume, setPrevVolume]       = useState(1);
   const [shared, setShared]               = useState(false);
   const [addedToQueue, setAddedToQueue]   = useState({});
-  const [songCredits, setSongCredits]     = useState({ credits: [], collaborators: [] }); // ✅ créditos
+  const [songCredits, setSongCredits]     = useState({ credits: [], collaborators: [] });
 
   const coverUrl    = currentSong?.cover_url || currentSong?.coverUrl || '';
   const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
@@ -92,7 +92,7 @@ export default function Player() {
     return extractColor(coverUrl, setDominantColor);
   }, [coverUrl]);
 
-  // ✅ Cargar estado del like al cambiar canción
+  // Cargar estado del like al cambiar canción
   useEffect(() => {
     if (!currentSong?.id || currentSong?.isSpotify) { setIsLiked(false); return; }
     const checkLike = async () => {
@@ -109,12 +109,11 @@ export default function Player() {
     checkLike();
   }, [currentSong?.id]);
 
-  // ✅ Cargar créditos y colaboradores de la canción
+  // Cargar créditos y colaboradores de la canción
   useEffect(() => {
     setSongCredits({ credits: [], collaborators: [] });
     if (!currentSong?.id || currentSong?.isSpotify) return;
 
-    // Si ya vienen en currentSong, úsalos directo
     if (currentSong.credits || currentSong.collaborators) {
       setSongCredits({
         credits: Array.isArray(currentSong.credits) ? currentSong.credits : [],
@@ -123,7 +122,6 @@ export default function Player() {
       return;
     }
 
-    // Si no, los buscamos en Supabase
     let cancelled = false;
     const fetchCredits = async () => {
       const { data } = await supabase
@@ -148,26 +146,55 @@ export default function Player() {
 
     const fetchData = async () => {
       try {
+        // FIX bug 2: resolver el user_id real del que subió el tema.
+        // Si currentSong no lo trae (caso presave desde card), lo buscamos en songs.
+        let ownerId = currentSong.user_id;
+        if (!ownerId) {
+          const { data: songRow } = await supabase
+            .from('songs')
+            .select('user_id')
+            .eq('id', currentSong.id)
+            .single();
+          ownerId = songRow?.user_id ?? null;
+        }
+
         const queries = [];
-        if (currentSong.user_id) {
-          queries.push(supabase.from('public_profiles').select('*').eq('user_id', currentSong.user_id).single());
+        if (ownerId) {
+          queries.push(supabase.from('public_profiles').select('*').eq('user_id', ownerId).single());
+        } else {
+          queries.push(Promise.resolve({ data: null }));
         }
         if (currentSong.album_id) {
-          queries.push(supabase.from('songs').select('id, title, cover_url, display_artist, audio_url, track_number, duration').eq('album_id', currentSong.album_id).order('track_number', { ascending: true }));
+          // FIX bug 1: solo canciones publicadas del álbum (no presave)
+          queries.push(
+            supabase.from('songs')
+              .select('id, title, cover_url, display_artist, audio_url, track_number, duration, status')
+              .eq('album_id', currentSong.album_id)
+              .eq('status', 'published')
+              .order('track_number', { ascending: true })
+          );
         } else {
           queries.push(Promise.resolve({ data: [] }));
         }
-        if (currentSong.user_id) {
-          let q = supabase.from('songs').select('id, title, cover_url, display_artist, audio_url').eq('user_id', currentSong.user_id).neq('id', currentSong.id).limit(4);
+        if (ownerId) {
+          // FIX bug 1: relacionadas solo publicadas
+          let q = supabase.from('songs')
+            .select('id, title, cover_url, display_artist, audio_url, status, user_id')
+            .eq('user_id', ownerId)
+            .eq('status', 'published')
+            .neq('id', currentSong.id)
+            .limit(4);
           if (currentSong.album_id) q = q.neq('album_id', currentSong.album_id);
           queries.push(q);
+        } else {
+          queries.push(Promise.resolve({ data: [] }));
         }
 
         const [profileRes, albumRes, relatedRes] = await Promise.all(queries);
         if (cancelled) return;
 
         if (profileRes?.data) {
-          const { data: songsData } = await supabase.from('songs').select('streams').eq('user_id', currentSong.user_id);
+          const { data: songsData } = await supabase.from('songs').select('streams').eq('user_id', ownerId);
           const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
           setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
         }
@@ -205,7 +232,7 @@ useEffect(() => {
     else { setPrevVolume(volume); handleVolume({ target: { value: 0 } }); setIsMuted(true); }
   }, [isMuted, volume, prevVolume]);
 
-  // ✅ Like persiste en Supabase
+  // Like persiste en Supabase
   const handleLike = async () => {
     if (!currentSong?.id || currentSong?.isSpotify || likingLoading) return;
     const { data: { session } } = await supabase.auth.getSession();
@@ -237,14 +264,14 @@ useEffect(() => {
     } catch {}
   };
 
+  // FIX bug 3: usa addToQueue del contexto (actualiza queueRef + estado)
   const handleAddToQueue = (song, e) => {
     e.stopPropagation();
-    setQueue(prev => {
-      if (prev.some(s => s.id === song.id)) return prev;
-      return [...prev, song];
-    });
-    setAddedToQueue(prev => ({ ...prev, [song.id]: true }));
-    setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000);
+    const added = addToQueue(song);
+    if (added) {
+      setAddedToQueue(prev => ({ ...prev, [song.id]: true }));
+      setTimeout(() => setAddedToQueue(prev => ({ ...prev, [song.id]: false })), 2000);
+    }
   };
 
   const handleClose = (e) => {
@@ -323,7 +350,6 @@ useEffect(() => {
                     )}
                   </div>
                   <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-                    {/* ✅ Like conectado a Supabase */}
                     <button onClick={handleLike} disabled={likingLoading} className="p-2 hover:scale-110 transition-transform">
                       <Heart className={`w-6 h-6 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-white/50 hover:text-white'}`} />
                     </button>
@@ -346,7 +372,6 @@ useEffect(() => {
                 </div>
 
                 <div className="flex items-center justify-between mb-5">
-                  {/* ✅ Shuffle funcional desde contexto */}
                   <button onClick={() => setShuffle(p => !p)} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${shuffle ? 'text-purple-600' : 'text-white/50 hover:text-white'}`}>
                     <Shuffle className="w-5 h-5" />
                   </button>
@@ -362,7 +387,6 @@ useEffect(() => {
                       <SkipForward className="w-7 h-7" fill="currentColor" />
                     </button>
                   </div>
-                  {/* ✅ Repeat funcional desde contexto */}
                   <button onClick={cycleRepeat} className={`p-2 rounded-full transition-colors hover:bg-white/10 ${repeatMode !== 'none' ? 'text-purple-600' : 'text-white/50 hover:text-white'}`}>
                     <RepeatIcon className="w-5 h-5" />
                   </button>
@@ -473,7 +497,7 @@ useEffect(() => {
                 </section>
               )}
 
-              {/* ✅ CRÉDITOS DE LA CANCIÓN */}
+              {/* CRÉDITOS DE LA CANCIÓN */}
               {(songCredits.credits.length > 0 || songCredits.collaborators.length > 0) && (
                 <section className="bg-white/5 border border-white/10 rounded-3xl p-8">
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
@@ -481,7 +505,6 @@ useEffect(() => {
                     <span>Créditos</span>
                   </div>
 
-                  {/* Colaboradores / artistas */}
                   {songCredits.collaborators.length > 0 && (
                     <div className="mb-6">
                       <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold mb-3">Artistas</p>
@@ -498,7 +521,6 @@ useEffect(() => {
                     </div>
                   )}
 
-                  {/* Créditos por rol */}
                   {songCredits.credits.length > 0 && (
                     <div className="space-y-2">
                       <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold mb-1">Equipo</p>
@@ -558,7 +580,8 @@ useEffect(() => {
                       )}
                     </div>
                     <div className="flex-1 text-center md:text-left">
-                      <h2 className="text-3xl font-black mb-1">{artistInfo.artist_name || artistName}</h2>
+                      {/* FIX bug 2: usa el nombre del perfil real, no el display_artist de la canción */}
+                      <h2 className="text-3xl font-black mb-1">{artistInfo.artist_name || 'Artista'}</h2>
                       {artistInfo.artist_genre && <p className="text-xs text-white/40 uppercase tracking-widest mb-4">{artistInfo.artist_genre}</p>}
                       <p className="text-white/55 leading-relaxed max-w-xl mb-6 text-sm">{artistInfo.artist_bio || 'Este artista aún no ha añadido una biografía.'}</p>
                       <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-6 gap-y-4">
@@ -592,7 +615,8 @@ useEffect(() => {
                 <section>
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
                     <Music2 className="w-4 h-4" />
-                    <span>Más de {artistName}</span>
+                    {/* FIX bug 2: el título usa el nombre real del artista si está disponible */}
+                    <span>Más de {artistInfo?.artist_name || artistName}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {relatedSongs.map(song => (
@@ -609,6 +633,7 @@ useEffect(() => {
                           <p className="text-xs text-white/40 truncate mt-0.5">{song.display_artist}</p>
                         </div>
                         <button onClick={(e) => handleAddToQueue(song, e)}
+                          title="Añadir a la cola"
                           className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all hover:bg-white/10 flex-shrink-0">
                           {addedToQueue[song.id] ? <Check className="w-4 h-4 text-purple-600" /> : <Plus className="w-4 h-4 text-white/60 hover:text-white" />}
                         </button>
@@ -659,7 +684,6 @@ useEffect(() => {
               </div>
             </div>
 
-            {/* ✅ Like en mini player conectado a Supabase */}
             <button onClick={handleLike} disabled={likingLoading} className="p-2 flex-shrink-0">
               <Heart className={`w-5 h-5 transition-colors ${isLiked ? 'fill-purple-600 text-purple-600' : 'text-gray-300 hover:text-gray-500'}`} />
             </button>
