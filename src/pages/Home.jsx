@@ -58,11 +58,15 @@ async function addToHistory(item, userId) {
     }
   } catch (err) { console.error(err) }
 }
+
+// ✅ FIX punto 4: normaliza la fecha (venga con o sin "T") y blinda contra NaN
 function PresaveCountdown({ releaseDate }) {
   const [t, setT] = useState(null)
   useEffect(() => {
     if (!releaseDate) return
-    const target = new Date(releaseDate + 'T00:00:00').getTime()
+    const dateOnly = String(releaseDate).split('T')[0]
+    const target = new Date(dateOnly + 'T00:00:00').getTime()
+    if (isNaN(target)) { setT(null); return }
     const calc = () => {
       const diff = target - Date.now()
       if (diff <= 0) { setT(null); return }
@@ -75,7 +79,9 @@ function PresaveCountdown({ releaseDate }) {
     <div style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
       {[{ val: t.days, label: 'd' }, { val: t.hours, label: 'h' }].map(({ val, label }) => (
         <div key={label} style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', lineHeight: 1 }}>{String(val).padStart(2, '0')}</div>
+          <div style={{ fontSize: '18px', fontWeight: '800', color: '#fff', lineHeight: 1 }}>
+            {String(Number.isFinite(val) ? val : 0).padStart(2, '0')}
+          </div>
           <div style={{ fontSize: '9px', color: 'rgba(196,181,253,0.8)', fontWeight: '600' }}>{label}</div>
         </div>
       ))}
@@ -132,7 +138,6 @@ export default function Home() {
     cover: currentSong.cover_url,
     artist: currentSong.display_artist || currentSong.artist_name,
     songObj: currentSong,
-    // Guardar album_id por si se quiere navegar al álbum en el futuro
     album_id: currentSong.album_id ?? null,
   }
   addToHistory(item, user.id).then(() => {
@@ -300,7 +305,6 @@ export default function Home() {
 
   const userName = profileName ?? user?.user_metadata?.artist_name ?? user?.user_metadata?.name ?? user?.email?.split('@')[0]
 
-  // ✅ playWithShuffle — definida aquí, accesible en todo el componente
   const playWithShuffle = (song) => {
     const rest = [...publishedSongs.filter(s => s.id !== song.id)].sort(() => Math.random() - 0.5)
     playSong(song, [song, ...rest])
@@ -326,7 +330,7 @@ export default function Home() {
         ? `${topSong.weeklyStreams.toLocaleString()} reproducciones esta semana · ${topSong?.genre ?? ''}`
         : `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
       img: topSong?.cover_url ?? null,
-      action: () => topSong && playWithShuffle(topSong), // ✅
+      action: () => topSong && playWithShuffle(topSong),
       btnLabel: 'Reproducir',
     },
     {
@@ -354,7 +358,7 @@ export default function Home() {
       finally { setPresaving(null) }
       return
     }
-    playWithShuffle(item.data) // ✅
+    playWithShuffle(item.data)
   }
 
   return (
@@ -554,7 +558,7 @@ export default function Home() {
         {searchResults.length > 0 && (
           <div className="search-results">
             {searchResults.map(song => (
-              <div key={song.id} className="search-result-item" onClick={() => { playWithShuffle(song); setSearch('') }}> {/* ✅ */}
+              <div key={song.id} className="search-result-item" onClick={() => { playWithShuffle(song); setSearch('') }}>
                 <img src={song.cover_url} alt="" style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ fontSize: '13px', color: '#111', margin: 0, fontWeight: '700', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
@@ -622,8 +626,26 @@ export default function Home() {
     style={{ background: 'linear-gradient(160deg, rgba(26,5,51,0.92) 0%, rgba(45,27,105,0.88) 100%)', cursor: 'pointer' }}
     onClick={e => { e.stopPropagation(); handlePlayItem(item) }}>
     <PresaveCountdown releaseDate={d.presave_date || d.release_date} />
-    <span className="presave-badge" style={{ background: 'rgba(124,58,237,0.9)', backdropFilter: 'blur(4px)' }}>
-      {isAlbumPresave ? 'Ver lanzamiento →' : (presaving === d.id ? '...' : isSaved ? '✓ Guardado' : '+ Preguardar')}
+    {/* ✅ FIX punto 3: emojis reemplazados por íconos SVG */}
+    <span className="presave-badge" style={{ background: 'rgba(124,58,237,0.9)', backdropFilter: 'blur(4px)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+      {isAlbumPresave ? (
+        <>
+          Ver lanzamiento
+          <svg width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </>
+      ) : presaving === d.id ? (
+        <svg width="9" height="9" className="animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25"/><path fill="currentColor" opacity="0.75" d="M4 12a8 8 0 018-8v8z"/></svg>
+      ) : isSaved ? (
+        <>
+          <svg width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+          Guardado
+        </>
+      ) : (
+        <>
+          <svg width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Preguardar
+        </>
+      )}
     </span>
   </div>
 ) : (
@@ -641,10 +663,14 @@ export default function Home() {
                     {!isAlbum && !isPresave && d.genre && <span className="card-tag">{d.genre}</span>}
                   </div>
                   <p className="grid-card-title">{d.title}</p>
-                  <p className="grid-card-sub">
+                  <p className="grid-card-sub" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                     {isAlbum
                       ? (isAlbumPresave ? 'Próximamente' : `${d.release_date ? new Date(d.release_date).getFullYear() : '—'}`)
-                      : (isPresave ? (isSaved ? 'Presave Hecho' : 'Hacer Presave →') : (d.display_artist || d.artist_name))
+                      : (isPresave
+                          ? (isSaved
+                              ? 'Presave hecho'
+                              : <>Hacer presave <svg width="9" height="9" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg></>)
+                          : (d.display_artist || d.artist_name))
                     }
                   </p>
                 </div>

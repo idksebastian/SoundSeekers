@@ -106,7 +106,7 @@ export default function AlbumDetail() {
         </button>
 
         {isPresave ? (
-          // ── ✅ DISEÑO PRESAVE MODO CLARO ──
+          // ── DISEÑO PRESAVE MODO CLARO ──
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
 
             {/* Banner morado suave arriba */}
@@ -144,10 +144,13 @@ export default function AlbumDetail() {
                 <h1 className="text-2xl sm:text-3xl font-bold text-black mb-1">{album?.title}</h1>
                 {album?.description && <p className="text-gray-400 text-sm mb-3 line-clamp-2">{album.description}</p>}
 
-                {/* Fecha */}
+                {/* Fecha — ✅ emoji 📅 reemplazado por ícono calendario */}
                 {releaseDate && !isNaN(new Date(releaseDate.split('T')[0] + 'T00:00:00').getTime()) && (
-                  <p className="text-sm text-gray-500 mb-4">
-                    📅 {new Date(releaseDate.split('T')[0] + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  <p className="text-sm text-gray-500 mb-4 flex items-center gap-1.5 justify-center sm:justify-start">
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                    {new Date(releaseDate.split('T')[0] + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}
                   </p>
                 )}
 
@@ -164,7 +167,7 @@ export default function AlbumDetail() {
                       ].map(({ val, label }) => (
                         <div key={label} style={{ textAlign: 'center', minWidth: '44px', background: '#f5f3ff', borderRadius: '12px', padding: '8px 6px', border: '1px solid #ede9fe' }}>
                           <div style={{ fontSize: '22px', fontWeight: '800', color: '#7c3aed', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                            {String(val).padStart(2, '0')}
+                            {String(Number.isFinite(val) ? val : 0).padStart(2, '0')}
                           </div>
                           <div style={{ fontSize: '10px', color: '#9ca3af', fontWeight: '600', marginTop: '2px' }}>{label}</div>
                         </div>
@@ -197,7 +200,15 @@ export default function AlbumDetail() {
                     </span>
                   )}
                 </button>
-                {presaved && <p className="text-xs text-purple-500 mt-2">Recibirás una notificación cuando se publique 🔔</p>}
+                {/* ✅ emoji 🔔 reemplazado por ícono campana */}
+                {presaved && (
+                  <p className="text-xs text-purple-500 mt-2 flex items-center gap-1 justify-center sm:justify-start">
+                    Recibirás una notificación cuando se publique
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+                    </svg>
+                  </p>
+                )}
               </div>
             </div>
 

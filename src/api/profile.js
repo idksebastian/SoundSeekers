@@ -36,7 +36,13 @@ export async function updateProfile({ name, artistName, artistNameChanged, avata
     avatar_url = data.publicUrl
   }
 
-  const { error: authError } = await supabase.auth.updateUser({ data: { name, avatar_url } })
+  // ✅ FIX punto 2: guardar también artist_name en el metadata del auth,
+  // así cualquier upsert de respaldo (ej. toggleFollow) usa el nombre actualizado
+  // y nunca reescribe profiles con un artist_name viejo.
+  const authData = { name, avatar_url }
+  if (artistNameChanged && artistName) authData.artist_name = artistName
+
+  const { error: authError } = await supabase.auth.updateUser({ data: authData })
   if (authError) throw authError
 
   const roleUpdate = { description, instagram, twitter, tiktok, youtube, website }
@@ -58,13 +64,17 @@ export async function updateProfile({ name, artistName, artistNameChanged, avata
     .eq('user_id', session.user.id)
   if (roleError) throw roleError
 
+  // ✅ FIX punto 2: el upsert de profiles es la fuente de verdad que leen
+  // los seguidores. Aquí guardamos el nombre nuevo siempre.
   await supabase
     .from('profiles')
     .upsert({
       user_id: session.user.id,
       name,
       avatar_url,
-      artist_name: artistName ?? session.user.user_metadata?.artist_name
+      artist_name: (artistNameChanged && artistName)
+        ? artistName
+        : (session.user.user_metadata?.artist_name ?? null)
     })
 }
 
@@ -103,8 +113,6 @@ export async function isFollowing(followingId) {
   return !!data
 }
 
-// profiles.js — reemplaza la función toggleFollow completa
-
 export async function toggleFollow(followingId) {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) throw new Error('No hay sesión activa')
@@ -142,7 +150,9 @@ export async function toggleFollow(followingId) {
       reference_id: null
     }])
 
-    // Si el perfil no existía aún, crearlo con datos mínimos del auth
+    // ✅ FIX punto 2: solo crear el perfil con datos del auth si NO existe.
+    // Si ya existe, NUNCA lo sobreescribimos (antes esto podía pisar el
+    // artist_name actualizado con un valor viejo del metadata).
     if (!profileExists) {
       await supabase.from('profiles').upsert({
         user_id: session.user.id,
@@ -182,10 +192,10 @@ export async function getPublicProfileStreams(userId) {
   return count ?? 0
 }
 
-// ── CORREGIDO: query en dos pasos para evitar el JOIN anidado que devuelve null ──
+// ── Lee perfiles SIEMPRE frescos desde profiles por user_id ──
+// (esto ya estaba correcto: nunca guarda copias del nombre en follows)
 
 export async function getFollowers(userId) {
-  // Paso 1: obtener los IDs de quienes siguen a userId
   const { data: follows, error } = await supabase
     .from('follows')
     .select('follower_id')
@@ -195,7 +205,6 @@ export async function getFollowers(userId) {
 
   const followerIds = follows.map(f => f.follower_id)
 
-  // Paso 2: obtener los perfiles de esos IDs
   const { data: profiles } = await supabase
     .from('profiles')
     .select('user_id, name, artist_name, avatar_url')
@@ -205,7 +214,6 @@ export async function getFollowers(userId) {
 }
 
 export async function getFollowing(userId) {
-  // Paso 1: obtener los IDs a quienes sigue userId
   const { data: follows, error } = await supabase
     .from('follows')
     .select('following_id')
@@ -215,7 +223,6 @@ export async function getFollowing(userId) {
 
   const followingIds = follows.map(f => f.following_id)
 
-  // Paso 2: obtener los perfiles de esos IDs
   const { data: profiles } = await supabase
     .from('profiles')
     .select('user_id, name, artist_name, avatar_url')
