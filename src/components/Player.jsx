@@ -80,6 +80,7 @@ export default function Player() {
   const [prevVolume, setPrevVolume]       = useState(1);
   const [shared, setShared]               = useState(false);
   const [addedToQueue, setAddedToQueue]   = useState({});
+  const [songCredits, setSongCredits]     = useState({ credits: [], collaborators: [] }); // ✅ créditos
 
   const coverUrl    = currentSong?.cover_url || currentSong?.coverUrl || '';
   const artistName  = currentSong?.display_artist || currentSong?.artist_name || currentSong?.artist || 'Artista';
@@ -106,6 +107,38 @@ export default function Player() {
       setIsLiked(!!data);
     };
     checkLike();
+  }, [currentSong?.id]);
+
+  // ✅ Cargar créditos y colaboradores de la canción
+  useEffect(() => {
+    setSongCredits({ credits: [], collaborators: [] });
+    if (!currentSong?.id || currentSong?.isSpotify) return;
+
+    // Si ya vienen en currentSong, úsalos directo
+    if (currentSong.credits || currentSong.collaborators) {
+      setSongCredits({
+        credits: Array.isArray(currentSong.credits) ? currentSong.credits : [],
+        collaborators: Array.isArray(currentSong.collaborators) ? currentSong.collaborators : [],
+      });
+      return;
+    }
+
+    // Si no, los buscamos en Supabase
+    let cancelled = false;
+    const fetchCredits = async () => {
+      const { data } = await supabase
+        .from('songs')
+        .select('credits, collaborators')
+        .eq('id', currentSong.id)
+        .single();
+      if (cancelled || !data) return;
+      setSongCredits({
+        credits: Array.isArray(data.credits) ? data.credits : [],
+        collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
+      });
+    };
+    fetchCredits();
+    return () => { cancelled = true; };
   }, [currentSong?.id]);
 
   useEffect(() => {
@@ -165,7 +198,7 @@ useEffect(() => {
   };
   window.addEventListener('keydown', onKey);
   return () => window.removeEventListener('keydown', onKey);
-}, [isPlaying, volume, isFullscreen, showQueue, currentSong, playNext, playPrev]); // ✅ agregar playNext, playPrev
+}, [isPlaying, volume, isFullscreen, showQueue, currentSong, playNext, playPrev]);
 
   const handleMuteToggle = useCallback(() => {
     if (isMuted) { handleVolume({ target: { value: prevVolume } }); setIsMuted(false); }
@@ -435,6 +468,46 @@ useEffect(() => {
                         </div>
                         <Play className="w-5 h-5 text-white/40 group-hover:text-white transition-colors flex-shrink-0" />
                       </div>
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {/* ✅ CRÉDITOS DE LA CANCIÓN */}
+              {(songCredits.credits.length > 0 || songCredits.collaborators.length > 0) && (
+                <section className="bg-white/5 border border-white/10 rounded-3xl p-8">
+                  <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
+                    <Mic2 className="w-4 h-4" />
+                    <span>Créditos</span>
+                  </div>
+
+                  {/* Colaboradores / artistas */}
+                  {songCredits.collaborators.length > 0 && (
+                    <div className="mb-6">
+                      <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold mb-3">Artistas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {songCredits.collaborators.map((c, i) => (
+                          <span key={i} className="inline-flex items-center gap-1.5 bg-white/8 border border-white/10 rounded-full pl-1.5 pr-3 py-1">
+                            <span className="w-5 h-5 rounded-full bg-purple-600/40 flex items-center justify-center text-[10px] font-black uppercase">
+                              {c.name?.[0] ?? '?'}
+                            </span>
+                            <span className="text-xs font-semibold text-white/80">{c.name}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Créditos por rol */}
+                  {songCredits.credits.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold mb-1">Equipo</p>
+                      {songCredits.credits.map((c, i) => (
+                        <div key={i} className="flex items-center justify-between py-2 px-3 rounded-xl bg-white/5 border border-white/5">
+                          <span className="text-sm font-semibold text-white/85">{c.name}</span>
+                          <span className="text-[11px] text-white/40 uppercase tracking-wider font-bold">{c.role}</span>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </section>
