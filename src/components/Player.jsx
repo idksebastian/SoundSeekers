@@ -5,7 +5,7 @@ import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
   Volume2, VolumeX, ListMusic, Mic2, Disc, Share2,
   MoreHorizontal, ChevronsDown, Shuffle, Repeat, Repeat1,
-  Heart, Plus, Star, TrendingUp, Music2, Check, X
+  Heart, Plus, Star, TrendingUp, Music2, Check, X,  ExternalLink
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -110,34 +110,36 @@ export default function Player() {
   }, [currentSong?.id]);
 
   // Cargar créditos y colaboradores de la canción
-  useEffect(() => {
-    setSongCredits({ credits: [], collaborators: [] });
-    if (!currentSong?.id || currentSong?.isSpotify) return;
+useEffect(() => {
+  setSongCredits({ credits: [], collaborators: [] });
+  if (!currentSong?.id || currentSong?.isSpotify) return;
 
-    if (currentSong.credits || currentSong.collaborators) {
-      setSongCredits({
-        credits: Array.isArray(currentSong.credits) ? currentSong.credits : [],
-        collaborators: Array.isArray(currentSong.collaborators) ? currentSong.collaborators : [],
-      });
-      return;
-    }
+  if (currentSong.credits || currentSong.collaborators) {
+    setSongCredits({
+      credits: Array.isArray(currentSong.credits) ? currentSong.credits : [],
+      collaborators: Array.isArray(currentSong.collaborators) ? currentSong.collaborators : [],
+    });
+    return;
+  }
 
-    let cancelled = false;
-    const fetchCredits = async () => {
-      const { data } = await supabase
-        .from('songs')
-        .select('credits, collaborators')
-        .eq('id', currentSong.id)
-        .single();
-      if (cancelled || !data) return;
-      setSongCredits({
-        credits: Array.isArray(data.credits) ? data.credits : [],
-        collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
-      });
-    };
-    fetchCredits();
-    return () => { cancelled = true; };
-  }, [currentSong?.id]);
+  // ← eliminar el await suelto que quedó aquí arriba
+
+  let cancelled = false;
+  const fetchCredits = async () => {
+    const { data } = await supabase
+      .from('songs')
+      .select('credits, collaborators')
+      .eq('id', currentSong.id)
+      .single();
+    if (cancelled || !data) return;
+    setSongCredits({
+      credits: Array.isArray(data.credits) ? data.credits : [],
+      collaborators: Array.isArray(data.collaborators) ? data.collaborators : [],
+    });
+  };
+  fetchCredits();
+  return () => { cancelled = true; };
+}, [currentSong?.id]);
 
   useEffect(() => {
     setArtistInfo(null); setRelatedSongs([]); setAlbumTracks([]); setNextSong(null);
@@ -177,27 +179,33 @@ export default function Player() {
           queries.push(Promise.resolve({ data: [] }));
         }
         if (ownerId) {
-          // FIX bug 1: relacionadas solo publicadas
-          let q = supabase.from('songs')
-            .select('id, title, cover_url, display_artist, audio_url, status, user_id')
-            .eq('user_id', ownerId)
-            .eq('status', 'published')
-            .neq('id', currentSong.id)
-            .limit(4);
-          if (currentSong.album_id) q = q.neq('album_id', currentSong.album_id);
-          queries.push(q);
-        } else {
+  const q = supabase.from('songs')
+    .select('id, title, cover_url, display_artist, audio_url, status, user_id')
+    .eq('user_id', ownerId)
+    .eq('status', 'published')
+    .neq('id', currentSong.id)
+    .limit(4);
+  queries.push(q);
+}else {
           queries.push(Promise.resolve({ data: [] }));
         }
 
         const [profileRes, albumRes, relatedRes] = await Promise.all(queries);
         if (cancelled) return;
 
-        if (profileRes?.data) {
-          const { data: songsData } = await supabase.from('songs').select('streams').eq('user_id', ownerId);
-          const totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
-          setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
-        }
+        let totalStreams = 0;
+if (ownerId) {
+  const { data: songsData, error: streamsError } = await supabase
+    .from('songs')
+    .select('streams')
+    .eq('user_id', ownerId)
+    .eq('status', 'published');
+  if (streamsError) console.error('streams fetch error:', streamsError);
+  totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
+}
+if (profileRes?.data) {
+  setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
+}
 
         if (albumRes?.data?.length) setAlbumTracks(albumRes.data);
         if (relatedRes?.data?.length) setRelatedSongs(relatedRes.data);
@@ -509,14 +517,23 @@ useEffect(() => {
                     <div className="mb-6">
                       <p className="text-[10px] uppercase tracking-widest text-white/30 font-bold mb-3">Artistas</p>
                       <div className="flex flex-wrap gap-2">
-                        {songCredits.collaborators.map((c, i) => (
-                          <span key={i} className="inline-flex items-center gap-1.5 bg-white/8 border border-white/10 rounded-full pl-1.5 pr-3 py-1">
-                            <span className="w-5 h-5 rounded-full bg-purple-600/40 flex items-center justify-center text-[10px] font-black uppercase">
-                              {c.name?.[0] ?? '?'}
-                            </span>
-                            <span className="text-xs font-semibold text-white/80">{c.name}</span>
-                          </span>
-                        ))}
+                        {songCredits.collaborators.map((c, i) => {
+  const profilePath = c.username ? `/artist/${c.username}` : c.user_id ? `/artist/${c.user_id}` : null;
+  const Wrapper = profilePath ? 'a' : 'span';
+  return (
+    <Wrapper
+      key={i}
+      href={profilePath || undefined}
+      className={`inline-flex items-center gap-1.5 bg-white/8 border border-white/10 rounded-full pl-1.5 pr-3 py-1 transition-colors ${profilePath ? 'hover:bg-white/15 hover:border-white/20 cursor-pointer' : ''}`}
+    >
+      <span className="w-5 h-5 rounded-full bg-purple-600/40 flex items-center justify-center text-[10px] font-black uppercase">
+        {c.name?.[0] ?? '?'}
+      </span>
+      <span className="text-xs font-semibold text-white/80">{c.name}</span>
+      {profilePath && <ExternalLink className="w-3 h-3 text-white/30" />}
+    </Wrapper>
+  );
+})}
                       </div>
                     </div>
                   )}
@@ -570,9 +587,15 @@ useEffect(() => {
                   </div>
                   <div className="flex flex-col md:flex-row gap-8 items-center md:items-start">
                     <div className="relative flex-shrink-0">
-                      <div className="w-36 h-36 rounded-full overflow-hidden shadow-2xl ring-4 ring-white/10">
-                        <img src={artistInfo.avatar_url || coverUrl} alt={artistInfo.artist_name} className="w-full h-full object-cover" />
-                      </div>
+                      <div className="w-36 h-36 rounded-full overflow-hidden shadow-2xl ring-4 ring-white/10 bg-white/10 flex items-center justify-center flex-shrink-0">
+  {artistInfo.avatar_url ? (
+    <img src={artistInfo.avatar_url} alt={artistInfo.artist_name} className="w-full h-full object-cover" />
+  ) : (
+    <span className="text-5xl font-black text-white/60 select-none">
+      {(artistInfo.artist_name || artistName)?.[0]?.toUpperCase() ?? '?'}
+    </span>
+  )}
+</div>
                       {artistInfo.is_featured && (
                         <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-yellow-400 text-black text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full shadow-lg whitespace-nowrap">
                           <Star className="w-2.5 h-2.5" fill="currentColor" /> Artista de la semana
@@ -581,7 +604,9 @@ useEffect(() => {
                     </div>
                     <div className="flex-1 text-center md:text-left">
                       {/* FIX bug 2: usa el nombre del perfil real, no el display_artist de la canción */}
-                      <h2 className="text-3xl font-black mb-1">{artistInfo.artist_name || 'Artista'}</h2>
+                     <h2 className="text-3xl font-black mb-1">
+  {artistInfo.artist_name || currentSong.display_artist || 'Artista'}
+</h2>
                       {artistInfo.artist_genre && <p className="text-xs text-white/40 uppercase tracking-widest mb-4">{artistInfo.artist_genre}</p>}
                       <p className="text-white/55 leading-relaxed max-w-xl mb-6 text-sm">{artistInfo.artist_bio || 'Este artista aún no ha añadido una biografía.'}</p>
                       <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-6 gap-y-4">
@@ -616,7 +641,7 @@ useEffect(() => {
                   <div className="flex items-center gap-2 mb-6 text-white/50 uppercase text-[10px] font-bold tracking-widest">
                     <Music2 className="w-4 h-4" />
                     {/* FIX bug 2: el título usa el nombre real del artista si está disponible */}
-                    <span>Más de {artistInfo?.artist_name || artistName}</span>
+                    <span>Más de {artistInfo?.artist_name || currentSong.display_artist || artistName}</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {relatedSongs.map(song => (
