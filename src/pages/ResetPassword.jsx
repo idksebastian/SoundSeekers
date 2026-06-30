@@ -8,28 +8,23 @@ export default function ResetPassword() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [done, setDone] = useState(false)
-  const [status, setStatus] = useState('checking') // 'checking' | 'ready' | 'invalid'
+  const [status, setStatus] = useState('checking')
   const navigate = useNavigate()
 
   useEffect(() => {
-    // ✅ FIX: Supabase deposita el access_token en el fragmento de la URL
-    // (#access_token=...&type=recovery). El SDK necesita procesarlo ANTES
-    // de que podamos confiar en cualquier llamada a auth. Por eso:
-    //   1. Escuchamos el evento PASSWORD_RECOVERY, que SOLO se dispara
-    //      cuando el link vino de un correo de recuperación (no de un
-    //      login normal). Esto es lo que evita el "auto-login": en vez
-    //      de asumir que cualquier sesión activa significa "ya inició
-    //      sesión, llévalo a /home", esperamos esta señal específica.
-    //   2. Como fallback, si el evento ya se disparó antes de que este
-    //      componente montara (carrera de timing), revisamos si ya hay
-    //      sesión Y si la URL contiene type=recovery en el hash.
-    //   3. Si después de un tiempo razonable no hay ni evento ni sesión
-    //      con hash de recovery, marcamos el link como inválido/expirado
-    //      en vez de lanzar "Auth session missing" sin explicación.
+    // ════════ BLOQUE DE DEBUG TEMPORAL — quitar después de diagnosticar ════════
+    console.log('[RESET DEBUG] ResetPassword montado')
+    console.log('[RESET DEBUG] URL completa:', window.location.href)
+    console.log('[RESET DEBUG] hash:', window.location.hash)
+    console.log('[RESET DEBUG] pathname:', window.location.pathname)
+    // ════════════════════════════════════════════════════════════════════════════
+
     let resolved = false
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('[RESET DEBUG] onAuthStateChange disparado. event =', event, '| session existe?', !!session)
       if (event === 'PASSWORD_RECOVERY') {
+        console.log('[RESET DEBUG] PASSWORD_RECOVERY recibido correctamente, mostrando formulario')
         resolved = true
         setStatus('ready')
       }
@@ -38,24 +33,32 @@ export default function ResetPassword() {
     const checkInitial = async () => {
       const hash = window.location.hash
       const hasRecoveryHash = hash.includes('type=recovery')
+      console.log('[RESET DEBUG] checkInitial → hasRecoveryHash:', hasRecoveryHash)
       const { data: { session } } = await supabase.auth.getSession()
+      console.log('[RESET DEBUG] checkInitial → session existe?', !!session, session)
 
-      if (resolved) return
+      if (resolved) {
+        console.log('[RESET DEBUG] checkInitial → ya resuelto por evento, saliendo')
+        return
+      }
       if (session && hasRecoveryHash) {
+        console.log('[RESET DEBUG] checkInitial → fallback activado: session + hash recovery')
         setStatus('ready')
         resolved = true
         return
       }
 
-      // Dar un margen de 2.5s para que onAuthStateChange dispare
-      // PASSWORD_RECOVERY antes de declarar el link inválido.
       setTimeout(() => {
+        console.log('[RESET DEBUG] timeout 2.5s alcanzado. resolved =', resolved)
         if (!resolved) setStatus(prev => prev === 'checking' ? 'invalid' : prev)
       }, 2500)
     }
     checkInitial()
 
-    return () => subscription.unsubscribe()
+    return () => {
+      console.log('[RESET DEBUG] ResetPassword desmontado')
+      subscription.unsubscribe()
+    }
   }, [])
 
   const validar = () => {
@@ -74,10 +77,6 @@ export default function ResetPassword() {
 
     setLoading(true)
     try {
-      // ✅ Verificar que la nueva contraseña sea diferente a la actual.
-      // Supabase no expone un check directo, así que lo hacemos
-      // intentando un signIn silencioso con la "nueva" contraseña contra
-      // la sesión de recovery: si funciona, es porque ya era la misma.
       const { data: { user } } = await supabase.auth.getUser()
       if (user?.email) {
         const { error: sameError } = await supabase.auth.signInWithPassword({
@@ -94,9 +93,6 @@ export default function ResetPassword() {
       if (updateError) throw updateError
 
       setDone(true)
-      // ✅ Cerrar la sesión de recovery explícitamente: el usuario debe
-      // iniciar sesión manualmente con su nueva contraseña, no quedar
-      // logueado automáticamente por la sesión que generó el link.
       await supabase.auth.signOut()
       setTimeout(() => navigate('/login'), 3000)
     } catch (err) {
