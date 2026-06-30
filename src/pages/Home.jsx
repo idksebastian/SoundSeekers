@@ -794,7 +794,7 @@ export default function Home() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p className="footer-copy">SoundSeekers © 2026. Todos los derechos reservados.</p>
+            <p className="footer-copy">© 2026 SoundSeekers. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>
