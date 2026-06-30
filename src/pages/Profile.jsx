@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getProfile, getFollowStats, getSongStreams, getFollowers, getFollowing, toggleFollow } from '../api/profile'
+import { getProfile, getFollowStats, getSongStreams } from '../api/profile'
 import { getUserRole, createListenerRole, updateArtistMood, getArtistLevel, getListenerLevel } from '../api/roles'
 import { getMySongs, deleteSong } from '../api/songs'
 import { getArtistAlbums } from '../api/albums'
@@ -16,65 +16,6 @@ const LISTENER_LEVELS = [
   { label: 'Melómano', desc: '20 reproducciones', min: 20, color: '#0891b2', bg: '#ecfeff', border: '#a5f3fc', icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0118 0v6"/><path d="M21 19a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3zM3 19a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3z"/></svg>) },
   { label: 'Descubridor', desc: '50 reproducciones', min: 50, color: '#d97706', bg: '#fffbeb', border: '#fde68a', icon: (<svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>) },
 ]
-
-function FollowModal({ title, users: initialUsers, onClose, onNavigate, currentUserId }) {
-  const [users, setUsers] = useState(initialUsers)
-  const [loadingFollow, setLoadingFollow] = useState({})
-  useEffect(() => { setUsers(initialUsers) }, [initialUsers])
-  const handleToggle = async (e, targetUserId) => {
-    e.stopPropagation()
-    if (!currentUserId) return
-    setLoadingFollow(prev => ({ ...prev, [targetUserId]: true }))
-    try {
-      const newStatus = await toggleFollow(targetUserId)
-      setUsers(prev => prev.map(u => u.user_id === targetUserId ? { ...u, is_following: newStatus } : u))
-    } catch (err) { console.error(err) }
-    finally { setLoadingFollow(prev => ({ ...prev, [targetUserId]: false })) }
-  }
-  return (
-    <>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={onClose}/>
-      <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px' }}>
-        <div style={{ background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '20px', boxShadow: '0 25px 60px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: '1px solid #f3f4f6' }}>
-            <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#111', margin: 0 }}>{title}</h3>
-            <button onClick={onClose} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" fill="none" stroke="#6b7280" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          <div style={{ overflowY: 'auto', flex: 1, padding: '8px 0' }}>
-            {users.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 20px', gap: '8px' }}>
-                <svg width="40" height="40" fill="none" stroke="#e5e7eb" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                <p style={{ color: '#9ca3af', fontSize: '14px', margin: 0 }}>No hay usuarios aún.</p>
-              </div>
-            ) : users.map(u => (
-              <div key={u.user_id}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', cursor: 'pointer', transition: 'background 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                onClick={() => { onNavigate(u.user_id); onClose() }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', flexShrink: 0 }}>
-                  {u.avatar_url ? <img src={u.avatar_url} alt={u.artist_name || u.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/> : <div style={{ width: '100%', height: '100%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: '700', color: '#fff', textTransform: 'uppercase' }}>{(u.artist_name || u.name)?.[0] ?? '?'}</div>}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.artist_name || u.name}</p>
-                  {u.artist_genre && <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0' }}>{u.artist_genre}</p>}
-                </div>
-                {u.user_id !== currentUserId && currentUserId && (
-                  <button onClick={e => handleToggle(e, u.user_id)} disabled={loadingFollow[u.user_id]}
-                    style={{ flexShrink: 0, padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', border: u.is_following ? '1px solid #e5e7eb' : '1px solid #7c3aed', background: u.is_following ? '#fff' : '#7c3aed', color: u.is_following ? '#374151' : '#fff', cursor: 'pointer', minWidth: '76px', textAlign: 'center', fontFamily: 'inherit' }}>
-                    {loadingFollow[u.user_id] ? '...' : u.is_following ? 'Siguiendo' : 'Seguir'}
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -93,9 +34,6 @@ export default function Profile() {
   const [likedSongs, setLikedSongs] = useState([])
   const [loadingLikes, setLoadingLikes] = useState(false)
   const [unlikingId, setUnlikingId] = useState(null)
-  const [followModal, setFollowModal] = useState(null)
-  const [followModalUsers, setFollowModalUsers] = useState([])
-  const [loadingModal, setLoadingModal] = useState(false)
 
   const loadLikedSongs = async (userId) => {
     setLoadingLikes(true)
@@ -146,16 +84,12 @@ export default function Profile() {
     finally { setUnlikingId(null) }
   }
 
-  const handleOpenFollowModal = async (type) => {
-    setFollowModal(type)
-    setLoadingModal(true)
-    setFollowModalUsers([])
-    try {
-      const data = type === 'followers' ? await getFollowers(user.id) : await getFollowing(user.id)
-      setFollowModalUsers(data ?? [])
-    } catch (err) { console.error(err) }
-    finally { setLoadingModal(false) }
-  }
+  // ✅ FIX: igual que en ArtistProfile.jsx, seguidores/siguiendo navegan a
+  // FollowersPage en lugar de abrir un modal. Antes el perfil propio tenía
+  // su propio FollowModal duplicado con una UX distinta a la de perfiles
+  // ajenos; ahora ambos usan la misma página con tabs, búsqueda y scroll
+  // nativo. Se elimina el componente FollowModal local y sus estados.
+  const handleOpenFollowers = (tab) => navigate('/profile/followers', { state: { tab } })
 
   useEffect(() => {
     let channel
@@ -200,7 +134,6 @@ export default function Profile() {
   const nextLevel = LISTENER_LEVELS[currentLevelIdx + 1] ?? null
   const progressPct = nextLevel ? Math.min(100, Math.round(((listenerStreams - currentLevel.min) / (nextLevel.min - currentLevel.min)) * 100)) : 100
 
-  // ✅ Agrupar canciones por álbum
   const albumsWithSongs = albums.map(album => ({
     ...album,
     songs: songs.filter(s => s.album_id === album.id).sort((a, b) => (a.track_number ?? 99) - (b.track_number ?? 99))
@@ -250,15 +183,6 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50 pt-20 pb-32">
       {showArtistModal && <ArtistModal userId={user.id} onSuccess={() => { setShowArtistModal(false); loadData() }} onClose={() => { setShowArtistModal(false); loadData() }}/>}
-      {followModal && (
-        <FollowModal
-          title={followModal === 'followers' ? `Seguidores (${stats.followers})` : `Siguiendo (${stats.following})`}
-          users={loadingModal ? [] : followModalUsers}
-          onClose={() => setFollowModal(null)}
-          onNavigate={(uid) => navigate(`/artist/${uid}`)}
-          currentUserId={user?.id ?? null}
-        />
-      )}
 
       <div className="container mx-auto px-4 sm:px-6 max-w-3xl space-y-4 sm:space-y-6">
 
@@ -302,13 +226,13 @@ export default function Profile() {
               </div>
             </div>
           )}
-          {/* ✅ Stats con seguidores/siguiendo clickeables */}
+          {/* ✅ Stats — seguidores/siguiendo navegan a FollowersPage */}
           <div className="flex gap-4 mt-4 pt-4 border-t border-gray-100 overflow-x-auto">
             <div className="text-center shrink-0"><p className="text-xl sm:text-2xl font-bold text-black">{songs.length}</p><p className="text-xs text-gray-400 whitespace-nowrap">Canciones</p></div>
-            <button className="text-center shrink-0 hover:bg-gray-50 rounded-xl px-2 transition" onClick={() => handleOpenFollowModal('followers')}>
+            <button className="text-center shrink-0 hover:bg-gray-50 rounded-xl px-2 transition" onClick={() => handleOpenFollowers('followers')}>
               <p className="text-xl sm:text-2xl font-bold text-black">{stats.followers}</p><p className="text-xs text-gray-400 whitespace-nowrap">Seguidores</p>
             </button>
-            <button className="text-center shrink-0 hover:bg-gray-50 rounded-xl px-2 transition" onClick={() => handleOpenFollowModal('following')}>
+            <button className="text-center shrink-0 hover:bg-gray-50 rounded-xl px-2 transition" onClick={() => handleOpenFollowers('following')}>
               <p className="text-xl sm:text-2xl font-bold text-black">{stats.following}</p><p className="text-xs text-gray-400 whitespace-nowrap">Siguiendo</p>
             </button>
             <div className="text-center shrink-0"><p className="text-xl sm:text-2xl font-bold text-black">{stats.streams}</p><p className="text-xs text-gray-400 whitespace-nowrap">Reproducciones</p></div>
@@ -319,7 +243,7 @@ export default function Profile() {
           )}
         </div>
 
-        {/* ✅ MIS CANCIONES — AGRUPADAS POR ÁLBUM */}
+        {/* MIS CANCIONES — AGRUPADAS POR ÁLBUM */}
         {isArtist && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4">
@@ -333,7 +257,6 @@ export default function Profile() {
               <div className="text-center py-8"><p className="text-gray-400 text-sm">No has subido canciones aún.</p><button onClick={() => navigate('/upload')} className="mt-3 text-sm text-purple-600 font-medium hover:underline">+ Subir primera canción</button></div>
             ) : (
               <div className="space-y-4">
-                {/* Álbumes agrupados */}
                 {albumsWithSongs.map(album => (
                   <div key={album.id} className="border border-gray-100 rounded-2xl overflow-hidden">
                     <div className="flex items-center gap-3 p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 transition" onClick={() => navigate(`/album/${album.id}`)}>
@@ -352,7 +275,6 @@ export default function Profile() {
                     </div>
                   </div>
                 ))}
-                {/* Singles sueltos */}
                 {singles.length > 0 && (
                   <div>
                     {albumsWithSongs.length > 0 && <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Singles</p>}

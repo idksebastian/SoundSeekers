@@ -111,6 +111,18 @@ function AppRoutes() {
         <Route path="/login" element={user ? <Navigate to="/home" replace /> : <Login />} />
         <Route path="/register" element={user ? <Navigate to="/home" replace /> : <Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+
+        {/* ✅ FIX: /reset-password vive deliberadamente fuera de
+            ProtectedRoute y SIN redirección condicional por `user`.
+            Aunque Supabase cree una sesión de recovery al procesar el
+            link del correo (lo cual hace que `user` exista en el
+            AuthContext), esta ruta nunca debe redirigir a /home por esa
+            razón — el control real de "¿es un link de recovery válido?"
+            vive dentro de ResetPassword.jsx, que escucha el evento
+            PASSWORD_RECOVERY antes de mostrar el formulario. Si esta
+            ruta tuviera `user ? <Navigate to="/home"/> : <ResetPassword/>`
+            como las de arriba, sería exactamente el bug original: el
+            usuario es auto-logueado y nunca ve el formulario. */}
         <Route path="/reset-password" element={<ResetPassword />} />
 
         {/* ✅ Legales — fuera del ProtectedRoute, antes del /* */}
@@ -138,6 +150,7 @@ function AppRoutes() {
                 <Route path="/artist/:userId/followers" element={<FollowersPage />} />
                 <Route path="/listener/:userId" element={<ListenerProfile />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/profile/followers" element={<FollowersPage />} />
                 <Route path="/requests" element={<Requests />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/upload" element={

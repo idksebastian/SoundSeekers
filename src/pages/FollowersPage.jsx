@@ -4,10 +4,15 @@ import { getPublicProfile, getFollowers, getFollowing, isFollowing, toggleFollow
 import { useAuth } from '../context/AuthContext'
 
 export default function FollowersPage() {
-  const { userId } = useParams()
+  const { userId: paramUserId } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
   const { user } = useAuth()
+
+  // ✅ FIX: cuando se llega desde /profile/followers (perfil propio,
+  // sin :userId en la URL) usamos el id del usuario autenticado.
+  const userId = paramUserId ?? user?.id
+  const isOwnProfile = userId === user?.id
 
   // Detectar tab inicial desde la URL o state
   const initialTab = location.state?.tab ?? (location.pathname.includes('following') ? 'following' : 'followers')
@@ -22,11 +27,12 @@ export default function FollowersPage() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
+    if (!userId) return
     getPublicProfile(userId).then(setProfile).catch(() => {})
   }, [userId])
 
   useEffect(() => {
-    if (followers.length > 0) return
+    if (!userId || followers.length > 0) return
     const fetch = async () => {
       setLoadingFollowers(true)
       try {
@@ -45,7 +51,7 @@ export default function FollowersPage() {
   }, [userId])
 
   useEffect(() => {
-    if (following.length > 0) return
+    if (!userId || following.length > 0) return
     const fetch = async () => {
       setLoadingFollowing(true)
       try {
@@ -76,6 +82,9 @@ export default function FollowersPage() {
     }
   }
 
+  // ✅ Volver al lugar correcto: perfil propio o perfil del artista visto
+  const handleBack = () => navigate(isOwnProfile ? '/profile' : `/artist/${userId}`)
+
   const currentList = activeTab === 'followers' ? followers : following
   const isLoading   = activeTab === 'followers' ? loadingFollowers : loadingFollowing
 
@@ -83,7 +92,7 @@ export default function FollowersPage() {
     ? currentList.filter(u => (u.artist_name || u.name || '').toLowerCase().includes(search.toLowerCase()))
     : currentList
 
-  const displayName = profile?.artist_name || profile?.name || '...'
+  const displayName = isOwnProfile ? 'Tú' : (profile?.artist_name || profile?.name || '...')
 
   return (
     <div style={{ minHeight: '100vh', background: '#fff', fontFamily: "'Plus Jakarta Sans', -apple-system, sans-serif", maxWidth: '600px', margin: '0 auto' }}>
@@ -98,7 +107,7 @@ export default function FollowersPage() {
       {/* ── Navbar estilo Instagram ── */}
       <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid #f0f0f0' }}>
         <div style={{ display: 'flex', alignItems: 'center', height: '52px', padding: '0 8px' }}>
-          <button onClick={() => navigate(`/artist/${userId}`)}
+          <button onClick={handleBack}
             style={{ width: '40px', height: '40px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', flexShrink: 0 }}>
             <svg width="22" height="22" fill="none" stroke="#111" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/>
@@ -150,7 +159,6 @@ export default function FollowersPage() {
       {/* ── Lista ── */}
       <div style={{ padding: '8px 0 100px' }}>
         {isLoading ? (
-          /* Skeletons estilo Instagram */
           Array.from({ length: 8 }).map((_, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px' }}>
               <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: '#f0f0f0', flexShrink: 0, animation: 'pulse 1.5s infinite' }}/>
@@ -170,13 +178,12 @@ export default function FollowersPage() {
               {search ? 'Sin resultados' : activeTab === 'followers' ? 'Sin seguidores aún' : 'No sigue a nadie aún'}
             </p>
             <p style={{ fontSize: '13px', color: '#9ca3af', margin: 0 }}>
-              {search ? `No hay usuarios con "${search}"` : activeTab === 'followers' ? 'Cuando alguien siga a este artista aparecerá aquí' : 'Cuando siga a alguien aparecerá aquí'}
+              {search ? `No hay usuarios con "${search}"` : activeTab === 'followers' ? 'Cuando alguien te siga aparecerá aquí' : 'Cuando sigas a alguien aparecerá aquí'}
             </p>
           </div>
         ) : (
           filtered.map((u, i) => {
             const isMe = u.user_id === user?.id
-            const isOwner = userId === user?.id
             const isFollowingUser = u.is_following
             const isLoadingBtn = loadingFollow[u.user_id]
             const name = u.artist_name || u.name || 'Usuario'
@@ -186,7 +193,6 @@ export default function FollowersPage() {
               <div key={u.user_id} className="user-row"
                 style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', animationDelay: `${i * 0.03}s` }}>
 
-                {/* Avatar */}
                 <div onClick={() => navigate(`/artist/${u.user_id}`)}
                   style={{ width: '44px', height: '44px', borderRadius: '50%', overflow: 'hidden', background: '#f3f4f6', flexShrink: 0, cursor: 'pointer', border: '1.5px solid #f0f0f0' }}>
                   {u.avatar_url
@@ -197,13 +203,11 @@ export default function FollowersPage() {
                   }
                 </div>
 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick={() => navigate(`/artist/${u.user_id}`)}>
                   <p style={{ fontSize: '14px', fontWeight: '700', color: '#111', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</p>
                   {subname && <p style={{ fontSize: '12px', color: '#9ca3af', margin: '1px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{subname}</p>}
                 </div>
 
-                {/* Botón follow — no aparece en mi propio perfil viendo mis seguidores/siguiendo */}
                 {!isMe && user && (
                   <button className="follow-btn"
                     onClick={() => handleToggleFollow(u.user_id)}

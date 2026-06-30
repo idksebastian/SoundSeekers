@@ -2,7 +2,14 @@ import { useState } from 'react'
 import { requestArtistVerification } from '../api/roles'
 
 const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Otro']
-const MOODS = ['Creando', 'Listo para el escenario', 'En estudio', 'Inspirado', 'En racha']
+
+const MOODS = [
+  { label: 'Creando', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg> },
+  { label: 'Listo para el escenario', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg> },
+  { label: 'En estudio', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg> },
+  { label: 'Inspirado', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 18h6m-5 3h4m.5-14.5a5.5 5.5 0 11-9.5 3.8c0 2.2 1.3 3.4 2.2 4.2.5.4.8 1 .8 1.6V14h6v-.9c0-.6.3-1.2.8-1.6.9-.8 2.2-2 2.2-4.2 0-1-.3-2-.9-2.8" /></svg> },
+  { label: 'En racha', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg> },
+]
 
 const TERMS = [
   { icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, text: 'Subiré únicamente contenido original del que soy autor o tengo los derechos.' },
@@ -37,26 +44,32 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
-      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
+    // ✅ FIX scroll: el overlay es el que scrollea (overflow-y-auto + items-start),
+    // así el modal nunca queda más alto que la pantalla ni se queda fijo
+    // sobre la página de atrás. py-6/py-10 da aire arriba y abajo en mobile.
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-start sm:items-center justify-center z-50 px-4 py-6 sm:py-10 overflow-y-auto">
+      <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden my-auto">
 
-        <div className="bg-purple-700 px-6 py-5 text-white">
-          <div className="flex items-center justify-between mb-3">
+        <div className="bg-gradient-to-br from-purple-700 to-purple-900 px-6 py-5 text-white relative overflow-hidden">
+          <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5"/>
+          <div className="absolute -bottom-10 right-10 w-24 h-24 rounded-full bg-white/5"/>
+
+          <div className="flex items-center justify-between mb-3 relative">
             <div className="flex gap-1.5">
               {[1, 2, 3].map(s => (
                 <div key={s} className={`h-1 rounded-full transition-all duration-300 ${s <= step ? 'bg-white w-8' : 'bg-white/30 w-4'}`} />
               ))}
             </div>
             {step < 3 && (
-              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition">
+              <button onClick={onClose} className="w-7 h-7 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center transition">
                 <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 relative">
+            <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
               {step === 1 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
               {step === 2 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>}
               {step === 3 && <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
@@ -83,8 +96,10 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
               <div className="space-y-2">
                 {TERMS.map((term, i) => (
                   <div key={i} className="flex gap-3 items-start p-3 rounded-xl bg-gray-50 border border-gray-100">
-                    <div className="text-purple-600 shrink-0 mt-0.5">{term.icon}</div>
-                    <p className="text-gray-600 text-sm">{term.text}</p>
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600 shrink-0">
+                      {term.icon}
+                    </div>
+                    <p className="text-gray-600 text-sm pt-1">{term.text}</p>
                   </div>
                 ))}
               </div>
@@ -109,15 +124,26 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
 
           {step === 2 && (
             <div className="space-y-4">
-              {error && <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">{error}</div>}
+              {error && (
+                <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  {error}
+                </div>
+              )}
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Nombre artístico *</label>
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Nombre artístico *
+                </label>
                 <input placeholder="¿Cómo te conocerá el mundo?" value={artistName}
                   onChange={e => setArtistName(e.target.value)} maxLength={50}
                   className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Género principal *</label>
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                  Género principal *
+                </label>
                 <select value={artistGenre} onChange={e => setArtistGenre(e.target.value)}
                   className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
                   <option value="">Selecciona tu género</option>
@@ -125,20 +151,27 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
                 </select>
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-700">Tu frase — ¿Quién eres?</label>
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  Tu frase — ¿Quién eres?
+                </label>
                 <textarea placeholder="Una línea que te defina como artista..." value={artistBio}
                   onChange={e => setArtistBio(e.target.value)} maxLength={150} rows={2}
                   className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm resize-none" />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Estado de hoy</label>
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  Estado de hoy
+                </label>
                 <div className="grid grid-cols-2 gap-2">
                   {MOODS.map(mood => (
-                    <button key={mood} type="button" onClick={() => setArtistMood(mood)}
-                      className={`text-xs px-3 py-2 rounded-xl border transition text-left ${
-                        artistMood === mood ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    <button key={mood.label} type="button" onClick={() => setArtistMood(mood.label)}
+                      className={`flex items-center gap-2 text-xs px-3 py-2.5 rounded-xl border transition text-left ${
+                        artistMood === mood.label ? 'border-purple-500 bg-purple-50 text-purple-700 font-medium' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
                       }`}>
-                      {mood}
+                      <span className={artistMood === mood.label ? 'text-purple-600' : 'text-gray-400'}>{mood.icon}</span>
+                      {mood.label}
                     </button>
                   ))}
                 </div>
@@ -176,8 +209,8 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
 
           {step === 3 && (
             <div className="text-center space-y-5 py-2">
-              <div className="w-20 h-20 rounded-2xl bg-yellow-50 flex items-center justify-center mx-auto">
-                <svg className="w-10 h-10 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto">
+                <svg className="w-10 h-10 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
@@ -187,11 +220,26 @@ export default function ArtistModal({ userId, onSuccess, onClose }) {
                   Tu solicitud está siendo revisada por el equipo de <span className="text-purple-600 font-semibold">SoundSeekers</span>. Te notificaremos por correo cuando sea aprobada.
                 </p>
               </div>
-              <div className="bg-yellow-50 border border-yellow-100 rounded-2xl p-4 text-left space-y-2">
-                <p className="text-sm font-medium text-yellow-700">Mientras esperas puedes:</p>
-                <p className="text-sm text-gray-600">🎵 Explorar música de otros artistas</p>
-                <p className="text-sm text-gray-600">👥 Seguir artistas que te inspiren</p>
-                <p className="text-sm text-gray-600">🎧 Descubrir géneros nuevos</p>
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 text-left space-y-3">
+                <p className="text-sm font-semibold text-amber-700">Mientras esperas puedes:</p>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" /></svg>
+                  </div>
+                  <p className="text-sm text-gray-600">Explorar música de otros artistas</p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  </div>
+                  <p className="text-sm text-gray-600">Seguir artistas que te inspiren</p>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M15 8a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
+                  </div>
+                  <p className="text-sm text-gray-600">Descubrir géneros nuevos</p>
+                </div>
               </div>
               <button onClick={onClose}
                 className="w-full h-11 bg-purple-700 text-white rounded-xl font-semibold hover:bg-purple-800 transition text-sm">

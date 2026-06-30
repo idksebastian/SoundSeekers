@@ -68,10 +68,13 @@ export default function Upload() {
     updateTrack(trackId, 'featSearch', query)
     if (query.trim().length < 2) { updateTrack(trackId, 'featResults', []); return }
     const results = await searchArtists(query)
-    updateTrack(trackId, 'featResults', results)
+    // No permitir que el artista se busque/agregue a sí mismo
+    updateTrack(trackId, 'featResults', results.filter(a => a.user_id !== user?.id))
   }
 
   const addCollaborator = (trackId, artist) => {
+    // Bloqueo de seguridad: nunca permitir auto-feat aunque se llame directamente
+    if (artist.user_id === user?.id) return
     setTracks(prev => prev.map(t => {
       if (t.id !== trackId) return t
       if (t.collaborators.find(c => c.user_id === artist.user_id)) return t
@@ -296,7 +299,6 @@ export default function Upload() {
                 <div className="flex-1 space-y-3">
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-gray-700">
-                      {/* ✅ Para singles el label dice "Nombre de la canción" */}
                       {projectType === 'single' ? 'Nombre de la canción *' : `Nombre del ${projectType === 'ep' ? 'EP' : 'álbum'} *`}
                     </label>
                     <input
@@ -359,7 +361,6 @@ export default function Upload() {
                 const err = validateStep2()
                 if (err) return setError(err)
                 setError('')
-                // ✅ Para singles, prerellenar el título con el nombre del single
                 if (projectType === 'single') {
                   setTracks([{ ...emptyTrack(), title: projectTitle }])
                 }
@@ -431,7 +432,6 @@ export default function Upload() {
                         {index + 1}
                       </div>
                       <div className="flex-1 min-w-0">
-                        {/* ✅ Para singles mostrar el título como texto fijo, no editable */}
                         {projectType === 'single' ? (
                           <p className="text-black font-semibold text-sm pb-1 truncate">{track.title}</p>
                         ) : (
@@ -494,6 +494,7 @@ export default function Upload() {
                     {/* Feats */}
                     <div className="space-y-2">
                       <label className="text-xs font-medium text-gray-500">Artistas principales (feat.)</label>
+                      <p className="text-xs text-gray-400">No necesitas añadirte a ti mismo, ya apareces como artista principal.</p>
                       <div className="relative">
                         <input placeholder="Buscar artista en SoundSeekers..."
                           value={track.featSearch}

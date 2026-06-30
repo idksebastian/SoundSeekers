@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getSongs, updateSong, searchArtists } from '../api/songs'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Rap', 'Folk', 'Indie', 'Otro']
 const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
@@ -20,6 +21,7 @@ async function uploadFile(bucket, file) {
 export default function EditSong() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { user } = useAuth()
   const coverInputRef = useRef(null)
   const audioInputRef = useRef(null)
 
@@ -81,10 +83,13 @@ export default function EditSong() {
     setFeatSearch(query)
     if (query.trim().length < 2) { setFeatResults([]); return }
     const results = await searchArtists(query)
-    setFeatResults(results)
+    // No permitir que el artista se busque/agregue a sí mismo
+    setFeatResults(results.filter(a => a.user_id !== user?.id))
   }
 
   const addCollaborator = (artist) => {
+    // Bloqueo de seguridad: nunca permitir auto-feat aunque se llame directamente
+    if (artist.user_id === user?.id) return
     if (collaborators.find(c => c.user_id === artist.user_id)) return
     setCollaborators(prev => [...prev, { user_id: artist.user_id, name: artist.artist_name }])
     setFeatSearch('')
@@ -117,7 +122,6 @@ export default function EditSong() {
     setSaving(true)
     setError('')
     try {
-      const collabNames = collaborators.map(c => c.name || c.artist_name).filter(Boolean)
       const fields = {
         title,
         description,
@@ -125,7 +129,6 @@ export default function EditSong() {
         tags: tags.length ? tags : null,
         credits,
         collaborators,
-        display_artist: collabNames.length > 0 ? null : null,
       }
       if (coverFile) fields.cover_url = await uploadFile('covers', coverFile)
       if (audioFile) fields.audio_url = await uploadFile('audios', audioFile)
@@ -273,6 +276,7 @@ export default function EditSong() {
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 space-y-4">
             <h2 className="text-base font-bold text-black">Artistas principales (feat.)</h2>
+            <p className="text-xs text-gray-400">No necesitas añadirte a ti mismo, ya apareces como artista principal.</p>
             <div className="relative">
               <input placeholder="Buscar artista en SoundSeekers..."
                 value={featSearch} onChange={e => handleFeatSearch(e.target.value)}

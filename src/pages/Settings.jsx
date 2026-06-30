@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { logoutUser } from '../api/auth'
 import { updateProfile, getFollowStats } from '../api/profile'
-import { getMySongs, deleteSong, updateSong } from '../api/songs'
+import { getMySongs, deleteSong } from '../api/songs'
 import { getArtistAlbums } from '../api/albums'
 import { usePlayer } from '../context/PlayerContext'
 import {
@@ -21,7 +21,6 @@ const SECTIONS = [
   { id: 'danger',        label: 'Zona de peligro',  icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',                                                                                                                                                                                                                                                                                        color: '#ef4444', bg: '#fef2f2', danger: true },
 ]
 
-const GENRES = ['Reggaeton', 'Hip-Hop', 'Champeta', 'Electrónica', 'Pop', 'Indie', 'Jazz', 'Folk', 'Vallenato', 'Salsa', 'Rap', 'Otro']
 const NAME_CHANGE_LIMIT = 2
 const NAME_CHANGE_DAYS  = 30
 
@@ -63,18 +62,6 @@ function IOSGroup({ title, children }) {
       <div style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #f3f4f6', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
         {children}
       </div>
-    </div>
-  )
-}
-
-function IOSInput({ label, ...props }) {
-  return (
-    <div style={{ marginBottom: '12px' }}>
-      {label && <p style={{ fontSize: '12px', fontWeight: '600', color: '#6b7280', margin: '0 0 6px 2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</p>}
-      <input style={{ width: '100%', background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: '12px', padding: '11px 14px', fontSize: '14px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', transition: 'border-color 0.2s' }}
-        onFocus={e => e.target.style.borderColor = '#7c3aed'}
-        onBlur={e => e.target.style.borderColor = '#e5e7eb'}
-        {...props} />
     </div>
   )
 }
@@ -126,19 +113,16 @@ function NotificationSettings({ userId, isArtist }) {
 function StatsDashboard({ stats, songStats }) {
   const COLORS = ['#7c3aed', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#6366f1']
 
-  // Datos para gráfica de barras — top canciones
   const barData = songStats.map(s => ({
     name: s.title.length > 12 ? s.title.slice(0, 12) + '…' : s.title,
     rep: s.streams ?? 0,
   }))
 
-  // Datos para pie chart — distribución canciones vs álbumes
   const pieData = [
     { name: 'Singles', value: Math.max(stats.totalSongs - stats.totalAlbums * 2, 0) },
     { name: 'En álbumes', value: stats.totalAlbums * 2 },
   ].filter(d => d.value > 0)
 
-  // Engagement score (métrica inventada pero útil)
   const engagementScore = stats.followers > 0
     ? Math.min(100, Math.round((stats.totalStreams / stats.followers) * 10))
     : 0
@@ -155,7 +139,6 @@ function StatsDashboard({ stats, songStats }) {
 
   return (
     <div>
-      {/* ── Hero metric ── */}
       <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', borderRadius: '20px', padding: '20px', marginBottom: '12px', position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}/>
         <div style={{ position: 'absolute', bottom: '-30px', right: '40px', width: '80px', height: '80px', borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }}/>
@@ -166,7 +149,6 @@ function StatsDashboard({ stats, songStats }) {
         <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>en {stats.totalSongs} canción{stats.totalSongs !== 1 ? 'es' : ''}</p>
       </div>
 
-      {/* ── Stat cards 2x2 ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
         {[
           { label: 'Seguidores',   value: stats.followers,   color: '#ec4899', bg: '#fdf2f8',  icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
@@ -186,7 +168,6 @@ function StatsDashboard({ stats, songStats }) {
         ))}
       </div>
 
-      {/* ── Engagement score ── */}
       <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
           <div>
@@ -224,7 +205,6 @@ function StatsDashboard({ stats, songStats }) {
         </p>
       </div>
 
-      {/* ── Gráfica de barras — top canciones ── */}
       {barData.length > 0 && (
         <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 4px' }}>Top canciones</p>
@@ -245,7 +225,6 @@ function StatsDashboard({ stats, songStats }) {
         </div>
       )}
 
-      {/* ── Pie chart — distribución del catálogo ── */}
       {pieData.length > 1 && (
         <div style={{ background: '#fff', borderRadius: '16px', padding: '16px', marginBottom: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 4px' }}>Tu catálogo</p>
@@ -262,7 +241,6 @@ function StatsDashboard({ stats, songStats }) {
         </div>
       )}
 
-      {/* ── Lista top canciones detallada ── */}
       {songStats.length > 0 && (
         <div style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
@@ -306,7 +284,6 @@ export default function Settings() {
   const { playSong } = usePlayer()
   const navigate = useNavigate()
   const avatarInputRef = useRef(null)
-  const coverInputRef   = useRef(null)
 
   const [activeSection, setActiveSection] = useState(null)
   const [role, setRole] = useState(null)
@@ -337,11 +314,6 @@ export default function Settings() {
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
-  const [editingSong, setEditingSong] = useState(null)
-  const [editForm, setEditForm] = useState({ title: '', genre: '', description: '' })
-  const [editCoverFile, setEditCoverFile] = useState(null)
-  const [editCoverPreview, setEditCoverPreview] = useState(null)
-  const [savingEdit, setSavingEdit] = useState(false)
   const [songMsg, setSongMsg] = useState('')
 
   useEffect(() => {
@@ -409,12 +381,11 @@ export default function Settings() {
     if (isArtist && artistName !== initialArtistName && !canChangeName) return setError(`Podrás cambiar tu nombre artístico en ${NAME_CHANGE_DAYS - daysSinceLastChange} días.`)
     setLoading(true); setError(''); setMsg('')
     try {
-  await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks })
-  // ✅ Actualizar estado local inmediatamente sin esperar recarga
-  setRole(prev => ({ ...prev, artist_name: isArtist ? artistName : prev?.artist_name, name_changes: (isArtist && artistName !== initialArtistName) ? (prev?.name_changes ?? 0) + 1 : prev?.name_changes, last_name_change: (isArtist && artistName !== initialArtistName) ? new Date().toISOString() : prev?.last_name_change }))
-  setMsg('Perfil actualizado.')
-  setAvatarFile(null)
-}
+      await updateProfile({ name, artistName: isArtist ? artistName : undefined, artistNameChanged: isArtist && artistName !== initialArtistName, avatarFile, description, ...socialLinks })
+      setRole(prev => ({ ...prev, artist_name: isArtist ? artistName : prev?.artist_name, name_changes: (isArtist && artistName !== initialArtistName) ? (prev?.name_changes ?? 0) + 1 : prev?.name_changes, last_name_change: (isArtist && artistName !== initialArtistName) ? new Date().toISOString() : prev?.last_name_change }))
+      setMsg('Perfil actualizado.')
+      setAvatarFile(null)
+    }
     catch (err) { setError(err.message) } finally { setLoading(false) }
   }
 
@@ -447,27 +418,6 @@ export default function Settings() {
     setDeletingId(songId)
     try { await deleteSong(songId); setSongs(p => p.filter(s => s.id !== songId)); setConfirmDeleteId(null); setSongMsg('Canción eliminada.'); setTimeout(() => setSongMsg(''), 3000) }
     catch {} finally { setDeletingId(null) }
-  }
-
-  const openEditSong = (song) => { setEditingSong(song); setEditForm({ title: song.title, genre: song.genre ?? '', description: song.description ?? '' }); setEditCoverFile(null); setEditCoverPreview(song.cover_url) }
-
-  const handleEditCoverChange = (e) => { const f = e.target.files[0]; if (!f) return; setEditCoverFile(f); setEditCoverPreview(URL.createObjectURL(f)) }
-
-  const handleSaveEdit = async () => {
-    if (!editForm.title.trim()) return
-    setSavingEdit(true)
-    try {
-      let coverUrl = editingSong.cover_url
-      if (editCoverFile) {
-        const ext = editCoverFile.name.split('.').pop()
-        const path = `${user.id}/${Date.now()}_cover.${ext}`
-        const { error: uploadErr } = await supabase.storage.from('covers').upload(path, editCoverFile, { upsert: true })
-        if (!uploadErr) { const { data } = supabase.storage.from('covers').getPublicUrl(path); coverUrl = data.publicUrl }
-      }
-      const updated = await updateSong(editingSong.id, { title: editForm.title.trim(), genre: editForm.genre, description: editForm.description.trim(), cover_url: coverUrl })
-      setSongs(p => p.map(s => s.id === updated.id ? updated : s))
-      setEditingSong(null); setSongMsg('Canción actualizada.'); setTimeout(() => setSongMsg(''), 3000)
-    } catch {} finally { setSavingEdit(false) }
   }
 
   const visibleSections = SECTIONS.filter(s => !s.artist || isArtist)
@@ -523,7 +473,12 @@ export default function Settings() {
             ) : null
           )}
 
-          {/* ── MIS CANCIONES ── */}
+          {/* ── MIS CANCIONES ──
+              ✅ El botón de editar ahora navega a /edit/:id, que es el
+              formulario completo (EditSong.jsx) con portada, audio,
+              colaboradores y créditos editables. Ya no se usa el modal
+              simplificado que vivía aquí, porque no permitía editar
+              colaboradores ni reemplazar el audio. */}
           {activeSection === 'songs' && (
             <div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '16px' }}>
@@ -537,56 +492,6 @@ export default function Settings() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
                   {songMsg}
-                </div>
-              )}
-
-              {editingSong && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'flex-end', background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }} onClick={() => setEditingSong(null)}>
-                  <div style={{ background: '#f2f2f7', width: '100%', borderRadius: '20px 20px 0 0', padding: '20px 20px 40px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-                    <div style={{ width: '36px', height: '4px', borderRadius: '2px', background: '#d1d5db', margin: '0 auto 20px' }}/>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-                      <h4 style={{ fontSize: '17px', fontWeight: '700', color: '#111', margin: 0 }}>Editar canción</h4>
-                      <button onClick={() => setEditingSong(null)} style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#e5e7eb', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                      </button>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
-                      <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => coverInputRef.current?.click()}>
-                        <img src={editCoverPreview} alt="" style={{ width: '64px', height: '64px', borderRadius: '14px', objectFit: 'cover' }}/>
-                        <div style={{ position: 'absolute', inset: 0, borderRadius: '14px', background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="16" height="16" fill="none" stroke="white" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
-                        </div>
-                        <input ref={coverInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleEditCoverChange}/>
-                      </div>
-                      <div>
-                        <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: '0 0 2px' }}>{editingSong.title}</p>
-                        <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>Toca la imagen para cambiar portada</p>
-                      </div>
-                    </div>
-                    <IOSGroup>
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Título</p>
-                        <input value={editForm.title} onChange={e => setEditForm(p => ({ ...p, title: e.target.value }))} maxLength={80}
-                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }}/>
-                      </div>
-                      <div style={{ padding: '12px 16px', borderBottom: '1px solid #f3f4f6' }}>
-                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Género</p>
-                        <select value={editForm.genre} onChange={e => setEditForm(p => ({ ...p, genre: e.target.value }))}
-                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit' }}>
-                          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                      </div>
-                      <div style={{ padding: '12px 16px' }}>
-                        <p style={{ fontSize: '11px', fontWeight: '600', color: '#9ca3af', margin: '0 0 4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descripción</p>
-                        <textarea value={editForm.description} onChange={e => setEditForm(p => ({ ...p, description: e.target.value }))} rows={3} maxLength={300}
-                          style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '15px', color: '#111', outline: 'none', fontFamily: 'inherit', resize: 'none', boxSizing: 'border-box' }}/>
-                      </div>
-                    </IOSGroup>
-                    <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.title.trim()}
-                      style={{ width: '100%', padding: '14px', borderRadius: '14px', background: savingEdit ? '#a78bfa' : '#7c3aed', color: '#fff', fontWeight: '700', fontSize: '15px', border: 'none', cursor: 'pointer', fontFamily: 'inherit', marginTop: '8px', opacity: !editForm.title.trim() ? 0.5 : 1 }}>
-                      {savingEdit ? 'Guardando...' : 'Guardar cambios'}
-                    </button>
-                  </div>
                 </div>
               )}
 
@@ -622,7 +527,7 @@ export default function Settings() {
                           <button onClick={() => playSong(song)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f5f3ff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <svg width="12" height="12" fill="#7c3aed" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
                           </button>
-                          <button onClick={() => openEditSong(song)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <button onClick={() => navigate(`/edit/${song.id}`)} style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#f3f4f6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <svg width="12" height="12" fill="none" stroke="#6b7280" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                           </button>
                           <button onClick={() => handleDeleteSong(song.id)} disabled={deletingId === song.id}
