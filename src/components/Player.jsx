@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePlayer } from '../context/PlayerContext';
 import { supabase } from '../lib/supabase';
+import { getPublicProfileStreams } from '../api/profile';
 import {
   Play, Pause, SkipBack, SkipForward, ChevronDown,
   Volume2, VolumeX, ListMusic, Mic2, Disc, Share2,
@@ -189,15 +190,14 @@ export default function Player() {
         const [profileRes, albumRes, relatedRes] = await Promise.all(queries);
         if (cancelled) return;
 
-        let totalStreams = 0;
-        if (ownerId) {
-          const { data: songsData, error: streamsError } = await supabase
-            .from('songs')
-            .select('streams')
-            .eq('user_id', ownerId);
-          if (streamsError) console.error('streams fetch error:', streamsError);
-          totalStreams = songsData?.reduce((acc, s) => acc + (s.streams ?? 0), 0) ?? 0;
-        }
+        // ✅ FIX: usamos la misma función que ArtistProfile.jsx
+        // (getPublicProfileStreams), que cuenta filas en la tabla
+        // `streams` (una fila por reproducción real). Antes, esta sección
+        // sumaba la columna `songs.streams`, que es una fuente de datos
+        // distinta y desactualizada/no incrementada correctamente —
+        // por eso aquí mostraba "1" mientras el perfil (que sí usa la
+        // tabla `streams`) mostraba el número correcto.
+        const totalStreams = ownerId ? await getPublicProfileStreams(ownerId) : 0;
         if (profileRes?.data) {
           setArtistInfo({ ...profileRes.data, total_streams: totalStreams });
         }
