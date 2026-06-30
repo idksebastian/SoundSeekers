@@ -20,13 +20,48 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
+      // ✅ FIX: si la sesión inicial es de tipo recovery (alguien abrió
+      // /reset-password con el link del correo y este efecto corrió antes
+      // de que el SDK terminara de procesar el evento), no la tratamos
+      // como un login real. Esto evita que AuthContext popule `user` con
+      // una sesión que solo debería existir para cambiar la contraseña.
+      const hash = window.location.hash
+      const isRecoveryFlow = hash.includes('type=recovery')
+      if (session?.user && !isRecoveryFlow) {
+        setUser(session.user)
+        ensureProfile(session.user)
+      } else {
+        setUser(null)
+      }
       setLoading(false)
-      if (session?.user) ensureProfile(session.user)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_e, session) => {
+      (event, session) => {
+        // ✅ FIX CRÍTICO: el evento PASSWORD_RECOVERY trae una sesión
+        // válida (así Supabase permite hacer updateUser para cambiar la
+        // contraseña), pero antes este listener no distinguía el evento
+        // y simplemente hacía setUser(session.user) para CUALQUIER
+        // sesión. Eso era exactamente lo que causaba el "auto-login":
+        // ResetPassword.jsx nunca llegaba a mostrarse porque el resto de
+        // la app (rutas, Navbar, redirects basados en `user`) ya te
+        // trataba como logueado normalmente.
+        //
+        // Ahora: si el evento es PASSWORD_RECOVERY, ignoramos la sesión
+        // por completo a nivel de AuthContext. El componente
+        // ResetPassword.jsx tiene su PROPIO listener de
+        // onAuthStateChange y maneja ese evento de forma aislada para
+        // mostrar el formulario — sin que el resto de la app se entere
+        // de que existe una sesión activa.
+        if (event === 'PASSWORD_RECOVERY') return
+
+        // ✅ Si llega SIGNED_OUT explícito, siempre limpiar de inmediato
+        // (cubre el signOut() que hacemos al final de ResetPassword.jsx)
+        if (event === 'SIGNED_OUT') {
+          setUser(null)
+          return
+        }
+
         setUser(session?.user ?? null)
         if (session?.user) ensureProfile(session.user)
       }
