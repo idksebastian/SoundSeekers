@@ -69,6 +69,16 @@ export function AuthProvider({ children }) {
         // de que existe una sesión activa.
         if (event === 'PASSWORD_RECOVERY') return
 
+        // ✅ FIX (gotcha conocido de PKCE): en flujo PKCE, Supabase a veces
+        // no dispara 'PASSWORD_RECOVERY' sino un 'SIGNED_IN' normal al
+        // intercambiar el `code` por sesión, porque ese intercambio no
+        // siempre preserva la distinción de "esto es un recovery". Si eso
+        // pasa y no lo filtramos aquí, el usuario queda logueado de forma
+        // silenciosa aunque la URL sea claramente de /reset-password.
+        // isRecoveryUrl() es la red de seguridad: si la URL actual indica
+        // recovery, ignoramos la sesión sin importar qué evento llegó.
+        if (event === 'SIGNED_IN' && isRecoveryUrl()) return
+
         // ✅ Si llega SIGNED_OUT explícito, siempre limpiar de inmediato
         // (cubre el signOut() que hacemos al final de ResetPassword.jsx)
         if (event === 'SIGNED_OUT') {

@@ -12,25 +12,28 @@ export default function ResetPassword() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    const hash = window.location.hash
+    const search = window.location.search
+    // ✅ Misma lógica que en AuthContext: soporta implicit y PKCE.
+    const hasRecoveryHash =
+      hash.includes('type=recovery') ||
+      search.includes('type=recovery') ||
+      search.includes('code=')
+
     let resolved = false
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
+      // ✅ FIX (gotcha PKCE): aceptamos también 'SIGNED_IN' como señal de
+      // que el formulario debe mostrarse, siempre que la URL sea de
+      // recovery. En PKCE, Supabase no siempre distingue el evento como
+      // PASSWORD_RECOVERY — a veces llega como SIGNED_IN normal.
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && hasRecoveryHash)) {
         resolved = true
         setStatus('ready')
       }
     })
 
     const checkInitial = async () => {
-      const hash = window.location.hash
-      const search = window.location.search
-      // ✅ Soporta implicit (#...type=recovery) y PKCE (?code=...),
-      // donde type=recovery no siempre viene garantizado en la query.
-      const hasRecoveryHash =
-        hash.includes('type=recovery') ||
-        search.includes('type=recovery') ||
-        search.includes('code=')
-
       const { data: { session } } = await supabase.auth.getSession()
 
       if (resolved) return
