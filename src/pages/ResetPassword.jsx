@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -10,6 +10,9 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false)
   const [status, setStatus] = useState('checking')
   const navigate = useNavigate()
+  // ✅ Ref (no state) porque la necesitamos leer dentro del cleanup de
+  // useEffect sin que ese cleanup dependa de re-ejecutarse con `done`.
+  const completedRef = useRef(false)
 
   useEffect(() => {
     const hash = window.location.hash
@@ -22,27 +25,26 @@ export default function ResetPassword() {
 
     let resolved = false
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // ✅ FIX (gotcha PKCE): aceptamos también 'SIGNED_IN' como señal de
-      // que el formulario debe mostrarse, siempre que la URL sea de
-      // recovery. En PKCE, Supabase no siempre distingue el evento como
-      // PASSWORD_RECOVERY — a veces llega como SIGNED_IN normal.
-      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && hasRecoveryHash)) {
+    // ✅ FIX: en vez de esperar un nombre de evento específico
+    // (PASSWORD_RECOVERY o SIGNED_IN), aceptamos CUALQUIER evento que
+    // traiga una sesión válida mientras la URL siga indicando recovery.
+    // Supabase puede emitir 'INITIAL_SESSION' u otros nombres según la
+    // versión, y depender del nombre exacto fue lo que causaba el
+    // "enlace inválido o expirado" aunque la sesión sí existiera.
+    const markReadyIfRecovery = (session) => {
+      if (!resolved && hasRecoveryHash && session) {
         resolved = true
         setStatus('ready')
       }
+    }
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      markReadyIfRecovery(session)
     })
 
     const checkInitial = async () => {
       const { data: { session } } = await supabase.auth.getSession()
-
-      if (resolved) return
-
-      if (session && hasRecoveryHash) {
-        setStatus('ready')
-        resolved = true
-        return
-      }
+      markReadyIfRecovery(session)
 
       setTimeout(() => {
         if (!resolved) setStatus(prev => prev === 'checking' ? 'invalid' : prev)
@@ -50,8 +52,34 @@ export default function ResetPassword() {
     }
     checkInitial()
 
+    // ✅ El cleanup de useEffect (más abajo) cubre navegación interna
+    // (cambiar de ruta dentro de la SPA), pero NO se garantiza que corra
+    // si el usuario cierra la pestaña/navegador directamente. 'pagehide'
+    // sí se dispara en ese caso de forma confiable (más que
+    // 'beforeunload', que además puede bloquearse en algunos navegadores
+    // móviles). signOut() limpia el localStorage de forma síncrona antes
+    // de intentar la llamada de red, así que aunque la pestaña se cierre
+    // a mitad de camino, el storage local ya quedó limpio.
+    const handlePageHide = () => {
+      if (resolved && !completedRef.current) {
+        supabase.auth.signOut()
+      }
+    }
+    window.addEventListener('pagehide', handlePageHide)
+
     return () => {
+      window.removeEventListener('pagehide', handlePageHide)
       subscription.unsubscribe()
+      // ✅ FIX: si el usuario abandona /reset-password sin completar el
+      // cambio de contraseña (navega a otra ruta, cierra la pestaña),
+      // cerramos la sesión de recovery explícitamente. Sin esto, la
+      // sesión queda persistida en localStorage y, al cerrar y volver a
+      // abrir la app (cuando el hash ya no está en la URL), AuthContext
+      // ya no tiene forma de distinguirla de un login real — y el
+      // usuario aparece "logueado" sin haberlo hecho.
+      if (resolved && !completedRef.current) {
+        supabase.auth.signOut()
+      }
     }
   }, [])
 
@@ -87,6 +115,7 @@ export default function ResetPassword() {
       if (updateError) throw updateError
 
       setDone(true)
+      completedRef.current = true
       await supabase.auth.signOut()
       setTimeout(() => navigate('/login'), 3000)
     } catch (err) {
