@@ -12,19 +12,10 @@ export default function ResetPassword() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    // ════════ BLOQUE DE DEBUG TEMPORAL — quitar después de diagnosticar ════════
-    console.log('[RESET DEBUG] ResetPassword montado')
-    console.log('[RESET DEBUG] URL completa:', window.location.href)
-    console.log('[RESET DEBUG] hash:', window.location.hash)
-    console.log('[RESET DEBUG] pathname:', window.location.pathname)
-    // ════════════════════════════════════════════════════════════════════════════
-
     let resolved = false
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[RESET DEBUG] onAuthStateChange disparado. event =', event, '| session existe?', !!session)
       if (event === 'PASSWORD_RECOVERY') {
-        console.log('[RESET DEBUG] PASSWORD_RECOVERY recibido correctamente, mostrando formulario')
         resolved = true
         setStatus('ready')
       }
@@ -32,31 +23,31 @@ export default function ResetPassword() {
 
     const checkInitial = async () => {
       const hash = window.location.hash
-      const hasRecoveryHash = hash.includes('type=recovery')
-      console.log('[RESET DEBUG] checkInitial → hasRecoveryHash:', hasRecoveryHash)
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[RESET DEBUG] checkInitial → session existe?', !!session, session)
+      const search = window.location.search
+      // ✅ Soporta implicit (#...type=recovery) y PKCE (?code=...),
+      // donde type=recovery no siempre viene garantizado en la query.
+      const hasRecoveryHash =
+        hash.includes('type=recovery') ||
+        search.includes('type=recovery') ||
+        search.includes('code=')
 
-      if (resolved) {
-        console.log('[RESET DEBUG] checkInitial → ya resuelto por evento, saliendo')
-        return
-      }
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (resolved) return
+
       if (session && hasRecoveryHash) {
-        console.log('[RESET DEBUG] checkInitial → fallback activado: session + hash recovery')
         setStatus('ready')
         resolved = true
         return
       }
 
       setTimeout(() => {
-        console.log('[RESET DEBUG] timeout 2.5s alcanzado. resolved =', resolved)
         if (!resolved) setStatus(prev => prev === 'checking' ? 'invalid' : prev)
       }, 2500)
     }
     checkInitial()
 
     return () => {
-      console.log('[RESET DEBUG] ResetPassword desmontado')
       subscription.unsubscribe()
     }
   }, [])

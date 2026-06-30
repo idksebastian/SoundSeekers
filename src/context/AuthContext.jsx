@@ -14,6 +14,22 @@ async function ensureProfile(user) {
   }, { onConflict: 'user_id' })
 }
 
+// ✅ Detecta si la URL actual corresponde a un flujo de recovery,
+// soportando tanto el flujo implicit (hash: #access_token=...&type=recovery)
+// como PKCE (query: ?code=xxxx, sin type=recovery garantizado).
+// La tercera condición es la red de seguridad real para PKCE: si estamos
+// en /reset-password y hay un `code=` en la URL, asumimos recovery aunque
+// no venga el `type` explícito.
+function isRecoveryUrl() {
+  const hash = window.location.hash
+  const search = window.location.search
+  return (
+    hash.includes('type=recovery') ||
+    search.includes('type=recovery') ||
+    (window.location.pathname === '/reset-password' && search.includes('code='))
+  )
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -25,9 +41,7 @@ export function AuthProvider({ children }) {
       // de que el SDK terminara de procesar el evento), no la tratamos
       // como un login real. Esto evita que AuthContext popule `user` con
       // una sesión que solo debería existir para cambiar la contraseña.
-      const hash = window.location.hash
-      const isRecoveryFlow = hash.includes('type=recovery')
-      if (session?.user && !isRecoveryFlow) {
+      if (session?.user && !isRecoveryUrl()) {
         setUser(session.user)
         ensureProfile(session.user)
       } else {
