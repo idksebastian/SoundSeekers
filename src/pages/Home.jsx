@@ -794,11 +794,7 @@ export default function Home() {
             </div>
           </div>
           <div className="footer-bottom">
-            <p className="footer-copy">© 2026 SoundSeekers. Todos los derechos reservados.</p>
-            <div className="footer-badge">
-              <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55A4 4 0 1014 17V7h4V3h-6z"/></svg>
-              Hecho con música en Colombia
-            </div>
+            <p className="footer-copy">SoundSeekers © 2026. Todos los derechos reservados.</p>
           </div>
         </div>
       </footer>
