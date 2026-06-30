@@ -23,6 +23,9 @@ export default function ResetPassword() {
     let resolved = false
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // 🔍 DEBUG TEMPORAL — quitar después de diagnosticar
+      console.log('[RESET DEBUG]', { event, hasSession: !!session, href: window.location.href, hasRecoveryHash })
+
       // ✅ FIX (gotcha PKCE): aceptamos también 'SIGNED_IN' como señal de
       // que el formulario debe mostrarse, siempre que la URL sea de
       // recovery. En PKCE, Supabase no siempre distingue el evento como

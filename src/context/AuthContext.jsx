@@ -36,6 +36,9 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      // 🔍 DEBUG TEMPORAL — quitar después de diagnosticar
+      console.log('[AUTH DEBUG] getSession inicial', { hasSession: !!session, href: window.location.href, isRecoveryUrl: isRecoveryUrl() })
+
       // ✅ FIX: si la sesión inicial es de tipo recovery (alguien abrió
       // /reset-password con el link del correo y este efecto corrió antes
       // de que el SDK terminara de procesar el evento), no la tratamos
@@ -52,6 +55,9 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // 🔍 DEBUG TEMPORAL — quitar después de diagnosticar
+        console.log('[AUTH DEBUG]', { event, hasSession: !!session, href: window.location.href, isRecoveryUrl: isRecoveryUrl() })
+
         // ✅ FIX CRÍTICO: el evento PASSWORD_RECOVERY trae una sesión
         // válida (así Supabase permite hacer updateUser para cambiar la
         // contraseña), pero antes este listener no distinguía el evento
