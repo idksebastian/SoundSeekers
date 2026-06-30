@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import { supabase, isRecoveryUrl } from '../lib/supabase'
 
 const AuthContext = createContext()
 
@@ -14,33 +14,15 @@ async function ensureProfile(user) {
   }, { onConflict: 'user_id' })
 }
 
-// ✅ Detecta si la URL actual corresponde a un flujo de recovery,
-// soportando tanto el flujo implicit (hash: #access_token=...&type=recovery)
-// como PKCE (query: ?code=xxxx, sin type=recovery garantizado).
-// La tercera condición es la red de seguridad real para PKCE: si estamos
-// en /reset-password y hay un `code=` en la URL, asumimos recovery aunque
-// no venga el `type` explícito.
-function isRecoveryUrl() {
-  const hash = window.location.hash
-  const search = window.location.search
-  return (
-    hash.includes('type=recovery') ||
-    search.includes('type=recovery') ||
-    (window.location.pathname === '/reset-password' && search.includes('code='))
-  )
-}
-
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // ✅ FIX: si la sesión inicial es de tipo recovery (alguien abrió
-      // una URL con hash/query de recovery y este efecto corrió antes
-      // de que el SDK terminara de procesar el evento), no la tratamos
-      // como un login real. Esto evita que AuthContext popule `user` con
-      // una sesión que solo debería existir para cambiar la contraseña.
+      // ✅ isRecoveryUrl() ahora lee un flag capturado de forma síncrona
+      // al cargar lib/supabase.js, no window.location en este momento
+      // (que para entonces el SDK ya pudo haber limpiado el hash).
       if (session?.user && !isRecoveryUrl()) {
         setUser(session.user)
         ensureProfile(session.user)
@@ -52,14 +34,10 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // ✅ FIX DEFINITIVO: en vez de filtrar evento por evento
-        // (PASSWORD_RECOVERY, SIGNED_IN, etc.), blindamos por la URL.
-        // Supabase puede emitir distintos nombres de evento al procesar
-        // el hash/query de recovery según la versión/flujo —incluyendo
-        // 'INITIAL_SESSION', que no estaba cubierto antes y es
-        // probablemente el causante de que el auto-login persistiera.
-        // Mientras la URL actual sea de recovery, NUNCA adoptamos la
-        // sesión en AuthContext, sin importar qué evento llegue.
+        // ✅ FIX: blindamos por el flag de recovery capturado, sin
+        // importar qué nombre de evento llegue (PASSWORD_RECOVERY,
+        // SIGNED_IN, INITIAL_SESSION, etc.) ni si el hash ya fue
+        // borrado de la URL para este punto.
         if (isRecoveryUrl()) {
           if (event === 'SIGNED_OUT') setUser(null)
           return

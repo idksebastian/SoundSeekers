@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { supabase, isRecoveryUrl, clearRecoveryFlag } from '../lib/supabase'
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('')
@@ -15,13 +15,10 @@ export default function ResetPassword() {
   const completedRef = useRef(false)
 
   useEffect(() => {
-    const hash = window.location.hash
-    const search = window.location.search
-    // ✅ Misma lógica que en AuthContext: soporta implicit y PKCE.
-    const hasRecoveryHash =
-      hash.includes('type=recovery') ||
-      search.includes('type=recovery') ||
-      search.includes('code=')
+    // ✅ FIX: usamos el flag capturado de forma síncrona en lib/supabase.js
+    // (antes de que el SDK limpie el hash de la URL) en vez de releer
+    // window.location aquí, que para este punto podría ya estar vacío.
+    const hasRecoveryHash = isRecoveryUrl()
 
     let resolved = false
 
@@ -63,6 +60,7 @@ export default function ResetPassword() {
     const handlePageHide = () => {
       if (resolved && !completedRef.current) {
         supabase.auth.signOut()
+        clearRecoveryFlag()
       }
     }
     window.addEventListener('pagehide', handlePageHide)
@@ -72,13 +70,15 @@ export default function ResetPassword() {
       subscription.unsubscribe()
       // ✅ FIX: si el usuario abandona /reset-password sin completar el
       // cambio de contraseña (navega a otra ruta, cierra la pestaña),
-      // cerramos la sesión de recovery explícitamente. Sin esto, la
-      // sesión queda persistida en localStorage y, al cerrar y volver a
-      // abrir la app (cuando el hash ya no está en la URL), AuthContext
-      // ya no tiene forma de distinguirla de un login real — y el
-      // usuario aparece "logueado" sin haberlo hecho.
+      // cerramos la sesión de recovery explícitamente Y limpiamos el
+      // flag. Sin el signOut, la sesión queda persistida en localStorage
+      // y se vuelve indistinguible de un login real al recargar. Sin
+      // limpiar el flag, un login normal posterior en la misma sesión
+      // de la SPA (sin recargar la página) seguiría siendo ignorado por
+      // AuthContext por error.
       if (resolved && !completedRef.current) {
         supabase.auth.signOut()
+        clearRecoveryFlag()
       }
     }
   }, [])
@@ -117,6 +117,7 @@ export default function ResetPassword() {
       setDone(true)
       completedRef.current = true
       await supabase.auth.signOut()
+      clearRecoveryFlag()
       setTimeout(() => navigate('/login'), 3000)
     } catch (err) {
       setError(err.message)
