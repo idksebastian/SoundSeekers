@@ -36,11 +36,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      // 🔍 DEBUG TEMPORAL — quitar después de diagnosticar
-      console.log('[AUTH DEBUG] getSession inicial', { hasSession: !!session, href: window.location.href, isRecoveryUrl: isRecoveryUrl() })
-
       // ✅ FIX: si la sesión inicial es de tipo recovery (alguien abrió
-      // /reset-password con el link del correo y este efecto corrió antes
+      // una URL con hash/query de recovery y este efecto corrió antes
       // de que el SDK terminara de procesar el evento), no la tratamos
       // como un login real. Esto evita que AuthContext popule `user` con
       // una sesión que solo debería existir para cambiar la contraseña.
@@ -55,35 +52,18 @@ export function AuthProvider({ children }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        // 🔍 DEBUG TEMPORAL — quitar después de diagnosticar
-        console.log('[AUTH DEBUG]', { event, hasSession: !!session, href: window.location.href, isRecoveryUrl: isRecoveryUrl() })
-
-        // ✅ FIX CRÍTICO: el evento PASSWORD_RECOVERY trae una sesión
-        // válida (así Supabase permite hacer updateUser para cambiar la
-        // contraseña), pero antes este listener no distinguía el evento
-        // y simplemente hacía setUser(session.user) para CUALQUIER
-        // sesión. Eso era exactamente lo que causaba el "auto-login":
-        // ResetPassword.jsx nunca llegaba a mostrarse porque el resto de
-        // la app (rutas, Navbar, redirects basados en `user`) ya te
-        // trataba como logueado normalmente.
-        //
-        // Ahora: si el evento es PASSWORD_RECOVERY, ignoramos la sesión
-        // por completo a nivel de AuthContext. El componente
-        // ResetPassword.jsx tiene su PROPIO listener de
-        // onAuthStateChange y maneja ese evento de forma aislada para
-        // mostrar el formulario — sin que el resto de la app se entere
-        // de que existe una sesión activa.
-        if (event === 'PASSWORD_RECOVERY') return
-
-        // ✅ FIX (gotcha conocido de PKCE): en flujo PKCE, Supabase a veces
-        // no dispara 'PASSWORD_RECOVERY' sino un 'SIGNED_IN' normal al
-        // intercambiar el `code` por sesión, porque ese intercambio no
-        // siempre preserva la distinción de "esto es un recovery". Si eso
-        // pasa y no lo filtramos aquí, el usuario queda logueado de forma
-        // silenciosa aunque la URL sea claramente de /reset-password.
-        // isRecoveryUrl() es la red de seguridad: si la URL actual indica
-        // recovery, ignoramos la sesión sin importar qué evento llegó.
-        if (event === 'SIGNED_IN' && isRecoveryUrl()) return
+        // ✅ FIX DEFINITIVO: en vez de filtrar evento por evento
+        // (PASSWORD_RECOVERY, SIGNED_IN, etc.), blindamos por la URL.
+        // Supabase puede emitir distintos nombres de evento al procesar
+        // el hash/query de recovery según la versión/flujo —incluyendo
+        // 'INITIAL_SESSION', que no estaba cubierto antes y es
+        // probablemente el causante de que el auto-login persistiera.
+        // Mientras la URL actual sea de recovery, NUNCA adoptamos la
+        // sesión en AuthContext, sin importar qué evento llegue.
+        if (isRecoveryUrl()) {
+          if (event === 'SIGNED_OUT') setUser(null)
+          return
+        }
 
         // ✅ Si llega SIGNED_OUT explícito, siempre limpiar de inmediato
         // (cubre el signOut() que hacemos al final de ResetPassword.jsx)

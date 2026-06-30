@@ -13,8 +13,13 @@ export default function ForgotPassword() {
     setError('')
     setLoading(true)
     try {
+      // ✅ FIX: dominio canónico confirmado en Vercel — soundseekers.co
+      // hace 308 redirect hacia www.soundseekers.co, que es el dominio de
+      // Production real. Por eso el redirectTo debe usar www explícito;
+      // si usáramos el apex, Supabase no lo matchearía contra la
+      // whitelist y caería al Site URL, perdiendo el path /reset-password.
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: 'https://www.soundseekers.co/reset-password',
       })
       if (error) throw error
       setSent(true)
