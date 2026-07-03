@@ -6,7 +6,19 @@ import { useAuth } from '../context/AuthContext'
 import GenreCombobox from '../components/GenreCombobox'
 
 const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
-const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a']
+const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/flac', 'audio/x-flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a', 'audio/m4a', 'audio/mp4', 'audio/webm', 'audio/3gpp', 'audio/3gpp2']
+const ACCEPTED_AUDIO_EXTENSIONS = ['mp3', 'wav', 'flac', 'ogg', 'aac', 'm4a', 'opus', 'wma']
+
+// ✅ FIX: mismo problema que en Upload.jsx — en móvil el navegador a
+// menudo no reporta el MIME type real del audio. Fallback a extensión
+// del archivo, y aceptar cualquier cosa ya clasificada como "audio/*".
+function isAcceptedAudioFile(file) {
+  if (ACCEPTED_AUDIO.includes(file.type)) return true
+  const ext = file.name?.split('.').pop()?.toLowerCase()
+  if (ext && ACCEPTED_AUDIO_EXTENSIONS.includes(ext)) return true
+  if (file.type?.startsWith('audio/')) return true
+  return false
+}
 
 async function uploadFile(bucket, file) {
   const { data: { session } } = await supabase.auth.getSession()
@@ -75,7 +87,7 @@ export default function EditSong() {
   const handleAudioChange = (e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!ACCEPTED_AUDIO.includes(file.type)) return setError('Formato no soportado.')
+    if (!isAcceptedAudioFile(file)) return setError('Formato no soportado.')
     if (file.size > 50 * 1024 * 1024) return setError('El archivo supera los 50MB.')
     setAudioFile(file)
     setAudioName(file.name)

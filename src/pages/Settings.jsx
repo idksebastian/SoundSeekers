@@ -24,6 +24,20 @@ const SECTIONS = [
 const NAME_CHANGE_LIMIT = 2
 const NAME_CHANGE_DAYS  = 30
 
+// ✅ FIX: contamos reproducciones desde la tabla `streams` (fuente de
+// verdad real: una fila por reproducción), NO desde la columna
+// songs.streams, que quedó desactualizada / no se incrementa
+// correctamente. Mismo problema ya corregido en Home, Player,
+// ArtistProfile y Dashboard.
+async function getStreamCounts(songIds) {
+  if (!songIds?.length) return {}
+  const { data, error } = await supabase.from('streams').select('song_id').in('song_id', songIds)
+  if (error) { console.error('streams fetch error:', error); return {} }
+  const map = {}
+  data?.forEach(r => { map[r.song_id] = (map[r.song_id] ?? 0) + 1 })
+  return map
+}
+
 function IOSToggle({ on, onChange, color = '#7c3aed' }) {
   return (
     <div onClick={onChange}
@@ -311,6 +325,7 @@ export default function Settings() {
   const [songStats, setSongStats] = useState([])
 
   const [songs, setSongs] = useState([])
+  const [songStreamCounts, setSongStreamCounts] = useState({})
   const [loadingSongs, setLoadingSongs] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
@@ -335,7 +350,14 @@ export default function Settings() {
     if (activeSection !== 'songs' || !user) return
     const fetch = async () => {
       setLoadingSongs(true)
-      try { setSongs(await getMySongs(user.id)) } catch {} finally { setLoadingSongs(false) }
+      try {
+        const mySongs = await getMySongs(user.id)
+        setSongs(mySongs)
+        // ✅ FIX: reproducciones reales desde la tabla `streams`, no la
+        // columna songs.streams (desactualizada).
+        const counts = await getStreamCounts(mySongs.map(s => s.id))
+        setSongStreamCounts(counts)
+      } catch {} finally { setLoadingSongs(false) }
     }
     fetch()
   }, [activeSection, user])
@@ -346,10 +368,17 @@ export default function Settings() {
       setLoadingStats(true)
       try {
         const [songsData, followData, albums] = await Promise.all([getMySongs(user.id), getFollowStats(user.id), getArtistAlbums(user.id)])
-        const totalStreams = songsData.reduce((a, s) => a + (s.streams ?? 0), 0)
+        // ✅ FIX: mismo cambio — contar reproducciones reales desde la
+        // tabla `streams` en vez de sumar songs.streams (desactualizada).
+        // Esto es lo que causaba que "Total de reproducciones", el
+        // gráfico de "Top canciones" y el "Ranking detallado" mostraran
+        // números distintos a los reales del perfil/Home/Explorar.
+        const counts = await getStreamCounts(songsData.map(s => s.id))
+        const songsWithRealStreams = songsData.map(s => ({ ...s, streams: counts[s.id] ?? 0 }))
+        const totalStreams = songsWithRealStreams.reduce((a, s) => a + s.streams, 0)
         const { data: presavesData } = await supabase.from('presaves').select('id', { count: 'exact' }).in('album_id', albums.map(a => a.id))
         setStats({ totalStreams, totalSongs: songsData.length, totalAlbums: albums.length, followers: followData.followers, following: followData.following, presaves: presavesData?.length ?? 0 })
-        setSongStats([...songsData].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0)).slice(0, 5))
+        setSongStats([...songsWithRealStreams].sort((a, b) => b.streams - a.streams).slice(0, 5))
       } catch {} finally { setLoadingStats(false) }
     }
     fetch()
@@ -519,7 +548,7 @@ export default function Settings() {
                           <p style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: '0 0 2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{song.title}</p>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{ fontSize: '11px', color: '#7c3aed', background: '#f5f3ff', padding: '1px 8px', borderRadius: '20px', fontWeight: '600' }}>{song.genre}</span>
-                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{(song.streams ?? 0).toLocaleString()} rep.</span>
+                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>{(songStreamCounts[song.id] ?? 0).toLocaleString()} rep.</span>
                           </div>
                           {isConfirming && <p style={{ fontSize: '11px', color: '#ef4444', fontWeight: '600', margin: '4px 0 0' }}>¿Confirmar eliminación?</p>}
                         </div>

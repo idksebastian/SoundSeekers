@@ -5,7 +5,24 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import GenreCombobox from '../components/GenreCombobox'
 
-const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a']
+const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/wave', 'audio/flac', 'audio/x-flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a', 'audio/m4a', 'audio/mp4', 'audio/webm', 'audio/3gpp', 'audio/3gpp2']
+const ACCEPTED_AUDIO_EXTENSIONS = ['mp3', 'wav', 'flac', 'ogg', 'aac', 'm4a', 'opus', 'wma']
+
+// ✅ FIX: en móvil (sobre todo iOS Safari y algunos Android) el navegador
+// a menudo NO reporta el MIME type real del audio — llega vacío, genérico
+// o con un valor distinto al esperado (ej. graba con la app Voz/Grabadora
+// y llega como algo no listado). Antes esto rechazaba el archivo en
+// silencio con "Formato no soportado" aunque sí fuera un audio válido.
+// Ahora: si el MIME type conocido falla, revisamos la extensión del
+// archivo, y si tampoco coincide, aceptamos igual cualquier cosa que el
+// propio navegador ya haya clasificado como "audio/*" en general.
+function isAcceptedAudioFile(file) {
+  if (ACCEPTED_AUDIO.includes(file.type)) return true
+  const ext = file.name?.split('.').pop()?.toLowerCase()
+  if (ext && ACCEPTED_AUDIO_EXTENSIONS.includes(ext)) return true
+  if (file.type?.startsWith('audio/')) return true
+  return false
+}
 const MAX_SIZE = 50 * 1024 * 1024
 const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
 
@@ -54,7 +71,7 @@ export default function Upload() {
   const handleAudioChange = (trackId, e) => {
     const file = e.target.files[0]
     if (!file) return
-    if (!ACCEPTED_AUDIO.includes(file.type)) return setError('Formato no soportado.')
+    if (!isAcceptedAudioFile(file)) return setError('Formato no soportado.')
     if (file.size > MAX_SIZE) return setError('El archivo supera los 50MB.')
     setError('')
     const url = URL.createObjectURL(file)
