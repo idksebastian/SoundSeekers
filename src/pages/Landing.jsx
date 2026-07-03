@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { getSongs } from '../api/songs'
+import { supabase } from '../lib/supabase'
 
 export default function Landing() {
   const { user, loading } = useAuth()
@@ -13,11 +14,30 @@ export default function Landing() {
   }, [user, loading])
 
   useEffect(() => {
-    getSongs().then(songs => {
-      const artistIds = new Set(songs.map(s => s.user_id).filter(Boolean))
-      const totalStreams = songs.reduce((acc, s) => acc + (s.streams ?? 0), 0)
-      setStats({ songs: songs.length, artists: artistIds.size, streams: totalStreams })
-    }).catch(() => {})
+    const loadStats = async () => {
+      try {
+        const songs = await getSongs()
+        const artistIds = new Set(songs.map(s => s.user_id).filter(Boolean))
+
+        // ✅ FIX: reproducciones reales desde la tabla `streams` vía RPC
+        // (agrupa en Postgres), no desde la columna songs.streams
+        // (desactualizada) ni trayendo filas crudas (que chocaría con el
+        // límite de 1000 filas por consulta de Supabase). Mismo problema
+        // ya corregido en Home, Dashboard, Player, Settings y ArtistProfile.
+        let totalStreams = 0
+        const songIds = songs.map(s => s.id)
+        if (songIds.length) {
+          const { data: counts, error } = await supabase.rpc('get_stream_counts', { song_ids: songIds })
+          if (error) console.error('streams fetch error:', error)
+          totalStreams = counts?.reduce((acc, c) => acc + Number(c.cnt), 0) ?? 0
+        }
+
+        setStats({ songs: songs.length, artists: artistIds.size, streams: totalStreams })
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    loadStats()
   }, [])
 
   if (loading) return null
