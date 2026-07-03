@@ -83,6 +83,26 @@ export async function getLikedPosts(user_id) {
   return data.map(d => d.posts).filter(Boolean)
 }
 
+// ✅ NUEVO: perfiles de quienes le dieron like a un post, para la página
+// /community/post/:postId/likes. Mismo patrón que getFollowers/getFollowing
+// en api/profile.js: primero los ids desde la tabla de relación, luego
+// los perfiles completos en una segunda query.
+export async function getPostLikers(post_id) {
+  const { data: likes, error } = await supabase
+    .from('post_likes')
+    .select('user_id')
+    .eq('post_id', post_id)
+  if (error || !likes?.length) return []
+
+  const userIds = likes.map(l => l.user_id)
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('user_id, name, artist_name, avatar_url')
+    .in('user_id', userIds)
+
+  return profiles ?? []
+}
+
 export async function getComments(post_id) {
   const { data, error } = await supabase
     .from('post_comments')

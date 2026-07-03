@@ -13,9 +13,9 @@ function timeAgo(dateStr) {
   return `Hace ${Math.floor(diff / 86400)} d`
 }
 
-function Avatar({ src, name, size = 36 }) {
+function Avatar({ src, name, size = 36, onClick }) {
   return (
-    <div style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f3f4f6' }}>
+    <div onClick={onClick} style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f3f4f6', cursor: onClick ? 'pointer' : 'default' }}>
       {src
         ? <img src={src} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
         : <span style={{ fontSize: size * 0.38, fontWeight: '700', color: '#7c3aed' }}>{name?.[0]?.toUpperCase() ?? '?'}</span>
@@ -24,7 +24,7 @@ function Avatar({ src, name, size = 36 }) {
   )
 }
 
-function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0, highlighted }) {
+function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0, highlighted, onNavigateProfile }) {
   const ref = useRef(null)
   const isOwn = user?.id === comment.user_id
   const isReply = depth > 0
@@ -43,10 +43,15 @@ function CommentBubble({ comment, user, onReply, onDelete, deletingId, depth = 0
       background: highlighted ? '#fef9c3' : 'transparent',
       padding: highlighted ? '6px 8px' : '0',
     }}>
-      <Avatar src={comment.avatar_url} name={comment.username} size={isReply ? 30 : 36}/>
+      <Avatar src={comment.avatar_url} name={comment.username} size={isReply ? 30 : 36} onClick={() => onNavigateProfile(comment.user_id)}/>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ background: highlighted ? '#fef08a' : '#f9fafb', borderRadius: '0 16px 16px 16px', padding: '8px 12px', display: 'inline-block', maxWidth: '100%', transition: 'background 0.5s' }}>
-          <p style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 2px' }}>{comment.username ?? 'Usuario'}</p>
+          <p
+            onClick={() => onNavigateProfile(comment.user_id)}
+            style={{ fontSize: '13px', fontWeight: '700', color: '#111', margin: '0 0 2px', cursor: 'pointer', display: 'inline-block' }}
+          >
+            {comment.username ?? 'Usuario'}
+          </p>
           <p style={{ fontSize: '14px', color: '#374151', margin: 0, lineHeight: 1.5, wordBreak: 'break-word' }}>{comment.content}</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', paddingLeft: '4px' }}>
@@ -95,6 +100,15 @@ export default function PostPage() {
   const [submittingReply, setSubmittingReply] = useState(false)
   // Controlar el highlight: activo 3s y luego off
   const [activeHighlight, setActiveHighlight] = useState(highlightCommentId)
+
+  // ✅ Navega al perfil público de cualquier usuario (dueño del post o
+  // comentarista). /artist/:userId es la ruta que ya usa el resto de la
+  // app (notificaciones, FollowModal) y hace fallback a perfil de oyente
+  // si la persona no es artista.
+  const goToProfile = (userId) => {
+    if (!userId) return
+    navigate(`/artist/${userId}`)
+  }
 
   useEffect(() => {
     if (!highlightCommentId) return
@@ -252,9 +266,14 @@ export default function PostPage() {
         <div style={{ background: '#fff', borderRadius: '20px', border: '1px solid #f0f0f0', boxShadow: '0 2px 12px rgba(0,0,0,0.04)', marginBottom: '12px', overflow: 'hidden' }}>
           <div style={{ padding: '20px 20px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-              <Avatar src={post.avatar_url} name={post.username} size={44}/>
+              <Avatar src={post.avatar_url} name={post.username} size={44} onClick={() => goToProfile(post.user_id)}/>
               <div>
-                <p style={{ fontSize: '15px', fontWeight: '700', color: '#111', margin: 0 }}>{post.username ?? 'Usuario'}</p>
+                <p
+                  onClick={() => goToProfile(post.user_id)}
+                  style={{ fontSize: '15px', fontWeight: '700', color: '#111', margin: 0, cursor: 'pointer', display: 'inline-block' }}
+                >
+                  {post.username ?? 'Usuario'}
+                </p>
                 <p style={{ fontSize: '12px', color: '#9ca3af', margin: '2px 0 0' }}>{timeAgo(post.created_at)}</p>
               </div>
             </div>
@@ -313,7 +332,16 @@ export default function PostPage() {
           </div>
           {(likeCount > 0 || comments.length > 0) && (
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 20px', fontSize: '13px', color: '#9ca3af', borderTop: '1px solid #f9fafb' }}>
-              {likeCount > 0 && <span>❤️ {likeCount}</span>}
+              {likeCount > 0 && (
+                <span
+                  onClick={() => navigate(`/community/post/${postId}/likes`)}
+                  style={{ cursor: 'pointer' }}
+                  onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                  onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+                >
+                  ❤️ {likeCount}
+                </span>
+              )}
               {comments.length > 0 && <span style={{ marginLeft: 'auto' }}>{comments.length} comentario{comments.length !== 1 ? 's' : ''}</span>}
             </div>
           )}
@@ -384,6 +412,7 @@ export default function PostPage() {
                     deletingId={deletingComment}
                     depth={0}
                     highlighted={activeHighlight === comment.id}
+                    onNavigateProfile={goToProfile}
                   />
 
                   {/* Respuestas */}
@@ -394,6 +423,7 @@ export default function PostPage() {
                           onReply={() => {}} onDelete={handleDeleteComment}
                           deletingId={deletingComment} depth={1}
                           highlighted={activeHighlight === reply.id}
+                          onNavigateProfile={goToProfile}
                         />
                       ))}
                     </div>

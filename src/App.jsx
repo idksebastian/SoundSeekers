@@ -22,6 +22,7 @@ const Home = lazy(() => import('./pages/Home'))
 const Profile = lazy(() => import('./pages/Profile'))
 const Community = lazy(() => import('./pages/Community'))
 const PostPage = lazy(() => import('./pages/PostPage'))
+const PostLikes = lazy(() => import('./pages/PostLikes'))
 const CreatePost = lazy(() => import('./pages/CreatePost'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const Animo = lazy(() => import('./pages/Animo'))
@@ -141,6 +142,8 @@ function AppRoutes() {
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/community" element={<Community />} />
                 <Route path="/community/post/:postId" element={<PostPage />} />
+                {/* ✅ NUEVO: perfiles que le dieron like a un post */}
+                <Route path="/community/post/:postId/likes" element={<PostLikes />} />
                 <Route path="/community/create" element={<CreatePost />} />
                 <Route path="/animo" element={<Animo />} />
                 <Route path="/ai" element={<AI />} />

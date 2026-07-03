@@ -93,6 +93,15 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
 
   const goToPost = () => navigate(`/community/post/${post.id}`)
 
+  // ✅ Navega al perfil público del autor del post. Se detiene la
+  // propagación para que no dispare goToPost al hacer click en el avatar
+  // o el nombre.
+  const goToAuthorProfile = (e) => {
+    e.stopPropagation()
+    if (!post.user_id) return
+    navigate(`/artist/${post.user_id}`)
+  }
+
   return (
     <>
       <div
@@ -105,14 +114,14 @@ export default function PostCard({ post, onLikeToggle, onDeleted, onUpdated }) {
           {/* Autor */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f3f4f6' }}>
+              <div onClick={goToAuthorProfile} style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '2px solid #f3f4f6', cursor: 'pointer' }}>
                 {post.avatar_url
                   ? <img src={post.avatar_url} alt={post.username} style={{ width: '100%', height: '100%', objectFit: 'cover' }}/>
                   : <span style={{ fontSize: '14px', fontWeight: '700', color: '#7c3aed' }}>{post.username?.[0]?.toUpperCase() ?? '?'}</span>
                 }
               </div>
               <div>
-                <p style={{ fontSize: '14px', fontWeight: '700', color: '#111', margin: 0, lineHeight: 1.3 }}>{post.username ?? 'Usuario'}</p>
+                <p onClick={goToAuthorProfile} style={{ fontSize: '14px', fontWeight: '700', color: '#111', margin: 0, lineHeight: 1.3, cursor: 'pointer', display: 'inline-block' }}>{post.username ?? 'Usuario'}</p>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <p style={{ fontSize: '12px', color: '#9ca3af', margin: 0 }}>{timeAgo(post.created_at)}</p>
                   {post.edited && <span style={{ fontSize: '11px', color: '#9ca3af', background: '#f3f4f6', padding: '1px 6px', borderRadius: '20px' }}>editado</span>}
