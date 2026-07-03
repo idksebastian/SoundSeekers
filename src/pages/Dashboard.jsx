@@ -5,20 +5,13 @@ import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
-const GENRES = [
-  { label: 'Todo', value: null, color: '#7c3aed' },
-  { label: 'Reggaeton', value: 'Reggaeton', color: '#ec4899' },
-  { label: 'Hip-Hop', value: 'Hip-Hop', color: '#f59e0b' },
-  { label: 'Champeta', value: 'Champeta', color: '#10b981' },
-  { label: 'Electrónica', value: 'Electrónica', color: '#3b82f6' },
-  { label: 'Pop', value: 'Pop', color: '#ef4444' },
-  { label: 'Indie', value: 'Indie', color: '#8b5cf6' },
-  { label: 'Jazz', value: 'Jazz', color: '#f97316' },
-  { label: 'Folk', value: 'Folk', color: '#14b8a6' },
-  { label: 'Vallenato', value: 'Vallenato', color: '#6366f1' },
-  { label: 'Salsa', value: 'Salsa', color: '#e11d48' },
-  { label: 'Rap', value: 'Rap', color: '#0ea5e9' },
-]
+// ✅ FIX: antes esta lista era fija — cualquier género nuevo que alguien
+// escribiera con el buscador de género (GenreCombobox, en Upload/EditSong)
+// nunca aparecía como filtro aquí, aunque sí existiera en canciones
+// reales. Ahora los filtros se generan dinámicamente a partir de los
+// géneros que de verdad existen (ver `genreList` más abajo). Esta paleta
+// solo asigna colores de forma rotativa a cada género que aparezca.
+const GENRE_COLOR_PALETTE = ['#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#8b5cf6', '#f97316', '#14b8a6', '#6366f1', '#e11d48', '#0ea5e9', '#84cc16', '#a855f7', '#06b6d4']
 
 export default function Dashboard() {
   const { playSong, currentSong, isPlaying } = usePlayer()
@@ -159,6 +152,21 @@ export default function Dashboard() {
     return map
   }, [songs])
 
+  // ✅ Lista de filtros generada a partir de los géneros que realmente
+  // existen en las canciones (incluye cualquier género nuevo escrito a
+  // mano vía GenreCombobox), en vez de la lista fija anterior.
+  const genreList = useMemo(() => {
+    const entries = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])
+    return [
+      { label: 'Todo', value: null, color: '#7c3aed' },
+      ...entries.map(([genre], i) => ({
+        label: genre,
+        value: genre,
+        color: GENRE_COLOR_PALETTE[i % GENRE_COLOR_PALETTE.length],
+      })),
+    ]
+  }, [genreCounts])
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8f7ff', fontFamily: "'Plus Jakarta Sans', sans-serif", paddingBottom: '8rem' }}>
       <style>{`
@@ -277,9 +285,8 @@ export default function Dashboard() {
           <>
             <p className="section-title">Géneros</p>
             <div className="genre-grid">
-              {GENRES.map(g => {
+              {genreList.map(g => {
                 const count = g.value ? (genreCounts[g.value] ?? 0) : songs.length
-                if (g.value && count === 0) return null
                 return (
                   <div key={g.label} className={`genre-card ${selectedGenre === g.value ? 'active' : ''}`}
                     style={{ background: g.color }}

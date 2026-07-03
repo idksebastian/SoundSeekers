@@ -3,15 +3,17 @@ import { createSong, searchArtists } from '../api/songs'
 import { createAlbum } from '../api/albums'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import GenreCombobox from '../components/GenreCombobox'
 
-const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Rap', 'Folk', 'Indie', 'Otro']
 const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a']
 const MAX_SIZE = 50 * 1024 * 1024
 const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
 
+// ✅ Ya no existe `customGenre` — GenreCombobox guarda directamente el
+// texto final del género (sea uno conocido o uno nuevo escrito a mano).
 const emptyTrack = () => ({
   id: Math.random().toString(36).slice(2),
-  title: '', genre: '', customGenre: '', description: '',
+  title: '', genre: '', description: '',
   audioFile: null, audioName: '', audioDuration: null,
   collaborators: [], featSearch: '', featResults: [],
   tags: [], tagInput: '', credits: [], creditName: '', creditRole: '',
@@ -137,7 +139,7 @@ export default function Upload() {
   const validateTracks = () => {
     for (const t of tracks) {
       if (!t.title.trim()) return `Falta el título de la canción ${tracks.indexOf(t) + 1}.`
-      if (!t.genre) return `Falta el género de "${t.title || 'sin título'}".`
+      if (!t.genre.trim()) return `Falta el género de "${t.title || 'sin título'}".`
       if (!t.audioFile) return `Falta el audio de "${t.title || 'sin título'}".`
     }
     return null
@@ -167,7 +169,10 @@ export default function Upload() {
         setCurrentTrack(i + 1)
         setUploadProgress(Math.round((i / tracks.length) * 100))
         const t = tracks[i]
-        const finalGenre = t.genre === 'Otro' ? t.customGenre : t.genre
+        // ✅ El género ya viene resuelto directamente desde GenreCombobox,
+        // sea uno conocido o uno escrito a mano — ya no hace falta el
+        // chequeo de "Otro".
+        const finalGenre = t.genre.trim()
         const collabNames = t.collaborators.map(c => c.artist_name || c.name)
         await createSong({
           title: t.title,
@@ -453,16 +458,10 @@ export default function Upload() {
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-gray-500">Género *</label>
-                        <select value={track.genre} onChange={e => updateTrack(track.id, 'genre', e.target.value)}
-                          className="w-full bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
-                          <option value="">Selecciona</option>
-                          {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-                        </select>
-                        {track.genre === 'Otro' && (
-                          <input placeholder="Género personalizado" value={track.customGenre}
-                            onChange={e => updateTrack(track.id, 'customGenre', e.target.value)}
-                            className="w-full mt-1 bg-white text-black border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"/>
-                        )}
+                        <GenreCombobox
+                          value={track.genre}
+                          onChange={val => updateTrack(track.id, 'genre', val)}
+                        />
                       </div>
 
                       <div className="space-y-1">

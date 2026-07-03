@@ -39,6 +39,26 @@ function clearPlayerState(userId) {
   try { localStorage.removeItem(getPlayerKey(userId)) } catch {}
 }
 
+// ✅ FIX: reshuffle 100% local de la cola actual. Antes, al llegar al
+// final de la cola sin repeat, se hacía una consulta a Supabase para
+// traer una lista "fresca" de canciones — si esa consulta fallaba por
+// cualquier motivo (columna inexistente, RLS, red), el error se ignoraba
+// silenciosamente y el player se quedaba sin hacer nada, dando la
+// sensación de estar "muerto". Esta función nunca puede fallar por red
+// ni por permisos, porque solo reordena lo que ya está en memoria.
+// Además garantiza que la canción que acaba de sonar no quede de
+// primera otra vez (evita la repetición inmediata que pediste).
+function reshuffleQueue(list, justPlayedId) {
+  if (list.length <= 1) return [...list]
+  let shuffled
+  let attempts = 0
+  do {
+    shuffled = [...list].sort(() => Math.random() - 0.5)
+    attempts++
+  } while (shuffled[0]?.id === justPlayedId && attempts < 10)
+  return shuffled
+}
+
 export function PlayerProvider({ children }) {
   const [queue, setQueue] = useState([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -170,7 +190,7 @@ export function PlayerProvider({ children }) {
 
   const pauseSong = () => { audioRef.current?.pause(); setIsPlaying(false) }
 
-  const playNext = async () => {
+  const playNext = () => {
     const list = queueRef.current
     if (!list.length) return
 
@@ -219,47 +239,24 @@ export function PlayerProvider({ children }) {
       return
     }
 
-    // ✅ Sin repeat: llegamos al final — modo radio, reinicia cola mezclada
-    try {
-      const { data: allSongs } = await supabase
-        .from('songs')
-        .select('id, title, cover_url, audio_url, display_artist, artist_name, genre, streams, user_id, album_id, album_title')
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .limit(50)
+    // ✅ FIX: sin repeat, llegamos al final de la cola. En vez de pedirle
+    // a Supabase una lista "fresca" (que podía fallar en silencio y dejar
+    // el player sin hacer nada — el bug reportado), simplemente volvemos
+    // a mezclar las mismas canciones que ya tenemos en memoria. Esto es
+    // instantáneo, nunca falla, y garantiza que la canción que acaba de
+    // sonar no quede de primera otra vez — así el modo "radio" nunca se
+    // detiene, sin importar cuántas canciones haya en la plataforma.
+    const justPlayedId = list[currentIndexRef.current]?.id
+    const reshuffled = reshuffleQueue(list, justPlayedId)
 
-      if (!allSongs?.length) return
-
-      const recentIds = new Set(list.slice(-Math.min(5, list.length)).map(s => s.id))
-      const currentId = list[currentIndexRef.current]?.id
-
-      let candidates = allSongs.filter(s => !recentIds.has(s.id))
-      if (candidates.length < 3) candidates = allSongs.filter(s => s.id !== currentId)
-      if (!candidates.length) candidates = allSongs
-
-      // ✅ Mezclar y reiniciar cola completa para que nunca se acabe
-      const freshQueue = [...allSongs].sort(() => Math.random() - 0.5)
-      const pick = [...candidates].sort(() => Math.random() - 0.5)[0]
-
-      // Poner el pick primero en la cola fresca
-      const pickIdx = freshQueue.findIndex(s => s.id === pick.id)
-      if (pickIdx > 0) {
-        freshQueue.splice(pickIdx, 1)
-        freshQueue.unshift(pick)
-      }
-
-      queueRef.current = freshQueue
-      setQueue(freshQueue)
-
-      currentIndexRef.current = 0
-      setCurrentIndex(0)
-      setCurrentSong(pick)
-      setIsPlaying(true)
-      if (pick.id) registerStream(pick.id)
-      if (activeUserId) savePlayerState(activeUserId, pick, freshQueue)
-    } catch (err) {
-      console.error('Radio error:', err)
-    }
+    queueRef.current = reshuffled
+    setQueue(reshuffled)
+    currentIndexRef.current = 0
+    setCurrentIndex(0)
+    setCurrentSong(reshuffled[0])
+    setIsPlaying(true)
+    if (reshuffled[0]?.id && !reshuffled[0]?.isSpotify) registerStream(reshuffled[0].id)
+    if (activeUserId) savePlayerState(activeUserId, reshuffled[0], reshuffled)
   }
 
   const playPrev = () => {

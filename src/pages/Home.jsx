@@ -5,20 +5,11 @@ import { useAuth } from '../context/AuthContext'
 import { usePlayer } from '../context/PlayerContext'
 import { supabase } from '../lib/supabase'
 
-const GENRES = [
-  { label: 'Todos', value: null },
-  { label: 'Reggaeton', value: 'Reggaeton' },
-  { label: 'Hip-Hop', value: 'Hip-Hop' },
-  { label: 'Champeta', value: 'Champeta' },
-  { label: 'Electrónica', value: 'Electrónica' },
-  { label: 'Pop', value: 'Pop' },
-  { label: 'Indie', value: 'Indie' },
-  { label: 'Jazz', value: 'Jazz' },
-  { label: 'Folk', value: 'Folk' },
-  { label: 'Vallenato', value: 'Vallenato' },
-  { label: 'Salsa', value: 'Salsa' },
-  { label: 'Rap', value: 'Rap' },
-]
+// ✅ FIX: se eliminó la lista fija de géneros — la barra de géneros más
+// abajo ahora se genera directamente desde `genreCounts` (calculado en
+// fetchData a partir de las canciones reales), así que cualquier género
+// nuevo escrito a mano con GenreCombobox (en Upload/EditSong) aparece
+// automáticamente como filtro aquí también.
 
 async function getHistory(userId) {
   if (!userId) return []
@@ -596,10 +587,10 @@ export default function Home() {
       {genreCounts.length > 0 && (
         <div className="genre-bar">
           <button className={`genre-pill ${!selectedGenre ? 'active' : ''}`} onClick={() => setSelectedGenre(null)}>Todo</button>
-          {GENRES.filter(g => g.value && genreCounts.find(gc => gc.genre === g.value)).map(g => (
-            <button key={g.value} className={`genre-pill ${selectedGenre === g.value ? 'active' : ''}`}
-              onClick={() => setSelectedGenre(selectedGenre === g.value ? null : g.value)}>
-              {g.label}
+          {genreCounts.map(gc => (
+            <button key={gc.genre} className={`genre-pill ${selectedGenre === gc.genre ? 'active' : ''}`}
+              onClick={() => setSelectedGenre(selectedGenre === gc.genre ? null : gc.genre)}>
+              {gc.genre}
             </button>
           ))}
         </div>

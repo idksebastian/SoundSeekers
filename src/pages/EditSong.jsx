@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getSongs, updateSong, searchArtists } from '../api/songs'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import GenreCombobox from '../components/GenreCombobox'
 
-const GENRES = ['Pop', 'Rock', 'Hip-Hop', 'Electrónica', 'Reggaeton', 'Jazz', 'Champeta', 'Vallenato', 'Salsa', 'Rap', 'Folk', 'Indie', 'Otro']
 const CREDIT_ROLES = ['Compositor', 'Letrista', 'Productor', 'Sonidista', 'Arreglista', 'Ingeniero de mezcla', 'Ingeniero de masterización', 'Sello discográfico', 'Otro']
 const ACCEPTED_AUDIO = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/ogg', 'audio/aac', 'audio/x-m4a']
 
@@ -27,8 +27,10 @@ export default function EditSong() {
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  // ✅ Ya no existe `customGenre` — GenreCombobox guarda directamente el
+  // texto final del género (sea uno conocido o uno escrito a mano), así
+  // que basta con un solo estado `genre` igual que el resto de campos.
   const [genre, setGenre] = useState('')
-  const [customGenre, setCustomGenre] = useState('')
   const [tags, setTags] = useState([])
   const [tagInput, setTagInput] = useState('')
   const [credits, setCredits] = useState([])
@@ -51,8 +53,9 @@ export default function EditSong() {
       if (!song) return navigate('/profile')
       setTitle(song.title)
       setDescription(song.description ?? '')
-      setGenre(GENRES.includes(song.genre) ? song.genre : 'Otro')
-      if (!GENRES.includes(song.genre)) setCustomGenre(song.genre)
+      // ✅ El género se carga tal cual está guardado, sea uno "conocido"
+      // o uno personalizado — GenreCombobox no distingue entre ambos.
+      setGenre(song.genre ?? '')
       setCoverPreview(song.cover_url)
       setAudioName(song.audio_url?.split('/').pop() ?? '')
       setTags(song.tags ?? [])
@@ -119,13 +122,14 @@ export default function EditSong() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!genre.trim()) return setError('El género es obligatorio.')
     setSaving(true)
     setError('')
     try {
       const fields = {
         title,
         description,
-        genre: genre === 'Otro' ? customGenre : genre,
+        genre: genre.trim(),
         tags: tags.length ? tags : null,
         credits,
         collaborators,
@@ -210,15 +214,7 @@ export default function EditSong() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-gray-700">Género *</label>
-                  <select required value={genre} onChange={e => setGenre(e.target.value)}
-                    className="w-full bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm">
-                    <option value="">Selecciona</option>
-                    {GENRES.map(g => <option key={g} value={g}>{g}</option>)}
-                  </select>
-                  {genre === 'Otro' && (
-                    <input value={customGenre} onChange={e => setCustomGenre(e.target.value)} maxLength={50}
-                      placeholder="Escribe tu género" className="w-full mt-2 bg-white border border-gray-300 text-black rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm" />
-                  )}
+                  <GenreCombobox value={genre} onChange={setGenre} />
                 </div>
               </div>
             </div>

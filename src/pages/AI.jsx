@@ -27,11 +27,14 @@ Responde SIEMPRE preguntas musicales. Solo rechaza preguntas completamente ajena
 
 Las canciones que te paso en el contexto son las ÚNICAS disponibles para reproducir en SoundSeekers.
 
+IMPORTANTE sobre reproducir canciones: cuando menciones o recomiendes una canción de la lista de SoundSeekers, SIEMPRE incluye la etiqueta [PLAY:Título exacto de la canción] al final de tu respuesta, incluso si solo la estás sugiriendo (no solo cuando el usuario pida reproducirla explícitamente). Esto permite mostrar un botón para reproducirla. Usa el título EXACTO tal como aparece en la lista de canciones del contexto.
+
 Cuando pida navegar incluye: [NAV:upload], [NAV:dashboard], [NAV:community], [NAV:animo], [NAV:profile], [NAV:settings], [NAV:requests], [NAV:contacto], [NAV:terminos] o [NAV:privacidad]
 Cuando el usuario quiera contactar soporte o necesite ayuda: usa [NAV:contacto]
 Cuando pregunte sobre políticas, términos, derechos de autor o licencias: usa [NAV:terminos]
 Cuando pregunte sobre privacidad o datos personales: usa [NAV:privacidad]
 NUNCA uses [NAV:settings] para dirigir a políticas legales. Solo usa [NAV:settings] cuando el usuario quiera cambiar configuración de su cuenta.
+NUNCA uses una etiqueta [NAV:...] cuando el usuario esté pidiendo reproducir una canción — en ese caso usa [PLAY:...].
 
 Formato: sin asteriscos, sin markdown, sin #. Usa • para listas. Texto conversacional. Máximo 3-4 oraciones.
 Responde en español, amigable y conciso. Emojis ocasionales.`
@@ -70,6 +73,33 @@ function cleanMarkdown(text) {
     .trim()
 }
 
+// ✅ FIX: fallback para cuando la IA menciona el título de una canción
+// real en texto plano sin usar la etiqueta [PLAY:] (el modelo no siempre
+// la incluye de forma confiable). Buscamos coincidencias de título más
+// largas primero para evitar falsos positivos con títulos cortos.
+function findMentionedSong(text, songs) {
+  if (!text || !songs?.length) return null
+  const lower = text.toLowerCase()
+  const sorted = [...songs]
+    .filter(s => s.title && s.title.trim().length > 2)
+    .sort((a, b) => b.title.length - a.title.length)
+  for (const s of sorted) {
+    if (lower.includes(s.title.toLowerCase())) return s
+  }
+  return null
+}
+
+// ✅ FIX: detecta frases cortas tipo "reprodúcela", "ponla", "play that"
+// para interceptarlas del lado del cliente en vez de mandarlas a la IA
+// (que a veces respondía con [NAV:...] en vez de [PLAY:...] y terminaba
+// enviando al usuario a otra sección).
+function isQuickPlayIntent(text) {
+  const t = text.trim().toLowerCase()
+  if (!t) return false
+  if (t.split(/\s+/).length > 6) return false
+  return /(reprodu\w*|p[oó]n\w*|play|suena|dale\s*play)/i.test(t)
+}
+
 function parseMessage(text, publishedSongs) {
   let cleanText = cleanMarkdown(text)
   const songsMatch = cleanText.match(/\[CANCIONES:([^\]]+)\]/)
@@ -87,7 +117,15 @@ function parseMessage(text, publishedSongs) {
   const navMatch = cleanText.match(/\[NAV:([^\]]+)\]/)
   let navKey = null
   if (navMatch) { navKey = navMatch[1].trim(); cleanText = cleanText.replace(/\[NAV:[^\]]+\]/, '').trim() }
-  return { cleanText, recommendedSongs, playSongTitle, navKey }
+
+  // ✅ Fallback: si no hay etiqueta explícita ni lista de recomendadas,
+  // buscamos si el texto menciona el nombre de alguna canción real.
+  let mentionedSong = null
+  if (!playSongTitle && recommendedSongs.length === 0) {
+    mentionedSong = findMentionedSong(cleanText, publishedSongs)
+  }
+
+  return { cleanText, recommendedSongs, playSongTitle, navKey, mentionedSong }
 }
 
 async function askSeekeAI(messages, publishedSongs, currentSong, isArtist = false) {
@@ -126,8 +164,12 @@ export default function AI() {
   const [input, setInput] = useState('')
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  // ✅ Recuerda la última canción mencionada/reproducida en la conversación,
+  // para poder interceptar "reprodúcela"/"ponla" sin depender de la IA.
+  const lastMentionedSongRef = useRef(null)
   const historyKey = getHistoryKey(user?.id)
   const publishedSongs = allSongs.filter(s => s.status === 'published')
+  const avatarUrl = user?.user_metadata?.avatar_url ?? null
 
   const [messages, setMessages] = useState(() => {
     try {
@@ -162,11 +204,39 @@ export default function AI() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, loading])
 
-  const clearHistory = () => { setMessages([]); localStorage.removeItem(historyKey) }
+  const clearHistory = () => { setMessages([]); localStorage.removeItem(historyKey); lastMentionedSongRef.current = null }
+
+  // ✅ Actualiza la referencia de "última canción mencionada" a partir de
+  // cualquier respuesta del asistente (explícita o detectada en texto).
+  const updateLastMentionedSong = (text) => {
+    const { playSongTitle, recommendedSongs, mentionedSong } = parseMessage(text, publishedSongs)
+    const explicit = playSongTitle
+      ? publishedSongs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
+      : null
+    const candidate = explicit || recommendedSongs[0] || mentionedSong
+    if (candidate) lastMentionedSongRef.current = candidate
+  }
 
   const sendMessage = async (text) => {
     const content = (text || input).trim()
     if (!content || loading) return
+
+    // ✅ FIX: intercepta "reprodúcela"/"ponla" del lado del cliente. Si ya
+    // sabemos cuál fue la última canción mencionada, la reproducimos
+    // directamente sin pasarle esto a la IA — evita que el modelo
+    // responda con un [NAV:...] en vez de reproducir la canción.
+    if (isQuickPlayIntent(content) && lastMentionedSongRef.current) {
+      const song = lastMentionedSongRef.current
+      setInput('')
+      setMessages(prev => [
+        ...prev,
+        { role: 'user', content },
+        { role: 'assistant', content: `▶️ Reproduciendo "${song.title}" — ${song.display_artist || song.artist_name}\n[PLAY:${song.title}]` }
+      ])
+      playSong(song, publishedSongs)
+      return
+    }
+
     setInput(''); setError('')
     const newMessages = [...messages, { role: 'user', content }]
     setMessages(newMessages)
@@ -181,6 +251,7 @@ export default function AI() {
       const reply = await askSeekeAI(newMessages, publishedSongs, currentSong, isArtist)
       clearTimeout(slowTimer)
       const cleaned = cleanMarkdown(reply)
+      updateLastMentionedSong(cleaned)
 
       // Remover mensaje de espera si apareció
       setMessages(prev => {
@@ -205,14 +276,14 @@ export default function AI() {
   const playerOffset = isVisible && !isFullscreen ? 72 : 0
 
   const renderAssistantContent = (msg) => {
-    const { cleanText, recommendedSongs, playSongTitle, navKey } = parseMessage(msg.content, publishedSongs)
+    const { cleanText, recommendedSongs, playSongTitle, navKey, mentionedSong } = parseMessage(msg.content, publishedSongs)
     const isSlowMsg = msg.content === SLOW_MSG
     if (isSlowMsg) return (
       <p style={{ margin: 0, fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>{msg.content}</p>
     )
     const songToPlay = playSongTitle
       ? publishedSongs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
-      : null
+      : mentionedSong
 
     return (
       <div>
@@ -247,7 +318,7 @@ export default function AI() {
             ))}
           </div>
         )}
-        {navKey && NAV_CONFIG[navKey] && (
+        {navKey && NAV_CONFIG[navKey] && !songToPlay && (
           <button onClick={() => navigate(NAV_CONFIG[navKey].path)}
             style={{ marginTop: '10px', display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', border: 'none', borderRadius: '100px', padding: '9px 18px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', boxShadow: '0 4px 12px rgba(124,58,237,0.3)' }}>
             <span>{NAV_CONFIG[navKey].icon}</span>{NAV_CONFIG[navKey].label}
@@ -390,9 +461,13 @@ export default function AI() {
               )}
             </div>
             {msg.role === 'user' && (
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#7c3aed', flexShrink: 0, marginTop: '2px' }}>
-                {userName?.[0]?.toUpperCase() ?? '?'}
-              </div>
+              avatarUrl ? (
+                <img src={avatarUrl} alt={userName} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0, marginTop: '2px' }}/>
+              ) : (
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#ede9fe', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: '800', color: '#7c3aed', flexShrink: 0, marginTop: '2px' }}>
+                  {userName?.[0]?.toUpperCase() ?? '?'}
+                </div>
+              )
             )}
           </div>
         ))}
