@@ -161,16 +161,18 @@ export default function PostLikes() {
                       borderRadius: '8px',
                       fontSize: '13px',
                       fontWeight: '700',
-                      border: isFollowingUser ? '1.5px solid #dbdbdb' : 'none',
-                      background: isFollowingUser ? '#fff' : '#0095f6',
+                      border: isFollowingUser ? '1.5px solid #e5e7eb' : 'none',
+                      background: isFollowingUser ? '#fff' : '#7c3aed',
                       color: isFollowingUser ? '#111' : '#fff',
                       cursor: 'pointer',
                       fontFamily: 'inherit',
                       minWidth: '90px',
                       textAlign: 'center',
-                      transition: 'transform 0.1s',
+                      transition: 'transform 0.1s, background 0.15s',
                       opacity: isLoadingBtn ? 0.6 : 1,
-                    }}>
+                    }}
+                    onMouseEnter={e => { if (!isFollowingUser && !isLoadingBtn) e.currentTarget.style.background = '#6d28d9' }}
+                    onMouseLeave={e => { if (!isFollowingUser) e.currentTarget.style.background = '#7c3aed' }}>
                     {isLoadingBtn ? '...' : isFollowingUser ? 'Siguiendo' : 'Seguir'}
                   </button>
                 )}
