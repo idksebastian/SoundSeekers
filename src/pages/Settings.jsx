@@ -384,6 +384,30 @@ export default function Settings() {
     fetch()
   }, [activeSection, user])
 
+  // ✅ FIX: sin esto, "Seguidores"/"Siguiendo" (y por lo tanto el score de
+  // engagement, que depende de followers) solo se calculaban UNA VEZ al
+  // entrar a la pestaña de Estadísticas — si alguien te seguía mientras
+  // ya estabas viendo la pestaña, el número quedaba congelado hasta
+  // salir y volver a entrar. Mismo patrón de Realtime que ya usa
+  // Profile.jsx para su propio contador de seguidores.
+  useEffect(() => {
+    if (activeSection !== 'stats' || !user) return
+
+    const channel = supabase
+      .channel(`follows:settings-stats:${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'follows', filter: `following_id=eq.${user.id}` }, async () => {
+        const { count } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id)
+        setStats(prev => prev ? { ...prev, followers: count ?? 0 } : prev)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'follows', filter: `follower_id=eq.${user.id}` }, async () => {
+        const { count } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)
+        setStats(prev => prev ? { ...prev, following: count ?? 0 } : prev)
+      })
+      .subscribe()
+
+    return () => { channel.unsubscribe() }
+  }, [activeSection, user])
+
   const isArtist = role?.role === 'artist'
   const nameChanges = role?.name_changes ?? 0
   const lastNameChange = role?.last_name_change ? new Date(role.last_name_change) : null
