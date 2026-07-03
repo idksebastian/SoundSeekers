@@ -98,13 +98,22 @@ function dedupeSongs(songs) {
   })
 }
 
-// ✅ FIX: detecta frases cortas tipo "reprodúcela"/"ponla" para
-// interceptarlas del lado del cliente en vez de mandarlas a la IA.
+// ✅ FIX: detecta frases cortas tipo "reprodúcela"/"ponla" o "pon
+// <título>" para interceptarlas del lado del cliente en vez de
+// mandarlas a la IA.
 function isQuickPlayIntent(text) {
   const t = text.trim().toLowerCase()
   if (!t) return false
-  if (t.split(/\s+/).length > 6) return false
+  if (t.split(/\s+/).length > 8) return false
   return /(reprodu\w*|p[oó]n\w*|play|suena|dale\s*play)/i.test(t)
+}
+
+// ✅ FIX PRINCIPAL: antes, cualquier frase que sonara a "reproducir"
+// disparaba directo la última canción mencionada — por eso "pon jaque
+// mate" reproducía la canción anterior en vez de buscar "Jaque Mate".
+// Quitamos el verbo y, si queda un nombre, lo buscamos en el catálogo.
+function extractPlayTarget(text) {
+  return text.trim().replace(/^(reprodu\w*|p[oó]n(la|lo|le)?|dale\s*play\s*(a)?|play)\s*/i, '').trim()
 }
 
 function parseMessage(text, publishedSongs) {
@@ -264,21 +273,30 @@ export default function ChatBot() {
     const content = text || input.trim()
     if (!content || loading) return
 
-    // ✅ FIX: intercepta "reprodúcela"/"ponla" del lado del cliente. Si ya
-    // sabemos cuál fue la última canción mencionada, la reproducimos
-    // directamente sin pasar por la IA — evita que responda con un
-    // [NAV:...] y termine mandando al usuario a otra sección.
-    if (isQuickPlayIntent(content) && lastMentionedSongRef.current) {
-      const song = lastMentionedSongRef.current
-      setInput('')
-      setMessages(prev => [
-        ...prev,
-        { role: 'user', content },
-        { role: 'assistant', content: `▶️ Reproduciendo "${song.title}" — ${song.display_artist || song.artist_name}\n[PLAY:${song.title}]` }
-      ])
-      playSong(song, publishedSongs)
-      if (!open) setUnread(n => n + 1)
-      return
+    // ✅ FIX: antes esto reproducía SIEMPRE la última canción mencionada
+    // en cuanto detectaba una frase tipo "reproducir" — así "pon jaque
+    // mate" terminaba reproduciendo la canción anterior en vez de "Jaque
+    // Mate". Ahora: si el mensaje nombra una canción específica, la
+    // buscamos en el catálogo. Solo si es un pronombre puro ("ponla",
+    // "reprodúcela") usamos la última canción mencionada.
+    if (isQuickPlayIntent(content)) {
+      const target = extractPlayTarget(content)
+      const namedSong = target ? findByTitle(target, publishedSongs) : null
+      const song = namedSong || (!target ? lastMentionedSongRef.current : null)
+
+      if (song) {
+        setInput('')
+        setMessages(prev => [
+          ...prev,
+          { role: 'user', content },
+          { role: 'assistant', content: `▶️ Reproduciendo "${song.title}" — ${song.display_artist || song.artist_name}\n[PLAY:${song.title}]` }
+        ])
+        playSong(song, publishedSongs)
+        if (!open) setUnread(n => n + 1)
+        return
+      }
+      // Si nombró una canción que no encontramos, dejamos que siga el
+      // flujo normal hacia la IA.
     }
 
     setInput('')
