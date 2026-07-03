@@ -9,7 +9,7 @@ export const KNOWN_GENRES = [
   'Funk', 'Soul', 'Gospel', 'Techno', 'House', 'Trance', 'Dubstep',
   'Ambient', 'Classical', 'Opera', 'World Music', 'Latin', 'Reggae', 'K-Pop', 'J-Pop', 'Cumbia', 'Bachata', 'Merengue', 'Flamenco', 'Samba',
   'Tango', 'Bolero', 'Mariachi', 'Ska', 'Grunge', 'New Wave', 'Post-Punk',
-  'Synthpop', 'Industrial', 'Garage Rock', 'Shoegaze', 'Dream Pop', 'Lo-Fi', 'Chillwave', 'Electro Swing', 'Trip Hop', 'Drum and Bass', 'Breakbeat', 'Hardcore', 'Noise Rock', 'Post-Rock', 'Math Rock', 'Progressive Rock', 'Psychedelic Rock', 'Folk Rock', 'Country Rock', 'Southern Rock', 'Glam Rock', 'Art Rock', 'Experimental Rock', 'Avant-Garde Jazz', 'Free Jazz', 'Bebop', 'Swing', 'Cool Jazz', 'Hard Bop', 'Modal Jazz', 'Fusion Jazz', 'Afrobeat', 
+  'Synthpop', 'Industrial', 'Garage Rock', 'Shoegaze', 'Dream Pop', 'Lo-Fi', 'Chillwave', 'Electro Swing', 'Trip Hop', 'Drum and Bass', 'Breakbeat', 'Hardcore', 'Noise Rock', 'Post-Rock', 'Math Rock', 'Progressive Rock', 'Psychedelic Rock', 'Folk Rock', 'Country Rock', 'Southern Rock', 'Glam Rock', 'Art Rock', 'Experimental Rock', 'Avant-Garde Jazz', 'Free Jazz', 'Bebop', 'Swing', 'Cool Jazz', 'Hard Bop', 'Modal Jazz', 'Fusion Jazz', 'Afrobeat', 'Balada', 
 ]
 
 // ✅ Opción 4: en vez de un <select> con "Otro" + input condicional,

@@ -83,6 +83,21 @@ function findMentionedSong(text, songs) {
   return null
 }
 
+function findByTitle(title, songs) {
+  const t = title.trim().toLowerCase()
+  return songs.find(s => s.title?.toLowerCase() === t)
+    ?? songs.find(s => s.title?.toLowerCase().includes(t) || t.includes(s.title?.toLowerCase() ?? ''))
+}
+
+function dedupeSongs(songs) {
+  const seen = new Set()
+  return songs.filter(s => {
+    if (!s?.id || seen.has(s.id)) return false
+    seen.add(s.id)
+    return true
+  })
+}
+
 // ✅ FIX: detecta frases cortas tipo "reprodúcela"/"ponla" para
 // interceptarlas del lado del cliente en vez de mandarlas a la IA.
 function isQuickPlayIntent(text) {
@@ -94,26 +109,27 @@ function isQuickPlayIntent(text) {
 
 function parseMessage(text, publishedSongs) {
   let cleanText = cleanMarkdown(text)
+
   const songsMatch = cleanText.match(/\[CANCIONES:([^\]]+)\]/)
-  let recommendedSongs = []
+  let fromList = []
   if (songsMatch) {
-    const titles = songsMatch[1].split('|').map(t => t.trim().toLowerCase())
+    const titles = songsMatch[1].split('|').map(t => t.trim())
     cleanText = cleanText.replace(/\[CANCIONES:[^\]]+\]/, '').trim()
-    recommendedSongs = titles.map(title =>
-      publishedSongs.find(s =>
-        s.status === 'published' && (
-          s.title?.toLowerCase().includes(title) ||
-          title.includes(s.title?.toLowerCase())
-        )
-      )
-    ).filter(Boolean)
+    fromList = titles.map(title => findByTitle(title, publishedSongs)).filter(Boolean)
   }
-  const playMatch = cleanText.match(/\[PLAY:([^\]]+)\]/)
-  let playSongTitle = null
-  if (playMatch) {
-    playSongTitle = playMatch[1].trim().toLowerCase()
-    cleanText = cleanText.replace(/\[PLAY:[^\]]+\]/, '').trim()
+
+  // ✅ FIX: la IA puede incluir VARIAS etiquetas [PLAY:...] en una misma
+  // respuesta (una por cada canción que recomienda). Antes solo se
+  // procesaba la primera (sin bandera /g), dejando el resto visible como
+  // texto literal en el chat y mostrando la tarjeta equivocada. Ahora
+  // extraemos TODAS con matchAll + reemplazo global.
+  const playMatches = [...cleanText.matchAll(/\[PLAY:([^\]]+)\]/g)]
+  let fromPlay = []
+  if (playMatches.length) {
+    fromPlay = playMatches.map(m => findByTitle(m[1], publishedSongs)).filter(Boolean)
+    cleanText = cleanText.replace(/\[PLAY:[^\]]+\]/g, '').trim()
   }
+
   const navMatch = cleanText.match(/\[NAV:([^\]]+)\]/)
   let navKey = null
   if (navMatch) {
@@ -121,14 +137,16 @@ function parseMessage(text, publishedSongs) {
     cleanText = cleanText.replace(/\[NAV:[^\]]+\]/, '').trim()
   }
 
-  // ✅ Fallback: si no hay etiqueta explícita ni lista de recomendadas,
-  // buscamos si el texto menciona el nombre de alguna canción real.
-  let mentionedSong = null
-  if (!playSongTitle && recommendedSongs.length === 0) {
-    mentionedSong = findMentionedSong(cleanText, publishedSongs)
+  let songsToShow = dedupeSongs([...fromList, ...fromPlay])
+
+  // Fallback: si no hubo ninguna etiqueta pero el texto menciona un
+  // título real, igual lo mostramos como tarjeta.
+  if (songsToShow.length === 0) {
+    const mentioned = findMentionedSong(cleanText, publishedSongs)
+    if (mentioned) songsToShow = [mentioned]
   }
 
-  return { cleanText, recommendedSongs, playSongTitle, navKey, mentionedSong }
+  return { cleanText, songsToShow, navKey }
 }
 
 async function askSeekeAI(messages, publishedSongs, currentSong, isArtist = false) {
@@ -235,14 +253,11 @@ export default function ChatBot() {
   }
 
   // ✅ Actualiza la referencia de "última canción mencionada" a partir de
-  // cualquier respuesta del asistente (explícita o detectada en texto).
+  // cualquier respuesta del asistente (usa la última si hay varias, por
+  // ser la más reciente en la conversación).
   const updateLastMentionedSong = (text) => {
-    const { playSongTitle, recommendedSongs, mentionedSong } = parseMessage(text, publishedSongs)
-    const explicit = playSongTitle
-      ? publishedSongs.find(s => s.title?.toLowerCase().includes(playSongTitle) || playSongTitle.includes(s.title?.toLowerCase()))
-      : null
-    const candidate = explicit || recommendedSongs[0] || mentionedSong
-    if (candidate) lastMentionedSongRef.current = candidate
+    const { songsToShow } = parseMessage(text, publishedSongs)
+    if (songsToShow.length) lastMentionedSongRef.current = songsToShow[songsToShow.length - 1]
   }
 
   const sendMessage = async (text) => {
@@ -281,15 +296,13 @@ export default function ChatBot() {
       clearTimeout(slowTimer)
       const cleaned = cleanMarkdown(reply)
       updateLastMentionedSong(cleaned)
-      const playMatch = cleaned.match(/\[PLAY:([^\]]+)\]/)
-      if (playMatch) {
-        const title = playMatch[1].trim().toLowerCase()
-        const song = publishedSongs.find(s =>
-          s.title?.toLowerCase().includes(title) ||
-          title.includes(s.title?.toLowerCase())
-        )
-        if (song) playSong(song, publishedSongs)
-      }
+      // ✅ FIX: ya NO reproducimos automáticamente al recibir la respuesta.
+      // Ahora que la IA etiqueta [PLAY:...] en cada recomendación (no solo
+      // cuando el usuario pide reproducir explícitamente), autoreproducir
+      // aquí generaba caos: sonaba la primera canción mencionada aunque
+      // el usuario solo estuviera explorando opciones. Ahora solo se
+      // reproduce si el usuario le da clic a la tarjeta, o si escribe
+      // "reprodúcela"/"ponla" (interceptado arriba).
       setMessages(prev => {
         const filtered = prev.filter(m => m.content !== SLOW_MSG)
         return [...filtered, { role: 'assistant', content: cleaned }]
@@ -342,35 +355,15 @@ export default function ChatBot() {
       )
     }
 
-    const { cleanText, recommendedSongs, playSongTitle, navKey, mentionedSong } = parseMessage(msg.content, publishedSongs)
-    const songToPlay = playSongTitle
-      ? publishedSongs.find(s =>
-          s.title?.toLowerCase().includes(playSongTitle) ||
-          playSongTitle.includes(s.title?.toLowerCase())
-        )
-      : mentionedSong
+    const { cleanText, songsToShow, navKey } = parseMessage(msg.content, publishedSongs)
 
     return (
       <div>
         <span style={{ whiteSpace: 'pre-wrap' }}>{cleanText}</span>
 
-        {songToPlay && (
-          <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(124,58,237,0.06)', borderRadius: 10, padding: '7px 10px', border: '1px solid rgba(124,58,237,0.15)' }}>
-            <img src={songToPlay.cover_url} alt={songToPlay.title} style={{ width: 32, height: 32, borderRadius: 7, objectFit: 'cover', flexShrink: 0 }}/>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#111', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{songToPlay.title}</p>
-              <p style={{ margin: 0, fontSize: 10, color: '#7c3aed' }}>{songToPlay.display_artist || songToPlay.artist_name}</p>
-            </div>
-            <button onClick={() => playSong(songToPlay, publishedSongs)}
-              style={{ width: 26, height: 26, borderRadius: '50%', background: '#7c3aed', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <svg width="9" height="9" fill="white" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-            </button>
-          </div>
-        )}
-
-        {recommendedSongs.length > 0 && (
+        {songsToShow.length > 0 && (
           <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {recommendedSongs.map(song => (
+            {songsToShow.map(song => (
               <div key={song.id} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'rgba(124,58,237,0.06)', borderRadius: 9, padding: '6px 8px', border: '1px solid rgba(124,58,237,0.15)' }}>
                 <img src={song.cover_url} alt={song.title} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }}/>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -386,7 +379,7 @@ export default function ChatBot() {
           </div>
         )}
 
-        {navKey && NAV_CONFIG[navKey] && !songToPlay && (
+        {navKey && NAV_CONFIG[navKey] && songsToShow.length === 0 && (
           <button onClick={() => { navigate(NAV_CONFIG[navKey].path); setOpen(false) }}
             style={{ marginTop: 8, display: 'inline-flex', alignItems: 'center', gap: 6, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 100, padding: '6px 14px', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
             {NAV_CONFIG[navKey].icon} {NAV_CONFIG[navKey].label} →
