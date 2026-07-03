@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [view, setView] = useState('all')
   const [songPresaves, setSongPresaves] = useState({})
   const [presaving, setPresaving] = useState(null)
+  const [songStreamCounts, setSongStreamCounts] = useState({})
 
   const handleSongPresave = async (e, song) => {
     e.stopPropagation()
@@ -55,12 +56,32 @@ export default function Dashboard() {
         const data = await getSongs()
         setSongs(data)
 
+        // ✅ FIX: contamos reproducciones desde la tabla `streams` (fuente
+        // de verdad real: una fila por reproducción), NO desde la columna
+        // songs.streams, que quedó desactualizada / no se incrementa
+        // correctamente. Mismo problema ya corregido en Home, Player y
+        // ArtistProfile — por eso algunas canciones (ChrisJov, JayZ) no
+        // mostraban ningún número aquí en Explorar aunque sí tuvieran
+        // reproducciones reales.
+        let streamCountBySong = {}
+        if (data.length) {
+          const { data: streamRows, error: streamsErr } = await supabase
+            .from('streams')
+            .select('song_id')
+            .in('song_id', data.map(s => s.id))
+          if (streamsErr) console.error('streams fetch error:', streamsErr)
+          streamRows?.forEach(r => {
+            streamCountBySong[r.song_id] = (streamCountBySong[r.song_id] ?? 0) + 1
+          })
+        }
+        setSongStreamCounts(streamCountBySong)
+
         const artistMap = {}
         data.filter(s => s.status === 'published').forEach(song => {
           if (song.user_id && !artistMap[song.user_id])
             artistMap[song.user_id] = { name: song.artist_name, genre: song.genre, cover: song.cover_url, user_id: song.user_id, streams: 0, songs: 0 }
           if (artistMap[song.user_id]) {
-            artistMap[song.user_id].streams += (song.streams ?? 0)
+            artistMap[song.user_id].streams += (streamCountBySong[song.id] ?? 0)
             artistMap[song.user_id].songs++
           }
         })
@@ -350,7 +371,14 @@ export default function Dashboard() {
 ) : (
                           <>
                             <span className="song-row-genre">{song.genre}</span>
-                            {song.streams > 0 && <span className="song-row-streams">{song.streams.toLocaleString()} rep.</span>}
+                            {/* ✅ FIX: reproducciones desde songStreamCounts
+                                (tabla `streams`), no desde song.streams
+                                (columna desactualizada). Antes canciones
+                                con reproducciones reales pero streams=0/null
+                                en la columna no mostraban nada aquí. */}
+                            {(songStreamCounts[song.id] ?? 0) > 0 && (
+                              <span className="song-row-streams">{songStreamCounts[song.id].toLocaleString()} rep.</span>
+                            )}
                             <button className="song-row-play" onClick={e => { e.stopPropagation(); playWithShuffle(song) }}> {/* ✅ */}
                               {isCurrentSong && isPlaying
                                 ? <svg width="10" height="10" fill="white" viewBox="0 0 24 24"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
