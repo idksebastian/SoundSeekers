@@ -56,15 +56,19 @@ export default function Dashboard() {
         // ArtistProfile — por eso algunas canciones (ChrisJov, JayZ) no
         // mostraban ningún número aquí en Explorar aunque sí tuvieran
         // reproducciones reales.
+        //
+        // ✅ FIX 2: usamos la RPC get_stream_counts (agrupa en Postgres)
+        // en vez de traer todas las filas de `streams` y contarlas en el
+        // navegador — Supabase limita cada consulta a 1000 filas por
+        // defecto, así que el total se quedaba congelado en 1000 en
+        // cuanto la plataforma pasaba esa cantidad de reproducciones.
         let streamCountBySong = {}
         if (data.length) {
-          const { data: streamRows, error: streamsErr } = await supabase
-            .from('streams')
-            .select('song_id')
-            .in('song_id', data.map(s => s.id))
+          const { data: streamCounts, error: streamsErr } = await supabase
+            .rpc('get_stream_counts', { song_ids: data.map(s => s.id) })
           if (streamsErr) console.error('streams fetch error:', streamsErr)
-          streamRows?.forEach(r => {
-            streamCountBySong[r.song_id] = (streamCountBySong[r.song_id] ?? 0) + 1
+          streamCounts?.forEach(r => {
+            streamCountBySong[r.song_id] = Number(r.cnt)
           })
         }
         setSongStreamCounts(streamCountBySong)

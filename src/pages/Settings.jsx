@@ -29,12 +29,23 @@ const NAME_CHANGE_DAYS  = 30
 // songs.streams, que quedó desactualizada / no se incrementa
 // correctamente. Mismo problema ya corregido en Home, Player,
 // ArtistProfile y Dashboard.
+// ✅ FIX: contamos reproducciones desde la tabla `streams` (fuente de
+// verdad real: una fila por reproducción), NO desde la columna
+// songs.streams, que quedó desactualizada / no se incrementa
+// correctamente. Mismo problema ya corregido en Home, Player,
+// ArtistProfile y Dashboard.
+//
+// ✅ FIX 2: usamos la RPC get_stream_counts (agrupa en Postgres) en vez
+// de traer todas las filas de `streams` y contarlas aquí — Supabase
+// limita cada consulta a 1000 filas por defecto, así que las
+// estadísticas de un artista con más de 1000 reproducciones totales se
+// quedaban congeladas en exactamente 1000.
 async function getStreamCounts(songIds) {
   if (!songIds?.length) return {}
-  const { data, error } = await supabase.from('streams').select('song_id').in('song_id', songIds)
+  const { data, error } = await supabase.rpc('get_stream_counts', { song_ids: songIds })
   if (error) { console.error('streams fetch error:', error); return {} }
   const map = {}
-  data?.forEach(r => { map[r.song_id] = (map[r.song_id] ?? 0) + 1 })
+  data?.forEach(r => { map[r.song_id] = Number(r.cnt) })
   return map
 }
 

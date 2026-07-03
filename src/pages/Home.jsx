@@ -162,15 +162,22 @@ export default function Home() {
         // correctamente. Mismo problema que ya corregimos en Player.jsx
         // y que hacía que el perfil de un artista mostrara un número
         // distinto al que aparecía aquí en el Home.
+        //
+        // ✅ FIX: usamos la función RPC get_stream_counts (agrupa y
+        // cuenta directamente en Postgres) en vez de traer TODAS las
+        // filas de `streams` y contarlas en el navegador. Supabase limita
+        // cada consulta a 1000 filas por defecto — por eso el total se
+        // quedaba congelado en exactamente 1000 en cuanto la plataforma
+        // superaba esa cantidad de reproducciones acumuladas. La RPC
+        // devuelve una sola fila POR CANCIÓN (no por reproducción), así
+        // que nunca choca con ese límite sin importar cuántos streams haya.
         let streamCountBySong = {}
         if (published.length) {
-          const { data: streamRows, error: streamsErr } = await supabase
-            .from('streams')
-            .select('song_id')
-            .in('song_id', published.map(s => s.id))
+          const { data: streamCounts, error: streamsErr } = await supabase
+            .rpc('get_stream_counts', { song_ids: published.map(s => s.id) })
           if (streamsErr) console.error('streams fetch error:', streamsErr)
-          streamRows?.forEach(r => {
-            streamCountBySong[r.song_id] = (streamCountBySong[r.song_id] ?? 0) + 1
+          streamCounts?.forEach(r => {
+            streamCountBySong[r.song_id] = Number(r.cnt)
           })
         }
         setSongStreamCounts(streamCountBySong)
@@ -213,12 +220,17 @@ export default function Home() {
           if (albumsData) setAlbums(albumsData)
         }
 
+        // ✅ FIX: misma razón que arriba — traer TODAS las filas de
+        // streams de la última semana también choca con el límite de
+        // 1000 filas de Supabase en cuanto la plataforma tiene actividad
+        // alta. La RPC agrupa por canción directamente en la base de
+        // datos y devuelve una fila por canción, no por reproducción.
         const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-        const { data: weeklyStreams } = await supabase.from('streams').select('song_id').gte('created_at', weekAgo)
+        const { data: weeklyStreamCounts } = await supabase.rpc('get_recent_stream_counts', { since: weekAgo })
 
-        if (weeklyStreams?.length) {
+        if (weeklyStreamCounts?.length) {
           const streamCount = {}
-          weeklyStreams.forEach(s => { streamCount[s.song_id] = (streamCount[s.song_id] ?? 0) + 1 })
+          weeklyStreamCounts.forEach(s => { streamCount[s.song_id] = Number(s.cnt) })
 
           const publishedIds = new Set(published.map(s => s.id))
           const topSongId = Object.entries(streamCount).filter(([id]) => publishedIds.has(id)).sort((a, b) => b[1] - a[1])[0]?.[0]
