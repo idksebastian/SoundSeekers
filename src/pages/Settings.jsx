@@ -330,6 +330,7 @@ export default function Settings() {
   const [deletingId, setDeletingId] = useState(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
   const [songMsg, setSongMsg] = useState('')
+  const [deletingAccount, setDeletingAccount] = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -471,6 +472,37 @@ export default function Settings() {
     setDeletingId(songId)
     try { await deleteSong(songId); setSongs(p => p.filter(s => s.id !== songId)); setConfirmDeleteId(null); setSongMsg('Canción eliminada.'); setTimeout(() => setSongMsg(''), 3000) }
     catch {} finally { setDeletingId(null) }
+  }
+
+  // ✅ FIX: el botón anterior solo hacía logout + navigate, sin borrar
+  // nada de verdad — por eso el correo seguía "existiendo" para efectos
+  // de registro (aunque el login sí funcionaba, porque la cuenta nunca
+  // se tocó). Ahora llama a la Edge Function delete-account, que borra
+  // los datos del usuario y la cuenta de Supabase Auth con permisos de
+  // administrador (necesario porque el navegador no puede hacer esto
+  // directamente por seguridad).
+  const handleDeleteAccount = async () => {
+    if (!confirm('¿Estás seguro? Esta acción no se puede deshacer. Se eliminarán tu perfil, canciones y todos tus datos.')) return
+    setDeletingAccount(true)
+    setError('')
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
+        }
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'No se pudo eliminar la cuenta.')
+      await logoutUser()
+      navigate('/register')
+    } catch (err) {
+      setError(`No pudimos eliminar tu cuenta: ${err.message}. Intenta de nuevo o contacta a soporte.`)
+      setDeletingAccount(false)
+    }
   }
 
   const visibleSections = SECTIONS.filter(s => !s.artist || isArtist)
@@ -735,13 +767,20 @@ export default function Settings() {
 
           {activeSection === 'danger' && (
             <div>
+              {error && <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', fontSize: '13px', borderRadius: '12px', padding: '10px 14px', marginBottom: '16px' }}>{error}</div>}
               <IOSGroup>
                 <div style={{ padding: '16px', background: '#fff' }}>
                   <p style={{ fontSize: '15px', fontWeight: '600', color: '#ef4444', margin: '0 0 4px' }}>Eliminar cuenta</p>
                   <p style={{ fontSize: '13px', color: '#9ca3af', margin: '0 0 14px' }}>Se eliminarán todos tus datos, canciones y perfil permanentemente. Esta acción no se puede deshacer.</p>
-                  <button onClick={() => { if (confirm('¿Estás seguro? Esta acción no se puede deshacer.')) { logoutUser(); navigate('/register') } }}
-                    style={{ padding: '10px 20px', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '14px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>
-                    Eliminar mi cuenta
+                  <button onClick={handleDeleteAccount} disabled={deletingAccount}
+                    style={{ padding: '10px 20px', borderRadius: '12px', background: '#fef2f2', border: '1px solid #fecaca', color: '#ef4444', fontSize: '14px', fontWeight: '700', cursor: deletingAccount ? 'default' : 'pointer', fontFamily: 'inherit', opacity: deletingAccount ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    {deletingAccount && (
+                      <svg style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} fill="none" viewBox="0 0 24 24">
+                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                      </svg>
+                    )}
+                    {deletingAccount ? 'Eliminando...' : 'Eliminar mi cuenta'}
                   </button>
                 </div>
               </IOSGroup>
