@@ -108,6 +108,7 @@ export default function Home() {
   const [recentlyPlayed, setRecentlyPlayed] = useState([])
   const [songPresaves, setSongPresaves] = useState({})
   const [presaving, setPresaving] = useState(null)
+  const [songStreamCounts, setSongStreamCounts] = useState({})
   const slideInterval = useRef(null)
 
   useEffect(() => {
@@ -164,6 +165,25 @@ export default function Home() {
 
         const published = data.filter(s => s.status === 'published')
 
+        // ✅ FIX: contamos reproducciones desde la tabla `streams` (fuente
+        // de verdad real: una fila por reproducción), NO desde la columna
+        // songs.streams, que quedó desactualizada / no se incrementa
+        // correctamente. Mismo problema que ya corregimos en Player.jsx
+        // y que hacía que el perfil de un artista mostrara un número
+        // distinto al que aparecía aquí en el Home.
+        let streamCountBySong = {}
+        if (published.length) {
+          const { data: streamRows, error: streamsErr } = await supabase
+            .from('streams')
+            .select('song_id')
+            .in('song_id', published.map(s => s.id))
+          if (streamsErr) console.error('streams fetch error:', streamsErr)
+          streamRows?.forEach(r => {
+            streamCountBySong[r.song_id] = (streamCountBySong[r.song_id] ?? 0) + 1
+          })
+        }
+        setSongStreamCounts(streamCountBySong)
+
         const genreMap = {}
         data.forEach(s => { if (s.genre) genreMap[s.genre] = (genreMap[s.genre] ?? 0) + 1 })
         setGenreCounts(Object.entries(genreMap).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([genre, count]) => ({ genre, count })))
@@ -215,7 +235,7 @@ export default function Home() {
             const song = published.find(s => s.id === topSongId)
             if (song) setTopSong({ ...song, weeklyStreams: streamCount[topSongId] })
           } else {
-            const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+            const sorted = [...published].sort((a, b) => (streamCountBySong[b.id] ?? 0) - (streamCountBySong[a.id] ?? 0))
             if (sorted[0]) setTopSong(sorted[0])
           }
 
@@ -237,7 +257,7 @@ export default function Home() {
             const fallbackMap = {}
             published.forEach(song => {
               if (!fallbackMap[song.user_id]) fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
-              fallbackMap[song.user_id].streams += (song.streams ?? 0)
+              fallbackMap[song.user_id].streams += (streamCountBySong[song.id] ?? 0)
               if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
             })
             Object.values(fallbackMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
@@ -247,11 +267,11 @@ export default function Home() {
           const fallbackMap = {}
           published.forEach(song => {
             if (!fallbackMap[song.user_id]) fallbackMap[song.user_id] = { name: song.artist_name, cover: song.cover_url, user_id: song.user_id, streams: 0, genreCount: {} }
-            fallbackMap[song.user_id].streams += (song.streams ?? 0)
+            fallbackMap[song.user_id].streams += (streamCountBySong[song.id] ?? 0)
             if (song.genre) fallbackMap[song.user_id].genreCount[song.genre] = (fallbackMap[song.user_id].genreCount[song.genre] ?? 0) + 1
           })
           Object.values(fallbackMap).forEach(a => { a.genre = buildTopGenre(a.genreCount); delete a.genreCount })
-          const sorted = [...published].sort((a, b) => (b.streams ?? 0) - (a.streams ?? 0))
+          const sorted = [...published].sort((a, b) => (streamCountBySong[b.id] ?? 0) - (streamCountBySong[a.id] ?? 0))
           if (sorted[0]) setTopSong(sorted[0])
           setTopArtist([...Object.values(fallbackMap)].sort((a, b) => b.streams - a.streams)[0])
         }
@@ -328,7 +348,7 @@ export default function Home() {
       subtitle: topSong?.display_artist || topSong?.artist_name || '',
       desc: topSong?.weeklyStreams
         ? `${topSong.weeklyStreams.toLocaleString()} reproducciones esta semana · ${topSong?.genre ?? ''}`
-        : `${(topSong?.streams ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
+        : `${(songStreamCounts[topSong?.id] ?? 0).toLocaleString()} reproducciones · ${topSong?.genre ?? ''}`,
       img: topSong?.cover_url ?? null,
       action: () => topSong && playWithShuffle(topSong),
       btnLabel: 'Reproducir',
@@ -691,7 +711,7 @@ export default function Home() {
           <div className="artists-grid">
             {artists.map(artist => {
               const avatar = artistAvatars[artist.user_id]
-              const streams = publishedSongs.filter(s => s.user_id === artist.user_id).reduce((acc, s) => acc + (s.streams ?? 0), 0)
+              const streams = publishedSongs.filter(s => s.user_id === artist.user_id).reduce((acc, s) => acc + (songStreamCounts[s.id] ?? 0), 0)
               return (
                 <div key={artist.user_id} className="artist-card" onClick={() => navigate(`/artist/${artist.user_id}`)}>
                   <div className="artist-img-wrap">
@@ -715,7 +735,7 @@ export default function Home() {
           <div className="stats-banner">
             <div><div className="stat-number">{publishedSongs.length}+</div><div className="stat-label">Canciones publicadas</div></div>
             <div><div className="stat-number">{artists.length}+</div><div className="stat-label">Artistas activos</div></div>
-            <div><div className="stat-number">{publishedSongs.reduce((a, s) => a + (s.streams ?? 0), 0).toLocaleString()}</div><div className="stat-label">Reproducciones totales</div></div>
+            <div><div className="stat-number">{Object.values(songStreamCounts).reduce((a, b) => a + b, 0).toLocaleString()}</div><div className="stat-label">Reproducciones totales</div></div>
           </div>
         </div>
       )}
